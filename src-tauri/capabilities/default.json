@@ -1,0 +1,37 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "enables the default permissions for Odeko",
+	"windows": ["main"],
+	"permissions": [
+		"core:default",
+		"core:window:default",
+		"core:window:allow-show",
+		"core:window:allow-hide",
+		"core:window:allow-close",
+		"core:window:allow-set-focus",
+		"global-shortcut:default",
+		"clipboard-manager:allow-read-text",
+		"clipboard-manager:allow-write-text",
+		"clipboard-manager:allow-read-image",
+		"clipboard-manager:allow-write-image",
+		"clipboard-manager:allow-clear",
+		"dialog:default",
+		"dialog:allow-confirm",
+		"dialog:allow-open",
+		"dialog:allow-save",
+		"fs:default",
+		{
+			"identifier": "fs:allow-read-file",
+			"allow": [
+				{"path": "$HOME/**"},
+				{"path": "$HOME"},
+				{"path": "/home/**"},
+				{"path": "/usr/share/**"},
+				{"path": "/usr/local/share/**"},
+				{"path": "/var/lib/flatpak/**"},
+				{"path": "/var/lib/snapd/**"}
+			]
+		}
+	]
+}

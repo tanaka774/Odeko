@@ -1,0 +1,18 @@
+<iframe sandbox="allow-scripts" srcdoc="<style>
+    body { font-family: system-ui; text-align: center; background: #0b0e14; color: #e2e8f0; margin: 0; padding: 14px; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .city { color: #94a3b8; }
+    .time { font-weight: 600; font-variant-numeric: tabular-nums; }
+  </style>
+  <div id='rows'></div>
+  <script>
+    const ZONES = [['Tokyo', 'Asia/Tokyo'], ['London', 'Europe/London'], ['New York', 'America/New_York']];
+    function render() {
+      document.getElementById('rows').innerHTML = ZONES.map(function (pair) {
+        const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: pair[1] });
+        return '<div class=row><span class=city>' + pair[0] + '</span><span class=time>' + time + '</span></div>';
+      }).join('');
+    }
+    setInterval(render, 1000);
+    render();
+  </script>"></iframe>

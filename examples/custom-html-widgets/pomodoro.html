@@ -1,0 +1,26 @@
+<iframe sandbox="allow-scripts" srcdoc="<style>
+    body { font-family: system-ui; text-align: center; color: #222; background: #fff; margin: 0; padding: 16px; }
+    #t { font-size: 2.4em; font-weight: 700; font-variant-numeric: tabular-nums; }
+    button { margin: 4px; padding: 6px 12px; }
+  </style>
+  <div id='t'>25:00</div>
+  <div>
+    <button id='b-focus'>Focus</button>
+    <button id='b-break'>Break</button>
+    <button id='b-stop'>Stop</button>
+  </div>
+  <script>
+    let left = 0, timer = null;
+    function go(m) { stop(); left = m * 60; tick(); timer = setInterval(tick, 1000); }
+    function stop() { clearInterval(timer); timer = null; }
+    function tick() {
+      if (left <= 0) return stop();
+      const m = String(Math.floor(left / 60)).padStart(2, '0');
+      const s = String(left % 60).padStart(2, '0');
+      document.getElementById('t').textContent = m + ':' + s;
+      left--;
+    }
+    document.getElementById('b-focus').addEventListener('click', function () { go(25); });
+    document.getElementById('b-break').addEventListener('click', function () { go(5); });
+    document.getElementById('b-stop').addEventListener('click', stop);
+  </script>"></iframe>

@@ -1,0 +1,110 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	--radius: 0.625rem;
+	--background: transparent;
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.2 0 0 / 0.8);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.2 0 0 / 0.9);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: rgba(120, 160, 200, 0.9);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.3 0 0 / 0.6);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.3 0 0 / 0.4);
+	--muted-foreground: oklch(0.7 0 0);
+	--accent: oklch(0.6 0.2 280);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(1 0 0 / 0.2);
+	--input: oklch(1 0 0 / 0.15);
+	--ring: rgba(120, 160, 200, 0.9);
+	--launcher-bg: oklch(0.1 0 0 / 0.7);
+	--launcher-hover-bg: rgba(255, 255, 255, 0.02);
+	--launcher-hover-bg-subtle: rgba(255, 255, 255, 0.01);
+	--launcher-drag-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+	--edit-outline: rgba(210, 232, 245, 0.36);
+	--edit-outline-strong: rgba(210, 232, 245, 0.48);
+	--edit-control-bg: rgba(30, 42, 58, 0.78);
+	--edit-control-bg-hover: rgba(43, 57, 76, 0.92);
+	--edit-control-border: rgba(255, 255, 255, 0.36);
+	--edit-control-fg: rgba(255, 255, 255, 0.88);
+	--edit-control-shadow: 0 4px 14px rgba(0, 0, 0, 0.26);
+	--edit-danger-bg: rgba(105, 48, 56, 0.82);
+	--edit-danger-bg-hover: rgba(128, 56, 65, 0.94);
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-launcher-bg: var(--launcher-bg);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	html,
+	body {
+		background: transparent !important;
+		margin: 0;
+		padding: 0;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	body {
+		@apply text-foreground antialiased;
+		font-family:
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			sans-serif;
+	}
+}
+
+/* Glass morphism utilities */
+@layer utilities {
+	.glass {
+		@apply bg-launcher-bg border border-white/10 backdrop-blur-xl;
+	}
+
+	.glass-hover {
+		@apply transition-all duration-200 hover:border-white/20 hover:bg-white/10;
+	}
+}
+
+/* Transparent macOS Tauri windows flicker when WebKit repaints CSS backdrop blur. */
+.macos-compositor-safe * {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}

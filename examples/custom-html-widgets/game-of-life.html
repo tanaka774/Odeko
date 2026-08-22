@@ -1,0 +1,114 @@
+<iframe sandbox="allow-scripts" srcdoc="<style>
+    body { font-family: system-ui; text-align: center; background: #0b0e14; color: #e2e8f0; margin: 0; padding: 10px; overflow: hidden; }
+    canvas { background: #11151f; border-radius: 8px; cursor: crosshair; }
+    .controls { margin-top: 8px; display: flex; gap: 6px; justify-content: center; align-items: center; }
+    button { padding: 5px 10px; font-size: 0.85em; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #273449; }
+    #g { font-size: 0.8em; color: #94a3b8; }
+  </style>
+  <canvas id='c'></canvas>
+  <div class='controls'>
+    <button id='b-run'>Start/Stop</button>
+    <button id='b-rand'>Random</button>
+    <button id='b-clear'>Clear</button>
+    <span id='g'>gen 0</span>
+  </div>
+  <script>
+    const CELL = 6;
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let cols = 50, rows = 40, grid = [], running = false, timer = null, gen = 0;
+
+    function blank() {
+      return Array.from({ length: rows }, function () { return Array(cols).fill(0); });
+    }
+    function fitCanvas() {
+      running && toggleRun();
+      const width = Math.max(240, document.body.clientWidth - 20);
+      canvas.width = width;
+      canvas.height = Math.round(width * 0.7);
+      cols = Math.floor(canvas.width / CELL);
+      rows = Math.floor(canvas.height / CELL);
+      grid = blank();
+      gen = 0;
+      document.getElementById('g').textContent = 'gen 0';
+      draw();
+    }
+    function countNeighbors(x, y) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          n += grid[(y + dy + rows) % rows][(x + dx + cols) % cols];
+        }
+      }
+      return n;
+    }
+    function step() {
+      const next = grid.map(function (row, y) {
+        return row.map(function (cell, x) {
+          const n = countNeighbors(x, y);
+          return cell ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
+        });
+      });
+      grid = next;
+      gen++;
+      document.getElementById('g').textContent = 'gen ' + gen;
+      draw();
+    }
+    function draw() {
+      ctx.fillStyle = '#11151f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#4ade80';
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (grid[y][x]) ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+        }
+      }
+    }
+    function toggleRun() {
+      running = !running;
+      if (running) { timer = setInterval(step, 120); }
+      else { clearInterval(timer); timer = null; }
+    }
+    function randomize() {
+      running && toggleRun();
+      grid = grid.map(function (row) {
+        return row.map(function () { return Math.random() < 0.28 ? 1 : 0; });
+      });
+      gen = 0;
+      document.getElementById('g').textContent = 'gen 0';
+      draw();
+    }
+    function clearAll() {
+      running && toggleRun();
+      grid = blank();
+      gen = 0;
+      document.getElementById('g').textContent = 'gen 0';
+      draw();
+    }
+    function glider() {
+      running && toggleRun();
+      grid = blank();
+      const cy = Math.floor(rows / 2), cx = Math.floor(cols / 2);
+      [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]].forEach(function (p) {
+        grid[cy + p[0]][cx + p[1]] = 1;
+      });
+      draw();
+    }
+    document.getElementById('b-run').addEventListener('click', toggleRun);
+    document.getElementById('b-rand').addEventListener('click', randomize);
+    document.getElementById('b-clear').addEventListener('click', clearAll);
+    canvas.addEventListener('click', function (e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / CELL);
+      const y = Math.floor((e.clientY - rect.top) / CELL);
+      if (x >= 0 && x < cols && y >= 0 && y < rows) {
+        grid[y][x] = grid[y][x] ? 0 : 1;
+        draw();
+      }
+    });
+    window.addEventListener('resize', fitCanvas);
+    fitCanvas();
+    glider();
+  </script>"></iframe>

@@ -1,0 +1,49 @@
+<iframe sandbox="allow-scripts" srcdoc="<style>
+    body { font-family: system-ui; text-align: center; background: #0e1420; color: #e2e8f0; margin: 0; padding: 14px; }
+    #city { font-size: 1.1em; font-weight: 600; }
+    #temp { font-size: 2em; font-weight: 700; margin: 4px 0; }
+    #desc { color: #94a3b8; font-size: 0.9em; }
+    button { margin-top: 8px; padding: 4px 10px; font-size: 0.8em; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; cursor: pointer; }
+  </style>
+  <div id='city'>Loading...</div>
+  <div id='temp'></div>
+  <div id='desc'></div>
+  <button id='b-refresh'>Refresh</button>
+  <script>
+    // Network bridge: send the request to the launcher's Rust fetch proxy and
+    // resolve with { status, body }. The launcher asks you to allow the host
+    // the first time, then remembers your choice.
+    var pending = {};
+    var nextId = 1;
+    window.addEventListener('message', function (event) {
+      var msg = event.data;
+      if (!msg || msg.kind !== 'widget-fetch-result') return;
+      var entry = pending[msg.id];
+      if (!entry) return;
+      delete pending[msg.id];
+      if (msg.ok) { entry.resolve({ status: msg.status, body: msg.body }); }
+      else { entry.reject(new Error(msg.error || 'request failed')); }
+    });
+    function widgetFetch(url) {
+      return new Promise(function (resolve, reject) {
+        var id = nextId++;
+        pending[id] = { resolve: resolve, reject: reject };
+        parent.postMessage({ kind: 'widget-fetch', id: id, url: url }, '*');
+      });
+    }
+
+    const CITY = 'Tokyo';
+    const CODES = { 0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Rime fog', 51: 'Light drizzle', 61: 'Light rain', 63: 'Rain', 80: 'Showers', 95: 'Thunderstorm' };
+    async function load() {
+      const geo = JSON.parse((await widgetFetch('https://geocoding-api.open-meteo.com/v1/search?name=' + CITY + '&count=1')).body);
+      if (!geo.results || !geo.results[0]) { document.getElementById('city').textContent = 'City not found'; return; }
+      const p = geo.results[0];
+      const w = JSON.parse((await widgetFetch('https://api.open-meteo.com/v1/forecast?latitude=' + p.latitude + '&longitude=' + p.longitude + '&current=temperature_2m,weather_code')).body);
+      const c = w.current;
+      document.getElementById('city').textContent = CITY;
+      document.getElementById('temp').textContent = Math.round(c.temperature_2m) + '°C';
+      document.getElementById('desc').textContent = CODES[c.weather_code] || ('Code ' + c.weather_code);
+    }
+    document.getElementById('b-refresh').addEventListener('click', load);
+    load();
+  </script>"></iframe>

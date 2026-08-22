@@ -1,0 +1,77 @@
+[package]
+name = "odeko"
+version = "0.1.0"
+description = "A cross-platform floating launcher and widget overlay built with Tauri 2 and Svelte 5"
+authors = ["Odeko contributors"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "odeko_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.2.0", features = [] }
+
+[features]
+default = []
+# WDIO plugins used only by the WebdriverIO E2E suite.
+# Enabled via `tauri build --features e2e`, so release builds never include them.
+e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+dirs = "5.0"
+tauri = { version = "2.6.2", features = ["macos-private-api", "protocol-asset"] }
+tauri-plugin-log = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
+thiserror = "2.0.12"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-clipboard-manager = "2"
+walkdir = "2"
+regex = "1"
+sysinfo = "0.30"
+portable-pty = "0.9"
+tokio = { version = "1", features = ["time", "net"] }
+shlex = "1"
+base64 = "0.22"
+tiny_http = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
+# Platform-specific media control dependencies
+[target.'cfg(target_os = "linux")'.dependencies]
+mpris = "2.0"
+zbus = { version = "4", default-features = false, features = ["tokio"] }
+freedesktop-icons = "0.3"
+
+# Native window blur (real backdrop blur behind the transparent window).
+# Wayland: `ext-background-effect-v1` (KWin Plasma 6.6+, GNOME Mutter 49+).
+# X11: `_KDE_NET_WM_BLUR_BEHIND_REGION` atom (KWin, picom).
+raw-window-handle = "0.6"
+wayland-client = { version = "0.31", features = ["system"] }
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+x11rb = "0.13"
+
+parking_lot = "0.12"
+# Optional WDIO plugins, activated by the `e2e` feature (see [features]).
+tauri-plugin-wdio = { version = "1", optional = true }
+tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.54", features = ["Media_Control", "Foundation", "System", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+windows-sys = { version = "0.52", features = ["Win32_System_Power", "Win32_System_Shutdown", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_Foundation", "Win32_System_LibraryLoader"] }
+winrt-notification = "0.5"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+objc = "0.2"
+cocoa = "0.25"
+core-foundation = "0.9"
+core-graphics = "0.23"
+libc = "0.2"

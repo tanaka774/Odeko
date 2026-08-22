@@ -1,0 +1,11 @@
+<h2>This survives</h2>
+<p>Safe text, <strong>bold</strong>, <em>italic</em>, <code>code</code>.</p>
+<p>Everything below is stripped by the sanitizer — paste this to watch it happen:</p>
+<script>alert('stripped')</script>
+<div onclick='alert(1)'>onclick stripped, text stays</div>
+<a href='javascript:alert(1)'>href stripped, text stays</a>
+<style>p { color: red; }</style>
+<input type='text' placeholder='form controls removed'>
+<video src='https://example.com/m.mp4'></video>
+<iframe srcdoc="<p>no sandbox — removed"></iframe>
+<iframe sandbox="allow-scripts allow-same-origin" srcdoc="<script>parent.document</script>"></iframe>

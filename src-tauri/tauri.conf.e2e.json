@@ -1,0 +1,29 @@
+{
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Odeko",
+        "fullscreen": false,
+        "transparent": true,
+        "backgroundColor": [0, 0, 0, 0],
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "visible": true,
+        "skipTaskbar": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "e2e-wdio",
+          "description": "WDIO permissions used only by the E2E test suite",
+          "windows": ["main"],
+          "permissions": ["wdio:default", "wdio-webdriver:default"]
+        }
+      ]
+    }
+  }
+}

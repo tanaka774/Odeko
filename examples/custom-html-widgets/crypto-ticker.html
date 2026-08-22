@@ -1,0 +1,99 @@
+<iframe sandbox="allow-scripts" srcdoc="<style>
+    body { font-family: system-ui; background: #0b0e14; color: #e2e8f0; margin: 0; padding: 14px; }
+    h3 { margin: 0 0 8px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+    .coin { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .coin:last-child { border-bottom: none; }
+    .name { font-weight: 600; }
+    .price { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .chg { font-size: 0.85em; font-variant-numeric: tabular-nums; }
+    .up { color: #4ade80; }
+    .down { color: #f87171; }
+    #updated { margin-top: 8px; font-size: 0.7em; color: #64748b; text-align: right; }
+    #err { color: #fca5a5; font-size: 0.8em; word-break: break-all; }
+  </style>
+  <h3>Crypto</h3>
+  <div id='list'>Loading...</div>
+  <div id='err'></div>
+  <div id='updated'></div>
+  <script>
+    // Network bridge: send the request to the launcher's Rust fetch proxy and
+    // resolve with { status, body }. The launcher asks you to allow the host
+    // the first time, then remembers your choice app-wide.
+    var pending = {};
+    var nextId = 1;
+    window.addEventListener('message', function (event) {
+      var msg = event.data;
+      if (!msg || msg.kind !== 'widget-fetch-result') return;
+      var entry = pending[msg.id];
+      if (!entry) return;
+      delete pending[msg.id];
+      if (msg.ok) { entry.resolve({ status: msg.status, body: msg.body }); }
+      else { entry.reject(new Error(msg.error || 'request failed')); }
+    });
+    function widgetFetch(url) {
+      return new Promise(function (resolve, reject) {
+        var id = nextId++;
+        pending[id] = { resolve: resolve, reject: reject };
+        parent.postMessage({ kind: 'widget-fetch', id: id, url: url }, '*');
+      });
+    }
+
+    var COINS = [
+      { id: 'bitcoin', name: 'Bitcoin' },
+      { id: 'ethereum', name: 'Ethereum' }
+    ];
+
+    function fmtPrice(n) {
+      var s = n.toFixed(n >= 1000 ? 0 : 2);
+      return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function pad(x) { return x < 10 ? '0' + x : '' + x; }
+    function nowTime() {
+      var d = new Date();
+      return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    async function load() {
+      var errEl = document.getElementById('err');
+      errEl.textContent = '';
+      try {
+        var result = await widgetFetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+        if (result.status !== 200) throw new Error('HTTP ' + result.status);
+        var data = JSON.parse(result.body);
+        var listEl = document.getElementById('list');
+        listEl.textContent = '';
+        COINS.forEach(function (coin) {
+          var p = data[coin.id];
+          if (!p) return;
+          var chg = p.usd_24h_change;
+
+          var row = document.createElement('div');
+          row.className = 'coin';
+
+          var name = document.createElement('span');
+          name.className = 'name';
+          name.textContent = coin.name;
+
+          var price = document.createElement('span');
+          price.className = 'price';
+          price.textContent = '$' + fmtPrice(p.usd);
+
+          var chgEl = document.createElement('span');
+          chgEl.className = 'chg ' + (chg >= 0 ? 'up' : 'down');
+          chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+
+          row.appendChild(name);
+          row.appendChild(price);
+          row.appendChild(chgEl);
+          listEl.appendChild(row);
+        });
+        document.getElementById('updated').textContent = 'Updated ' + nowTime();
+      } catch (e) {
+        errEl.textContent = String(e && e.message ? e.message : e);
+      }
+    }
+
+    load();
+    setInterval(load, 30000); // refresh every 30 seconds
+  </script>"></iframe>
