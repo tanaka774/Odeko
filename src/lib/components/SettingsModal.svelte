@@ -582,6 +582,13 @@
 								/>
 							</div>
 							<div class="setting-row">
+								<Label>Grid Line Color</Label>
+								<ColorInput
+									value={localSettings.grid_line_color}
+									onchange={(rgb) => (localSettings.grid_line_color = rgb)}
+								/>
+							</div>
+							<div class="setting-row">
 								<label class="checkbox-label">
 									<input
 										type="checkbox"

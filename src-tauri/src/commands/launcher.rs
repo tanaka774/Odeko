@@ -119,6 +119,9 @@ pub struct LauncherSettings {
     pub magnetic_snap: bool,
     #[serde(default)]
     pub grid_size: f32,
+    /// Grid line color in "R, G, B" format (edit mode only).
+    #[serde(default = "default_grid_line_color")]
+    pub grid_line_color: String,
     #[serde(default)]
     pub icon_background_color: String,
     #[serde(default)]
@@ -158,6 +161,7 @@ impl Default for LauncherSettings {
             blur_strength: "full".to_string(),
             magnetic_snap: true,
             grid_size: 40.0,
+            grid_line_color: "255, 255, 255".to_string(),
             icon_background_color: "255, 255, 255".to_string(),
             icon_background_opacity: 0.2,
             keybind_toggle_launcher: KeybindConfig {
@@ -275,6 +279,10 @@ fn default_true() -> bool {
 
 fn default_full_strength() -> String {
     "full".to_string()
+}
+
+fn default_grid_line_color() -> String {
+    "255, 255, 255".to_string()
 }
 
 fn get_default_terminal() -> String {
@@ -976,8 +984,22 @@ mod tests {
         assert_eq!(back.background_color, settings.background_color);
         assert_eq!(back.grid_size, settings.grid_size);
         assert_eq!(back.magnetic_snap, settings.magnetic_snap);
+        assert_eq!(back.grid_line_color, settings.grid_line_color);
         assert_eq!(back.keybind_toggle_launcher, settings.keybind_toggle_launcher);
         assert_eq!(back.keybind_undo, settings.keybind_undo);
+    }
+
+    #[test]
+    fn launcher_settings_missing_grid_line_color_defaults_to_white() {
+        // Layouts saved before the grid line color setting existed have no
+        // field; it must deserialize to the white default rather than "".
+        let json = r#"{
+            "width_percent": 90.0,
+            "grid_size": 40.0,
+            "magnetic_snap": true
+        }"#;
+        let back: LauncherSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(back.grid_line_color, "255, 255, 255");
     }
 
     #[test]
@@ -1086,6 +1108,7 @@ mod tests {
             blur_strength: "light".to_string(),
             magnetic_snap: false,
             grid_size: 64.0,
+            grid_line_color: "200, 100, 50".into(),
             icon_background_color: "1, 2, 3".into(),
             icon_background_opacity: 0.33,
             keybind_toggle_launcher: KeybindConfig {
@@ -1144,6 +1167,7 @@ mod tests {
             assert_eq!(got.backdrop_darkness, 0.55);
             assert!(!got.magnetic_snap);
             assert_eq!(got.grid_size, 64.0);
+            assert_eq!(got.grid_line_color, "200, 100, 50");
             assert_eq!(got.icon_background_color, "1, 2, 3");
             assert_eq!(got.icon_background_opacity, 0.33);
             assert_eq!(got.keybind_toggle_launcher, modified.keybind_toggle_launcher);

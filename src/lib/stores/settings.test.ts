@@ -147,6 +147,7 @@ describe('settings store', () => {
 
 		expect(mod.settingsStore.settings.grid_size).toBe(64);
 		expect(mod.settingsStore.settings.width_percent).toBe(90);
+		expect(mod.settingsStore.settings.grid_line_color).toBe('255, 255, 255');
 		expect(mod.settingsStore.settings.keybind_toggle_launcher.key).toBe('KeyZ');
 		expect(mod.settingsStore.settings.keybind_toggle_launcher.meta).toBe(true);
 		expect(mod.settingsStore.activePreset).toBe('MyPreset');
@@ -251,6 +252,7 @@ describe('settings store', () => {
 			['position_y', 40],
 			['magnetic_snap', false],
 			['grid_size', 64],
+			['grid_line_color', '200, 100, 50'],
 			['icon_background_color', '4, 5, 6'],
 			['icon_background_opacity', 0.33]
 		];

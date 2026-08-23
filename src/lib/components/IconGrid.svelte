@@ -34,6 +34,7 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let snapToGrid = $derived(settingsStore.settings.magnetic_snap);
 	let gridSize = $derived(settingsStore.settings.grid_size);
+	let gridLineColor = $derived(settingsStore.settings.grid_line_color);
 	let gridEl: HTMLDivElement | null = null;
 
 	// Multi-selection marquee state
@@ -736,7 +737,7 @@
 		onpointerdown={handleGridPointerDown}
 		onpointermove={handleGridPointerMove}
 		onpointerup={handleGridPointerUp}
-		style="--grid-size: {gridSize}px;"
+		style="--grid-size: {gridSize}px; --grid-line-color: {gridLineColor};"
 	>
 		{#if isLoading}
 			<div class="loading">Loading apps...</div>
@@ -874,8 +875,8 @@
 	}
 	.icon-grid.edit-mode {
 		background-image:
-			linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-			linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+			linear-gradient(rgba(var(--grid-line-color, 255, 255, 255), 0.06) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(var(--grid-line-color, 255, 255, 255), 0.06) 1px, transparent 1px);
 		background-size: var(--grid-size, 40px) var(--grid-size, 40px);
 		user-select: none;
 		-webkit-user-select: none;
