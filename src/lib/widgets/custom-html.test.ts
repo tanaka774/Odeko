@@ -98,6 +98,18 @@ describe('sanitizeCustomHtml', () => {
 		expect(result).not.toContain('allow-top-navigation');
 	});
 
+	it('strips allow-popups from sandboxed iframes', () => {
+		// allow-popups lets widget scripts open new browsing contexts that the
+		// sandbox cannot fully constrain; nothing in the widget feature needs it.
+		const result = sanitizeCustomHtml(
+			'<iframe srcdoc="<p>x</p>" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>'
+		);
+
+		expect(result).toContain('srcdoc="<p>x</p>"');
+		expect(result).toContain('sandbox="allow-scripts"');
+		expect(result).not.toContain('allow-popups');
+	});
+
 	it('removes sandboxed iframes that point at a remote src', () => {
 		const result = sanitizeCustomHtml(
 			'<iframe src="https://example.com" sandbox="allow-scripts"></iframe>'
@@ -115,10 +127,6 @@ describe('sanitizeCustomHtml', () => {
 	});
 
 	it('keeps srcdoc documents containing style and script markup', () => {
-		// DOMPurify's attribute-breakout guard strips attribute values that
-		// contain </style>/</script> — a false positive for sandboxed srcdoc,
-		// which is meant to hold a whole HTML document (e.g. a Pomodoro timer).
-		// (Single quotes inside: the srcdoc value itself is double-quoted.)
 		const srcdoc =
 			"<style>body { color: #222; }</style><div id='t'>25:00</div><button onclick='go(25)'>Focus</button><script>function go(m) {}</script>";
 		const result = sanitizeCustomHtml(
@@ -132,8 +140,6 @@ describe('sanitizeCustomHtml', () => {
 	});
 
 	it('still removes unsafe iframes whose srcdoc contains markup', () => {
-		// The srcdoc restore must only apply to iframes that survive the
-		// sandbox policy — a remote src or missing sandbox still drops them.
 		const srcdoc = '<style>body {}</style><script>x()</script>';
 
 		expect(sanitizeCustomHtml(`<iframe srcdoc="${srcdoc}"></iframe>`).trim()).toBe('');

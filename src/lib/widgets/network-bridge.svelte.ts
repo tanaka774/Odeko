@@ -1,20 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { settingsStore } from '$lib/stores/settings.svelte';
 
-/**
- * Module-level network bridge for Custom HTML widgets.
- *
- * The sandboxed iframe cannot call Tauri IPC (opaque origin) and the CSP blocks
- * its `fetch()`, so it posts a `widget-fetch` message to the parent window. The
- * listener lives HERE, at module scope, registered once at import time — never
- * inside a Svelte component, whose lifecycle/init side-effects proved unreliable
- * in the built WebKitGTK app.
- *
- * Grants are app-wide (a list of allowed hosts), not per-widget: a single-user
- * launcher does not need per-widget routing, and the per-widget scheme required
- * identifying the source iframe, which WebKitGTK cannot do reliably (its
- * `MessageEvent.source` is not `===` to `iframe.contentWindow`).
- */
+// Module-level network bridge for Custom HTML widgets. The sandboxed iframe
+// cannot call Tauri IPC (opaque origin) and the CSP blocks its fetch(), so it
+// posts a widget-fetch message to the parent window; this listener forwards it
+// through the widget_fetch command. Registered once at module import time,
+// never inside a component (lifecycle/init side-effects proved unreliable in
+// the built WebKitGTK app). Grants are app-wide, not per-widget.
 
 export interface PendingRequest {
 	id: number;
@@ -76,10 +68,16 @@ function createBridge() {
 	}
 
 	function handleMessage(event: MessageEvent) {
+		// Only opaque-origin frames may use the bridge: a Custom HTML widget
+		// iframe is sandboxed without allow-same-origin, so its origin is
+		// "null". A frame that navigated itself to a remote page (allowed by
+		// the sandbox) would post with a real origin — rejected here.
+		if (event.origin !== 'null') return;
+
 		// WebKitGTK does not make `event.source === iframe.contentWindow` for
-		// opaque-origin (sandboxed) frames, so the source window cannot identify
-		// the owning widget. Grants are app-wide, so identification is
-		// unnecessary: the sandbox plus the consent prompt gate every fetch.
+		// opaque-origin frames, so the source window cannot identify the owning
+		// widget; grants are app-wide, so identification is unnecessary.
+		// The sandbox plus the consent prompt gate every fetch.
 		const msg = event.data as { kind?: string; id?: number; url?: string };
 		if (!msg || msg.kind !== 'widget-fetch') return;
 		if (typeof msg.url !== 'string' || typeof msg.id !== 'number') return;
@@ -112,7 +110,6 @@ function createBridge() {
 		void doFetch(request.iframe, request.id, request.url);
 	}
 
-	// Registered once at module import time — outside any component.
 	if (typeof window !== 'undefined') {
 		window.addEventListener('message', handleMessage);
 	}

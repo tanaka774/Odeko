@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, cleanup } from '@testing-library/svelte';
+import { render, fireEvent, screen, cleanup, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 
 const invokeMock = vi.fn();
 const openMock = vi.fn();
@@ -139,11 +140,116 @@ describe('SettingsModal', () => {
 		expect(await screen.findByText('Created default preset "new"')).toBeTruthy();
 		expect(invokeMock).toHaveBeenCalledWith('save_default_preset', { name: 'new' });
 
-		// Close and reopen: the message must not come back.
 		utils.rerender({ isOpen: false });
 		utils.rerender({ isOpen: true });
 		await screen.findByRole('dialog');
 
 		expect(screen.queryByText('Created default preset "new"')).toBeNull();
+	});
+
+	it('reports what an import neutralized for safety', async () => {
+		openMock.mockResolvedValueOnce('/tmp/shared.json');
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') return Promise.resolve([]);
+			if (cmd === 'import_preset') {
+				return Promise.resolve({
+					name: 'shared',
+					cleared_network_grants: 2,
+					cleared_local_network: true,
+					cleared_global_shortcuts: 1,
+					forced_power_confirmation: 1
+				});
+			}
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		await screen.findByText('Active Preset');
+		fireEvent.click(screen.getByRole('button', { name: 'Import Preset...' }));
+
+		expect(
+			await screen.findByText(
+				/Imported "shared". For safety: cleared 2 network grant\(s\), disabled local network access, disabled 1 global shortcut\(s\), re-enabled confirmation on 1 power widget\(s\)/
+			)
+		).toBeTruthy();
+	});
+
+	it('reviews ambient capabilities before applying a preset', async () => {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') return Promise.resolve(['Shared']);
+			if (cmd === 'inspect_preset') {
+				return Promise.resolve({
+					icon_count: 5,
+					app_icons: 4,
+					link_icons: 0,
+					custom_html_widgets: 1,
+					power_widgets: 1,
+					global_shortcuts: ['Weird (Ctrl+Alt+X)'],
+					network_grants: [],
+					allow_local_network: false
+				});
+			}
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		await screen.findByText('Active Preset');
+		fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Shared' } });
+		clickSave();
+
+		const dialog = await screen.findByRole('alertdialog');
+		expect(dialog.textContent).toContain('Apply preset "Shared"?');
+		expect(dialog.textContent).toContain('1 custom HTML widget(s)');
+		expect(dialog.textContent).toContain('Weird (Ctrl+Alt+X)');
+		expect(dialog.textContent).toContain('1 power widget(s)');
+		expect(invokeMock).not.toHaveBeenCalledWith('set_active_preset', expect.anything());
+
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		expect(invokeMock).not.toHaveBeenCalledWith('set_active_preset', expect.anything());
+
+		// Applying proceeds with the switch. The second Save click's state
+		// update flushes asynchronously, so tick() before querying the dialog.
+		clickSave();
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('inspect_preset', { name: 'Shared' })
+		);
+		await tick();
+		const dialog2 = screen.getByRole('alertdialog');
+		fireEvent.click(within(dialog2).getByRole('button', { name: 'Apply Preset' }));
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
+		);
+	});
+
+	it('applies presets without ambient capabilities without a review step', async () => {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') return Promise.resolve(['Plain']);
+			if (cmd === 'inspect_preset') {
+				return Promise.resolve({
+					icon_count: 2,
+					app_icons: 2,
+					link_icons: 0,
+					custom_html_widgets: 0,
+					power_widgets: 0,
+					global_shortcuts: [],
+					network_grants: [],
+					allow_local_network: false
+				});
+			}
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		await screen.findByText('Active Preset');
+		fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Plain' } });
+		clickSave();
+
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Plain' })
+		);
 	});
 });

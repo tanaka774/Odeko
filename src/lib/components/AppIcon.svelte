@@ -9,6 +9,7 @@
 	import { settingsStore, keybindToString } from '$lib/stores/settings.svelte';
 	import { loadIconDataUrl } from '$lib/icon-image';
 	import { launchIcon } from '$lib/launch';
+	import { safeRgbColor } from '$lib/utils';
 	import {
 		computeResizeRect,
 		getResizeDirAtPoint,
@@ -84,8 +85,15 @@
 		isEditMode ? (hoverResizeDir ? RESIZE_CURSORS[hoverResizeDir] : 'move') : undefined
 	);
 
-	// Per-icon override wins; otherwise follow the launcher-wide setting.
-	let bgColor = $derived(icon.background_color ?? settingsStore.settings.icon_background_color);
+	// Per-icon override wins; otherwise follow the launcher-wide setting. The
+	// value can arrive via an imported preset, so it is scrubbed before
+	// interpolation into the --icon-bg-color CSS variable.
+	let bgColor = $derived(
+		safeRgbColor(
+			icon.background_color ?? settingsStore.settings.icon_background_color,
+			'255, 255, 255'
+		)
+	);
 	let bgOpacity = $derived(
 		icon.background_opacity ?? settingsStore.settings.icon_background_opacity
 	);
@@ -120,7 +128,6 @@
 		event.stopPropagation();
 		event.stopImmediatePropagation();
 		if (isEditMode) {
-			// In edit mode, right-click selects the icon and opens its menu.
 			onSelect(icon.id, false);
 		}
 		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -165,10 +172,8 @@
 
 	function handlePointerDown(event: PointerEvent) {
 		if (!isEditMode) return;
-		if (event.button !== 0) return; // Only left-click (button 0) for dragging
+		if (event.button !== 0) return;
 
-		// Prevent the browser from starting a text selection while dragging/resizing.
-		// Without this, dragging to the grid edge can select every icon on the page.
 		event.preventDefault();
 
 		const target = event.currentTarget as HTMLElement;
@@ -176,7 +181,6 @@
 		const resizeDirFromEdge = getResizeDirAtPoint(rect, event.clientX, event.clientY);
 
 		if (resizeDirFromEdge) {
-			// Resizing acts on a single item and does not require preselecting it.
 			onSelect(icon.id, false);
 			isResizing = true;
 			resizeDir = resizeDirFromEdge;
@@ -186,10 +190,8 @@
 			onDragStart();
 			onDraggingChange(icon.id, true);
 		} else if (event.ctrlKey || event.metaKey) {
-			// Ctrl/Cmd + click toggles selection; do not start a drag.
 			onSelect(icon.id, true);
 		} else if (!selected) {
-			// Clicking an unselected item clears the selection and starts a single drag.
 			onSelect(icon.id, false);
 			isDragging = true;
 			dragOffsetX = event.clientX - icon.x;
@@ -197,7 +199,6 @@
 			onDragStart();
 			onDraggingChange(icon.id, true);
 		} else {
-			// Dragging an already selected item moves the whole selection.
 			onStartGroupDrag(icon.id, event.clientX, event.clientY);
 			isDragging = true;
 			onDraggingChange(icon.id, true);
@@ -214,19 +215,16 @@
 			let rawY = event.clientY - dragOffsetY;
 
 			if (snapToGrid) {
-				// Snap based on top-left
 				const nearestGridX1 = Math.round(rawX / gridSize) * gridSize;
 				const nearestGridY1 = Math.round(rawY / gridSize) * gridSize;
 				const distToGridX1 = Math.abs(rawX - nearestGridX1);
 				const distToGridY1 = Math.abs(rawY - nearestGridY1);
 
-				// Snap based on bottom-right
 				const nearestGridX2 = Math.round((rawX + icon.width) / gridSize) * gridSize - icon.width;
 				const nearestGridY2 = Math.round((rawY + icon.height) / gridSize) * gridSize - icon.height;
 				const distToGridX2 = Math.abs(rawX - nearestGridX2);
 				const distToGridY2 = Math.abs(rawY - nearestGridY2);
 
-				// Use whichever snap is closer (or no snap if both are too far)
 				if (distToGridX1 <= SNAP_THRESHOLD && distToGridX1 <= distToGridX2) {
 					rawX = nearestGridX1;
 				} else if (distToGridX2 <= SNAP_THRESHOLD) {
@@ -259,7 +257,6 @@
 				onSizeChange(icon.id, rect.width, rect.height);
 			}
 		} else {
-			// Idle: show the resize cursor while hovering an edge or corner.
 			const elRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 			hoverResizeDir = getResizeDirAtPoint(elRect, event.clientX, event.clientY);
 		}
@@ -437,8 +434,7 @@
 		border: none;
 		padding: 0;
 	}
-	/* Image and link icons share the same var-based background as app icons:
-	   the per-icon override when set, otherwise the launcher-wide default. */
+
 	.app-icon.edit-mode {
 		cursor: move;
 		border: 1px dashed var(--edit-outline);
@@ -612,8 +608,7 @@
 		text-overflow: ellipsis;
 		pointer-events: none;
 	}
-	/* When a url-badge occupies the bottom-left corner (link icons with a URL),
-	   shift the keybind badge right so the two don't overlap. */
+
 	.keybind-badge.shift-right {
 		left: 16px;
 	}

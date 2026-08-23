@@ -1,5 +1,4 @@
 pub mod app_scanner;
-pub mod default;
 pub mod errors;
 pub mod launcher;
 pub mod media;

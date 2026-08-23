@@ -267,6 +267,158 @@ struct PresetData {
     settings: LauncherSettings,
 }
 
+/// Max size of an importable preset file (widget HTML can be large, but a
+/// preset is a config file, not a media store).
+const MAX_PRESET_SIZE_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Cap on icons per preset so a crafted file cannot DoS the grid on apply.
+const MAX_PRESET_ICONS: usize = 200;
+
+/// Max size for icons read back via `get_icon_base64`.
+const MAX_ICON_SIZE_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Result of importing a preset, including what was neutralized for safety.
+#[derive(Debug, Serialize)]
+pub struct ImportResult {
+    pub name: String,
+    /// Pre-granted network hosts that were cleared. Network access must only
+    /// exist after an explicit user action in the UI (the per-host prompt).
+    pub cleared_network_grants: usize,
+    /// Whether the "allow local network" flag was forced off.
+    pub cleared_local_network: bool,
+    /// Icon global shortcuts that were disabled.
+    pub cleared_global_shortcuts: usize,
+    /// Power widgets whose confirmation was re-enabled.
+    pub forced_power_confirmation: usize,
+}
+
+/// What applying a preset would bring in. Shown to the user before the
+/// preset is activated so ambient capabilities (widgets, shortcuts, network
+/// grants, power actions) are a conscious choice, not a silent import.
+#[derive(Debug, Serialize, Default)]
+pub struct PresetSummary {
+    pub icon_count: usize,
+    pub app_icons: usize,
+    pub link_icons: usize,
+    pub custom_html_widgets: usize,
+    pub power_widgets: usize,
+    pub global_shortcuts: Vec<String>,
+    pub network_grants: Vec<String>,
+    pub allow_local_network: bool,
+}
+
+fn is_power_widget_icon(icon: &AppIcon) -> bool {
+    icon.icon_type == IconType::Widget
+        && matches!(
+            icon.widget_type.as_deref(),
+            Some("sleep") | Some("restart") | Some("shutdown")
+        )
+}
+
+/// Strips ambient authority from an imported preset. Imported files are
+/// untrusted input: network grants, local-network access, global shortcuts
+/// and unconfirmed power actions must only ever come from an explicit user
+/// action in the UI, never silently from a JSON file.
+fn neutralize_preset(data: &mut PresetData) -> (usize, bool, usize, usize) {
+    let cleared_network_grants = data.settings.network_grants.len();
+    data.settings.network_grants.clear();
+    let cleared_local_network = data.settings.allow_local_network;
+    data.settings.allow_local_network = false;
+
+    let mut cleared_global_shortcuts = 0;
+    let mut forced_power_confirmation = 0;
+    for icon in &mut data.icons {
+        if icon.keybind_global == Some(true) {
+            icon.keybind_global = Some(false);
+            cleared_global_shortcuts += 1;
+        }
+        if !is_power_widget_icon(icon) {
+            continue;
+        }
+        // The frontend defaults `requireConfirmation` to true when absent,
+        // so only an explicit false needs fixing (and counting).
+        let mut was_unconfirmed = false;
+        if let Some(serde_json::Value::Object(obj)) = icon.widget_config.as_mut() {
+            was_unconfirmed =
+                obj.get("requireConfirmation") == Some(&serde_json::Value::Bool(false));
+            obj.insert("requireConfirmation".to_string(), serde_json::Value::Bool(true));
+        } else {
+            icon.widget_config = Some(serde_json::json!({ "requireConfirmation": true }));
+        }
+        if was_unconfirmed {
+            forced_power_confirmation += 1;
+        }
+    }
+
+    (
+        cleared_network_grants,
+        cleared_local_network,
+        cleared_global_shortcuts,
+        forced_power_confirmation,
+    )
+}
+
+/// Preset names become file paths (`{name}.json`), so they must not be able
+/// to escape the presets directory or collide with special names.
+fn validate_preset_name(name: &str) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Preset name cannot be empty".to_string());
+    }
+    if name.len() > 100 {
+        return Err("Preset name is too long (max 100 characters)".to_string());
+    }
+    if name == "." || name == ".." {
+        return Err("Invalid preset name".to_string());
+    }
+    if name.chars().any(|c| {
+        c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+    }) {
+        return Err("Preset name contains invalid characters".to_string());
+    }
+    Ok(())
+}
+
+/// Turns an arbitrary file stem (from an imported file) into a safe preset
+/// name: path separators/control characters become underscores, and leading
+/// or trailing dots are removed (they would produce "." / ".." / hidden
+/// names on some platforms).
+fn sanitize_preset_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, ' ' | '-' | '_' | '.') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim().trim_matches('.').trim();
+    if cleaned.is_empty() {
+        "imported".to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+fn keybind_label(kb: &KeybindConfig) -> String {
+    let mut parts = Vec::new();
+    if kb.ctrl {
+        parts.push("Ctrl");
+    }
+    if kb.alt {
+        parts.push("Alt");
+    }
+    if kb.shift {
+        parts.push("Shift");
+    }
+    if kb.meta {
+        parts.push("Super");
+    }
+    parts.push(kb.key.as_str());
+    parts.join("+")
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct AppConfig {
     #[serde(default)]
@@ -370,7 +522,6 @@ fn write_config(config: &AppConfig) -> Result<(), String> {
     Ok(())
 }
 
-/// Launch an application by path with optional arguments
 #[tauri::command]
 pub fn launch_app(path: String, args: Option<String>) -> Result<(), String> {
     log::info!("Launching application: {} (args: {:?})", path, args);
@@ -455,7 +606,6 @@ fn find_macos_app_bundle(path: &str) -> Option<String> {
         .map(|bundle_path| bundle_path.to_string_lossy().to_string())
 }
 
-/// Open a URL in the default browser
 #[tauri::command]
 pub fn open_url(url: String) -> Result<(), String> {
     log::info!("Opening URL: {}", url);
@@ -485,7 +635,6 @@ pub fn open_url(url: String) -> Result<(), String> {
     }
 }
 
-/// Synchronously launch an icon (used by global shortcut handler, runs outside async context).
 pub fn launch_icon_sync(icon: &AppIcon) {
     if icon.icon_type == IconType::Link || icon.icon_type == IconType::Image {
         if let Some(ref url) = icon.url {
@@ -552,9 +701,8 @@ fn open_url_sync(url: &str) -> Result<(), String> {
     }
 }
 
-/// Load the active layout
-/// Reads config.json to find the active preset, then loads that preset file.
-/// On first run with no preset, returns defaults.
+/// Load the active layout: reads config.json to find the active preset, then
+/// loads that preset file. On first run with no preset, returns defaults.
 #[tauri::command]
 pub fn load_active_layout() -> Result<LauncherLayout, String> {
     let config = read_config();
@@ -584,9 +732,8 @@ pub fn load_active_layout() -> Result<LauncherLayout, String> {
     }
 }
 
-/// Save the current layout to the active preset file.
-/// If no active preset is set, auto-creates "Default".
-/// Returns the preset name that was saved to.
+/// Save the current layout to the active preset file. If no active preset is
+/// set, auto-creates "Default". Returns the preset name that was saved to.
 #[tauri::command]
 pub fn save_active_layout(
     icons: Vec<AppIcon>,
@@ -662,10 +809,11 @@ pub fn save_active_settings(settings: LauncherSettings) -> Result<String, String
     Ok(preset_name)
 }
 
-/// Set which preset is currently active.
-/// Just writes config.json — does not touch preset files.
+/// Set which preset is currently active. Just writes config.json — does not
+/// touch preset files.
 #[tauri::command]
 pub fn set_active_preset(name: String) -> Result<(), String> {
+    validate_preset_name(&name)?;
     let preset_path = get_presets_dir().join(format!("{}.json", name));
     if !preset_path.exists() {
         return Err(format!("Preset '{}' not found", name));
@@ -685,6 +833,7 @@ pub fn save_preset_as(
     icons: Vec<AppIcon>,
     settings: LauncherSettings,
 ) -> Result<(), String> {
+    validate_preset_name(&name)?;
     let presets_dir = get_presets_dir();
     std::fs::create_dir_all(&presets_dir)
         .map_err(|e| format!("Failed to create presets directory: {}", e))?;
@@ -700,7 +849,6 @@ pub fn save_preset_as(
     Ok(())
 }
 
-/// List all saved presets
 #[tauri::command]
 pub fn list_presets() -> Result<Vec<String>, String> {
     let presets_dir = get_presets_dir();
@@ -721,9 +869,9 @@ pub fn list_presets() -> Result<Vec<String>, String> {
     Ok(presets)
 }
 
-/// Delete a preset
 #[tauri::command]
 pub fn delete_preset(name: String) -> Result<(), String> {
+    validate_preset_name(&name)?;
     let preset_path = get_presets_dir().join(format!("{}.json", name));
     if !preset_path.exists() {
         return Err(format!("Preset '{}' not found", name));
@@ -738,9 +886,10 @@ pub fn delete_preset(name: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Rename a preset
 #[tauri::command]
 pub fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
+    validate_preset_name(&old_name)?;
+    validate_preset_name(&new_name)?;
     let presets_dir = get_presets_dir();
     let old_path = presets_dir.join(format!("{}.json", old_name));
     let new_path = presets_dir.join(format!("{}.json", new_name));
@@ -760,7 +909,6 @@ pub fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Export a preset to a user-selected path
 #[tauri::command]
 pub fn export_preset(name: String, path: String) -> Result<(), String> {
     let preset_path = get_presets_dir().join(format!("{}.json", name));
@@ -774,9 +922,9 @@ pub fn export_preset(name: String, path: String) -> Result<(), String> {
     }
 }
 
-/// Save the default layout as a named preset
 #[tauri::command]
 pub fn save_default_preset(name: String) -> Result<(), String> {
+    validate_preset_name(&name)?;
     let presets_dir = get_presets_dir();
     std::fs::create_dir_all(&presets_dir)
         .map_err(|e| format!("Failed to create presets directory: {}", e))?;
@@ -793,22 +941,52 @@ pub fn save_default_preset(name: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Import a preset from a user-selected path
+/// Import a preset from a user-selected path.
+///
+/// The file is untrusted input, so it is validated before it is copied:
+/// - the JSON must parse into a valid preset (schema check),
+/// - the file and icon count are capped,
+/// - ambient authority is stripped (see `neutralize_preset`): network
+///   grants, local-network access, global shortcuts and unconfirmed power
+///   actions never survive an import. The caller is expected to surface
+///   what was neutralized to the user.
 #[tauri::command]
-pub fn import_preset(path: String) -> Result<String, String> {
+pub fn import_preset(path: String) -> Result<ImportResult, String> {
     let source = PathBuf::from(path);
-    if !source.exists() {
-        return Err("Source file does not exist".to_string());
+    let metadata = std::fs::metadata(&source)
+        .map_err(|_| "Source file does not exist".to_string())?;
+    if metadata.len() > MAX_PRESET_SIZE_BYTES {
+        return Err(format!(
+            "Preset file is too large (max {} MB)",
+            MAX_PRESET_SIZE_BYTES / (1024 * 1024)
+        ));
     }
-    let name = source
+    let content = std::fs::read_to_string(&source)
+        .map_err(|e| format!("Failed to read preset file: {}", e))?;
+    let mut data: PresetData = serde_json::from_str(&content)
+        .map_err(|e| format!("Invalid preset file (not a valid Odeko preset): {}", e))?;
+    if data.icons.len() > MAX_PRESET_ICONS {
+        return Err(format!(
+            "Preset contains too many icons (max {})",
+            MAX_PRESET_ICONS
+        ));
+    }
+
+    let raw_name = source
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("imported")
-        .to_string();
+        .unwrap_or("imported");
+    let name = sanitize_preset_name(raw_name);
+    let (cleared_network_grants, cleared_local_network, cleared_global_shortcuts, forced_power_confirmation) =
+        neutralize_preset(&mut data);
+
     let presets_dir = get_presets_dir();
     if let Err(e) = std::fs::create_dir_all(&presets_dir) {
         return Err(format!("Failed to create presets directory: {}", e));
     }
+    let json = serde_json::to_string_pretty(&data)
+        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
+
     let dest = presets_dir.join(format!("{}.json", name));
     let final_name = if dest.exists() {
         let timestamp = SystemTime::now()
@@ -816,18 +994,78 @@ pub fn import_preset(path: String) -> Result<String, String> {
             .unwrap_or_default()
             .as_secs();
         let new_name = format!("{}-{}", name, timestamp);
-        let new_dest = presets_dir.join(format!("{}.json", new_name));
-        if let Err(e) = std::fs::copy(&source, &new_dest) {
+        if let Err(e) = std::fs::write(presets_dir.join(format!("{}.json", new_name)), json) {
             return Err(format!("Failed to import preset: {}", e));
         }
         new_name
     } else {
-        if let Err(e) = std::fs::copy(&source, &dest) {
+        if let Err(e) = std::fs::write(&dest, json) {
             return Err(format!("Failed to import preset: {}", e));
         }
         name
     };
-    Ok(final_name)
+
+    log::info!(
+        "Imported preset '{}' (cleared {} grants, {} shortcuts, {} power confirmations)",
+        final_name,
+        cleared_network_grants,
+        cleared_global_shortcuts,
+        forced_power_confirmation
+    );
+
+    Ok(ImportResult {
+        name: final_name,
+        cleared_network_grants,
+        cleared_local_network,
+        cleared_global_shortcuts,
+        forced_power_confirmation,
+    })
+}
+
+/// Reads a preset's contents without activating it. The UI shows this before
+/// applying a preset, so ambient capabilities (custom HTML widgets, global
+/// shortcuts, network grants, power widgets) are an explicit choice.
+#[tauri::command]
+pub fn inspect_preset(name: String) -> Result<PresetSummary, String> {
+    validate_preset_name(&name)?;
+    let preset_path = get_presets_dir().join(format!("{}.json", name));
+    if !preset_path.exists() {
+        return Err(format!("Preset '{}' not found", name));
+    }
+    let content = std::fs::read_to_string(&preset_path)
+        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
+    let data: PresetData = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+
+    let mut summary = PresetSummary {
+        icon_count: data.icons.len(),
+        allow_local_network: data.settings.allow_local_network,
+        network_grants: data.settings.network_grants,
+        ..Default::default()
+    };
+    for icon in &data.icons {
+        match icon.icon_type {
+            IconType::App => summary.app_icons += 1,
+            IconType::Link => summary.link_icons += 1,
+            _ => {}
+        }
+        if icon.icon_type == IconType::Widget {
+            match icon.widget_type.as_deref() {
+                Some("custom") => summary.custom_html_widgets += 1,
+                Some("sleep") | Some("restart") | Some("shutdown") => summary.power_widgets += 1,
+                _ => {}
+            }
+        }
+        if icon.keybind_global == Some(true) {
+            let key = icon
+                .keybind
+                .as_ref()
+                .map(keybind_label)
+                .unwrap_or_default();
+            summary.global_shortcuts.push(format!("{} ({})", icon.name, key));
+        }
+    }
+    Ok(summary)
 }
 
 #[tauri::command]
@@ -837,9 +1075,24 @@ pub fn hide_launcher(app: tauri::AppHandle) {
     }
 }
 
+/// Returns a PNG file as a base64 data URL for icon display. The path is
+/// untrusted (it can come from an imported preset), so only existing PNG
+/// files under a size cap are served — a launcher icon, not a general
+/// file-read primitive.
 #[tauri::command]
 pub fn get_icon_base64(icon_path: String) -> Result<String, String> {
     let path = std::path::PathBuf::from(&icon_path);
+    let is_png = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("png"));
+    if !is_png {
+        return Err(format!("Icon must be a PNG file: {}", icon_path));
+    }
+    let metadata = std::fs::metadata(&path).map_err(|e| format!("read {}: {}", icon_path, e))?;
+    if metadata.len() > MAX_ICON_SIZE_BYTES {
+        return Err(format!("Icon file is too large: {}", icon_path));
+    }
     let bytes = std::fs::read(&path).map_err(|e| format!("read {}: {}", icon_path, e))?;
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     Ok(format!("data:image/png;base64,{}", STANDARD.encode(&bytes)))
@@ -991,8 +1244,7 @@ mod tests {
 
     #[test]
     fn launcher_settings_missing_grid_line_color_defaults_to_white() {
-        // Layouts saved before the grid line color setting existed have no
-        // field; it must deserialize to the white default rather than "".
+
         let json = r#"{
             "width_percent": 90.0,
             "grid_size": 40.0,
@@ -1066,7 +1318,7 @@ mod tests {
         assert!(!get_default_browser().is_empty());
     }
 
-    // --- Preset lifecycle tests -------------------------------------------
+    // --- Preset lifecycle tests ------------------------------------------
     // These run against a throwaway config directory so they never touch the
     // real user config. `ODEKO_CONFIG_DIR` redirects get_config_dir().
 
@@ -1088,8 +1340,6 @@ mod tests {
         result
     }
 
-    /// A LauncherSettings where every single field differs from the defaults,
-    /// so we can verify each one survives a save/load round-trip.
     fn modified_settings() -> LauncherSettings {
         LauncherSettings {
             width_percent: 50.0,
@@ -1187,7 +1437,6 @@ mod tests {
             assert_eq!(layout.active_preset.as_deref(), Some("Default"));
             assert_eq!(layout.settings.grid_size, 64.0);
 
-            // The Default.json preset file must actually exist on disk.
             assert!(get_presets_dir().join("Default.json").exists());
         });
     }
@@ -1276,9 +1525,8 @@ mod tests {
             save_preset_as("A".into(), vec![], LauncherSettings::default()).unwrap();
             save_preset_as("B".into(), vec![], LauncherSettings::default()).unwrap();
 
-            // Cannot rename a preset that does not exist.
             assert!(rename_preset("Missing".into(), "X".into()).is_err());
-            // Cannot rename onto an existing preset.
+
             assert!(rename_preset("A".into(), "B".into()).is_err());
 
             set_active_preset("A".into()).unwrap();
@@ -1292,7 +1540,7 @@ mod tests {
     #[test]
     fn import_and_export_presets() {
         with_fake_config_dir(|| {
-            // Exporting a missing preset fails.
+
             assert!(export_preset("Missing".into(), String::new()).is_err());
 
             save_preset_as("ExportMe".into(), vec![], LauncherSettings::default()).unwrap();
@@ -1300,15 +1548,248 @@ mod tests {
             export_preset("ExportMe".into(), dest.to_string_lossy().to_string()).unwrap();
             assert!(dest.exists());
 
-            // Importing a nonexistent source fails.
             assert!(import_preset("/nonexistent/file.json".into()).is_err());
 
-            // Importing the exported file works and reuses its stem as the name.
-            let name = import_preset(dest.to_string_lossy().to_string()).unwrap();
-            assert_eq!(name, "odeko-export-test");
-            assert!(list_presets().unwrap().contains(&name));
+            let result = import_preset(dest.to_string_lossy().to_string()).unwrap();
+            assert_eq!(result.name, "odeko-export-test");
+            assert_eq!(result.cleared_network_grants, 0);
+            assert!(!result.cleared_local_network);
+            assert_eq!(result.cleared_global_shortcuts, 0);
+            assert_eq!(result.forced_power_confirmation, 0);
+            assert!(list_presets().unwrap().contains(&result.name));
 
             let _ = std::fs::remove_file(&dest);
+        });
+    }
+
+    /// A preset carrying every kind of ambient authority the import path
+    /// must strip.
+    fn malicious_preset() -> PresetData {
+        let mut settings = LauncherSettings::default();
+        settings.network_grants = vec!["api.evil.example".to_string()];
+        settings.allow_local_network = true;
+
+        let mut shortcut_icon = LauncherLayout::default().icons[0].clone();
+        shortcut_icon.name = "Weird".into();
+        shortcut_icon.keybind = Some(KeybindConfig {
+            key: "KeyX".into(),
+            ctrl: true,
+            alt: false,
+            shift: false,
+            meta: false,
+        });
+        shortcut_icon.keybind_global = Some(true);
+
+        let mut power_icon = shortcut_icon.clone();
+        power_icon.id = "shutdown".into();
+        power_icon.icon_type = IconType::Widget;
+        power_icon.widget_type = Some("shutdown".into());
+        power_icon.widget_config = Some(serde_json::json!({ "requireConfirmation": false }));
+
+        PresetData {
+            icons: vec![shortcut_icon, power_icon],
+            settings,
+        }
+    }
+
+    #[test]
+    fn import_strips_ambient_authority_from_presets() {
+        with_fake_config_dir(|| {
+            let source = std::env::temp_dir().join("odeko-malicious-import.json");
+            std::fs::write(
+                &source,
+                serde_json::to_string_pretty(&malicious_preset()).unwrap(),
+            )
+            .unwrap();
+
+            let result = import_preset(source.to_string_lossy().to_string()).unwrap();
+            assert_eq!(result.cleared_network_grants, 1);
+            assert!(result.cleared_local_network);
+            // Both fixture icons carry keybind_global (the power icon is a
+            // clone of the shortcut icon).
+            assert_eq!(result.cleared_global_shortcuts, 2);
+            assert_eq!(result.forced_power_confirmation, 1);
+
+            // The stored preset must be the neutralized version (import does
+            // not activate the preset, so read the file directly).
+            let stored: PresetData = serde_json::from_str(
+                &std::fs::read_to_string(get_presets_dir().join(format!("{}.json", result.name)))
+                    .unwrap(),
+            )
+            .unwrap();
+            assert!(stored.settings.network_grants.is_empty());
+            assert!(!stored.settings.allow_local_network);
+
+            assert_eq!(stored.icons[0].keybind_global, Some(false));
+            let power = stored.icons.iter().find(|icon| icon.id == "shutdown").unwrap();
+            assert_eq!(
+                power.widget_config.as_ref().unwrap()["requireConfirmation"],
+                serde_json::Value::Bool(true)
+            );
+
+            let _ = std::fs::remove_file(&source);
+        });
+    }
+
+    #[test]
+    fn import_rejects_invalid_json() {
+        with_fake_config_dir(|| {
+            let source = std::env::temp_dir().join("odeko-garbage.json");
+            std::fs::write(&source, "not json at all {").unwrap();
+            let error = import_preset(source.to_string_lossy().to_string()).unwrap_err();
+            assert!(error.contains("Invalid preset file"), "got: {error}");
+            let _ = std::fs::remove_file(&source);
+        });
+    }
+
+    #[test]
+    fn import_rejects_oversized_presets() {
+        with_fake_config_dir(|| {
+            let source = std::env::temp_dir().join("odeko-huge.json");
+            std::fs::write(&source, vec![b' '; (MAX_PRESET_SIZE_BYTES + 1) as usize]).unwrap();
+            let error = import_preset(source.to_string_lossy().to_string()).unwrap_err();
+            assert!(error.contains("too large"), "got: {error}");
+            let _ = std::fs::remove_file(&source);
+        });
+    }
+
+    #[test]
+    fn import_rejects_presets_with_too_many_icons() {
+        with_fake_config_dir(|| {
+            let source = std::env::temp_dir().join("odeko-many-icons.json");
+            let mut icon = LauncherLayout::default().icons[0].clone();
+            icon.id = "many".into();
+            let data = PresetData {
+                icons: vec![icon; MAX_PRESET_ICONS + 1],
+                settings: LauncherSettings::default(),
+            };
+            std::fs::write(
+                &source,
+                serde_json::to_string_pretty(&data).unwrap(),
+            )
+            .unwrap();
+            let error = import_preset(source.to_string_lossy().to_string()).unwrap_err();
+            assert!(error.contains("too many icons"), "got: {error}");
+            let _ = std::fs::remove_file(&source);
+        });
+    }
+
+    #[test]
+    fn preset_name_validation_rejects_path_escape_attempts() {
+        for bad in [
+            "../escape",
+            "a/b",
+            "a\\b",
+            "..",
+            ".",
+            "",
+            "name:with:colon",
+            "name*with*stars",
+        ] {
+            assert!(
+                validate_preset_name(bad).is_err(),
+                "{bad:?} should be rejected"
+            );
+        }
+
+        for good in ["Default", "My Setup", "a-b_c.d", "日本語"] {
+            assert!(
+                validate_preset_name(good).is_ok(),
+                "{good:?} should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn save_and_rename_reject_bad_names() {
+        with_fake_config_dir(|| {
+            assert!(save_preset_as("../evil".into(), vec![], LauncherSettings::default()).is_err());
+            assert!(save_preset_as("ok".into(), vec![], LauncherSettings::default()).is_ok());
+            assert!(rename_preset("ok".into(), "../../x".into()).is_err());
+            assert!(set_active_preset("a/b".into()).is_err());
+            assert!(delete_preset("../evil".into()).is_err());
+
+            assert_eq!(list_presets().unwrap(), vec!["ok"]);
+        });
+    }
+
+    #[test]
+    fn import_sanitizes_foreign_file_stems() {
+        with_fake_config_dir(|| {
+            let source = std::env::temp_dir().join("evil<name>.json");
+            std::fs::write(
+                &source,
+                serde_json::to_string_pretty(&PresetData {
+                    icons: vec![],
+                    settings: LauncherSettings::default(),
+                })
+                .unwrap(),
+            )
+            .unwrap();
+
+            let result = import_preset(source.to_string_lossy().to_string()).unwrap();
+
+            assert_eq!(result.name, "evil_name_");
+            let _ = std::fs::remove_file(&source);
+        });
+    }
+
+    #[test]
+    fn inspect_preset_reports_ambient_capabilities() {
+        with_fake_config_dir(|| {
+            let mut data = malicious_preset();
+
+            neutralize_preset(&mut data);
+            let json = serde_json::to_string_pretty(&data).unwrap();
+            let dest = std::env::temp_dir().join("odeko-inspect.json");
+            std::fs::write(&dest, json).unwrap();
+            let name = import_preset(dest.to_string_lossy().to_string()).unwrap().name;
+            let _ = std::fs::remove_file(&dest);
+
+            let summary = inspect_preset(name).unwrap();
+            assert_eq!(summary.icon_count, 2);
+            assert_eq!(summary.custom_html_widgets, 0);
+            assert_eq!(summary.power_widgets, 1);
+            assert!(summary.global_shortcuts.is_empty());
+            assert!(summary.network_grants.is_empty());
+            assert!(!summary.allow_local_network);
+            assert_eq!(summary.app_icons, 1);
+
+            assert!(inspect_preset("Missing".into()).is_err());
+            assert!(inspect_preset("../evil".into()).is_err());
+        });
+    }
+
+    #[test]
+    fn inspect_preset_reports_unneutralized_preset() {
+        with_fake_config_dir(|| {
+            let data = malicious_preset();
+            let dest = std::env::temp_dir().join("odeko-inspect-raw.json");
+            std::fs::write(&dest, serde_json::to_string_pretty(&data).unwrap()).unwrap();
+            let name = import_preset(dest.to_string_lossy().to_string()).unwrap().name;
+            let _ = std::fs::remove_file(&dest);
+
+            let summary = inspect_preset(name).unwrap();
+            assert!(summary.network_grants.is_empty());
+            assert!(summary.global_shortcuts.is_empty());
+        });
+    }
+
+    #[test]
+    fn get_icon_base64_only_serves_png_files() {
+        with_fake_config_dir(|| {
+            let png = std::env::temp_dir().join("odeko-icon-test.png");
+            std::fs::write(&png, b"\x89PNG\r\n\x1a\nfake").unwrap();
+            let data = get_icon_base64(png.to_string_lossy().to_string()).unwrap();
+            assert!(data.starts_with("data:image/png;base64,"));
+            let _ = std::fs::remove_file(&png);
+
+            let not_png = std::env::temp_dir().join("odeko-icon-test.txt");
+            std::fs::write(&not_png, b"hello").unwrap();
+            assert!(get_icon_base64(not_png.to_string_lossy().to_string()).is_err());
+            let _ = std::fs::remove_file(&not_png);
+
+            assert!(get_icon_base64("/nonexistent/icon.png".into()).is_err());
         });
     }
 }

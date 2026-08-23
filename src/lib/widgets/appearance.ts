@@ -11,14 +11,22 @@ export function getWidgetAppearance(
 	};
 }
 
+// Widget colors can arrive via imported presets, so an unrecognized value is
+// never echoed back into a style string — that would let a crafted value
+// inject extra CSS declarations. Unknown input falls back to the default.
+// Accepted forms: rgb()/rgba() with integer 0-255 channels, 3/6-digit hex,
+// and plain "R, G, B" triples.
 export function colorWithOpacity(color: string, opacity: number): string {
 	const normalizedOpacity = Math.min(1, Math.max(0, opacity));
+
+	const fallback = DEFAULT_WIDGET_APPEARANCE.backgroundColor;
 
 	const rgbMatch = color.match(/^rgba?\(([^)]+)\)$/);
 	if (rgbMatch) {
 		const parts = rgbMatch[1].split(',').map((part) => part.trim());
-		if (parts.length >= 3) {
-			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${normalizedOpacity})`;
+		const channels = parts.slice(0, 3).map(Number);
+		if (parts.length >= 3 && channels.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+			return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${normalizedOpacity})`;
 		}
 	}
 
@@ -31,7 +39,7 @@ export function colorWithOpacity(color: string, opacity: number): string {
 				.join('');
 		}
 
-		if (hex.length === 6) {
+		if (/^[0-9a-fA-F]{6}$/.test(hex)) {
 			const red = parseInt(hex.slice(0, 2), 16);
 			const green = parseInt(hex.slice(2, 4), 16);
 			const blue = parseInt(hex.slice(4, 6), 16);
@@ -39,7 +47,15 @@ export function colorWithOpacity(color: string, opacity: number): string {
 		}
 	}
 
-	return color;
+	const channels = color.split(',').map((part) => part.trim());
+	if (channels.length === 3 && channels.every((c) => /^\d{1,3}$/.test(c))) {
+		const nums = channels.map(Number);
+		if (nums.every((n) => n >= 0 && n <= 255)) {
+			return `rgba(${nums[0]}, ${nums[1]}, ${nums[2]}, ${normalizedOpacity})`;
+		}
+	}
+
+	return fallback;
 }
 
 export function getAppearanceBackground(appearance: WidgetAppearanceConfig): string {

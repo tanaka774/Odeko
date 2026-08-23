@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cn, normalizeColorInput } from './utils';
+import { cn, normalizeColorInput, safeRgbColor, safeCssUrl } from './utils';
 
 describe('cn', () => {
 	it('joins truthy class names with spaces', () => {
@@ -58,5 +58,52 @@ describe('normalizeColorInput', () => {
 		expect(normalizeColorInput('300, 0, 0')).toBeNull();
 		expect(normalizeColorInput('1, 2')).toBeNull();
 		expect(normalizeColorInput('rgba(255, 136, 0, 0.5)')).toBeNull();
+	});
+});
+
+describe('safeRgbColor', () => {
+	it('passes through a valid "R, G, B" triple', () => {
+		expect(safeRgbColor('20, 20, 30', '0, 0, 0')).toBe('20, 20, 30');
+		expect(safeRgbColor('255,136,0', '0, 0, 0')).toBe('255, 136, 0');
+	});
+
+	it('falls back for missing or empty values', () => {
+		expect(safeRgbColor(undefined, '1, 2, 3')).toBe('1, 2, 3');
+		expect(safeRgbColor('', '1, 2, 3')).toBe('1, 2, 3');
+	});
+
+	it('rejects CSS fragments that would break out of rgba(...)', () => {
+		const fallback = '0, 0, 0';
+		expect(
+			safeRgbColor('0, 0, 0); background-image: url(https://evil.example/x) /*', fallback)
+		).toBe(fallback);
+		expect(safeRgbColor('0, 0, 0, 0.5', fallback)).toBe(fallback);
+		expect(safeRgbColor('red, green, blue', fallback)).toBe(fallback);
+		expect(safeRgbColor('300, 0, 0', fallback)).toBe(fallback);
+		expect(safeRgbColor('-1, 0, 0', fallback)).toBe(fallback);
+		expect(safeRgbColor('1e3, 0, 0', fallback)).toBe(fallback);
+		expect(safeRgbColor('0.5, 0, 0', fallback)).toBe(fallback);
+	});
+});
+
+describe('safeCssUrl', () => {
+	it('passes through plain values', () => {
+		expect(safeCssUrl('/home/user/bg.png')).toBe('/home/user/bg.png');
+		expect(safeCssUrl('asset://localhost/home/user/bg.png')).toBe(
+			'asset://localhost/home/user/bg.png'
+		);
+	});
+
+	it('strips characters that could break out of url("...")', () => {
+		expect(safeCssUrl('x") ; background: url(https://evil.example) /*')).toBe(
+			'x  background: urlhttps://evil.example /*'
+		);
+	});
+
+	it('returns null for empty or scrubbed-to-nothing values', () => {
+		expect(safeCssUrl(null)).toBeNull();
+		expect(safeCssUrl(undefined)).toBeNull();
+		expect(safeCssUrl('')).toBeNull();
+		expect(safeCssUrl('   ')).toBeNull();
 	});
 });

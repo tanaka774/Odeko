@@ -15,6 +15,7 @@
 	import { createEditSession } from '$lib/edit-session.svelte';
 	import type { WidgetConfigType } from '$lib/widgets/types';
 	import type { LauncherIcon } from '$lib/icons';
+	import { safeRgbColor } from '$lib/utils';
 
 	interface Props {
 		isEditMode: boolean;
@@ -34,16 +35,16 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let snapToGrid = $derived(settingsStore.settings.magnetic_snap);
 	let gridSize = $derived(settingsStore.settings.grid_size);
-	let gridLineColor = $derived(settingsStore.settings.grid_line_color);
+	let gridLineColor = $derived(
+		safeRgbColor(settingsStore.settings.grid_line_color, '255, 255, 255')
+	);
 	let gridEl: HTMLDivElement | null = null;
 
-	// Multi-selection marquee state
 	let isMarquee = $state(false);
 	let marqueeStart = $state({ x: 0, y: 0 });
 	let marqueeEnd = $state({ x: 0, y: 0 });
 	let marqueeAdditive = $state(false);
 
-	// Multi-selection group-drag state
 	let multiDrag = $state<{
 		startX: number;
 		startY: number;
@@ -53,7 +54,6 @@
 
 	let interactingIds = $state<Set<string>>(new Set());
 
-	// Clear selection when leaving edit mode
 	$effect(() => {
 		if (!isEditMode) {
 			selectedIds = new Set();
@@ -105,9 +105,6 @@
 	}
 
 	async function saveLayout() {
-		// Widgets can trigger this right after startup (e.g. live stats
-		// updates). Saving before the real settings finish loading would
-		// overwrite the preset with defaults, so wait for the load first.
 		if (!settingsStore.isLoaded) {
 			await settingsStore.loadSettings();
 		}
@@ -139,8 +136,6 @@
 			console.error('Failed to reload layout:', error);
 		}
 		if (isEditMode) {
-			// A preset apply is an explicit, immediately-persisted action, so the
-			// edit session adopts the newly loaded icons as its baseline.
 			editSession.enter(icons);
 		}
 	}
@@ -177,8 +172,7 @@
 		const restored = editSession.cancel();
 		if (restored) {
 			icons = restored;
-			// Re-register the original icon shortcuts: keybind changes made
-			// during the session were applied live and must be rolled back too.
+
 			await refreshIconShortcuts(restored);
 		}
 		selectedIds = new Set();
@@ -311,9 +305,7 @@
 		marqueeStart = { x: 0, y: 0 };
 		try {
 			target.releasePointerCapture(event.pointerId);
-		} catch {
-			// may already be released
-		}
+		} catch {}
 	}
 
 	function applyMarqueeSelection(end: { x: number; y: number }) {
@@ -324,7 +316,6 @@
 		const minDrag = 4;
 
 		if (right - left < minDrag && bottom - top < minDrag) {
-			// Treat as a plain click on empty space
 			if (!marqueeAdditive) {
 				clearSelection();
 			}
@@ -443,7 +434,6 @@
 	}
 
 	function handleDragStart() {
-		// Save current state before drag begins (for undo)
 		saveToHistory();
 	}
 
@@ -549,12 +539,8 @@
 			return icon;
 		});
 		if (isEditMode) {
-			// Inside an edit session, stage the change like any other icon
-			// change: it follows edit-mode Save & Exit / Cancel.
 			editSession.markDirty();
 		} else {
-			// View mode has no session, so content edits (e.g. typing in a
-			// memo widget) must persist immediately.
 			void saveLayout();
 		}
 	}
@@ -613,19 +599,14 @@
 		editSession.markDirty();
 	}
 
-	// New items land on top of everything else.
 	function nextZ(): number {
 		return Math.max(0, ...icons.map((icon) => icon.z ?? 0)) + 1;
 	}
 
-	// Give every icon a z following the array order. Old layouts (saved before
-	// z existed) get 1..n, so they stack exactly like the DOM order already did.
 	function normalizeZ(nextIcons: LauncherIcon[]): LauncherIcon[] {
 		return nextIcons.map((icon, index) => ({ ...icon, z: icon.z ?? index + 1 }));
 	}
 
-	// Reassign z = 1..n in array order. Keeps the numbers small and unique so
-	// there are never ties; the relative stacking is unchanged.
 	function renumberZ(nextIcons: LauncherIcon[]): LauncherIcon[] {
 		return nextIcons.map((icon, index) => ({ ...icon, z: index + 1 }));
 	}
@@ -904,7 +885,7 @@
 		background: rgba(100, 180, 255, 0.15);
 		border: 1px dashed rgba(100, 180, 255, 0.6);
 		pointer-events: none;
-		/* Above any per-icon z so the selection box is always visible. */
+
 		z-index: 10000;
 	}
 </style>

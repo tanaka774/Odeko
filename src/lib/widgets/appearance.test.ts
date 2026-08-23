@@ -29,8 +29,21 @@ describe('colorWithOpacity', () => {
 		expect(colorWithOpacity('#00ff00', 0.5)).toBe('rgba(0, 255, 0, 0.5)');
 	});
 
-	it('returns unrecognized colors unchanged', () => {
-		expect(colorWithOpacity('linear-gradient(red, blue)', 0.5)).toBe('linear-gradient(red, blue)');
+	it('accepts plain "R, G, B" triples', () => {
+		expect(colorWithOpacity('10, 20, 30', 0.5)).toBe('rgba(10, 20, 30, 0.5)');
+		expect(colorWithOpacity('10,20,30', 0.5)).toBe('rgba(10, 20, 30, 0.5)');
+	});
+
+	it('never echoes unrecognized colors back into style strings', () => {
+		// These look like color fields but are CSS fragments; echoing them
+		// verbatim would let an imported preset inject CSS declarations.
+		const fallback = 'rgba(0, 0, 0, 0.3)';
+		expect(colorWithOpacity('linear-gradient(red, blue)', 0.5)).toBe(fallback);
+		expect(
+			colorWithOpacity('0, 0, 0); background-image: url(https://evil.example/x) /*', 0.5)
+		).toBe(fallback);
+		expect(colorWithOpacity('#ff0000; color: red', 0.5)).toBe(fallback);
+		expect(colorWithOpacity('rgba(0; background: url(x), 1, 2, 0.5)', 0.5)).toBe(fallback);
 	});
 });
 

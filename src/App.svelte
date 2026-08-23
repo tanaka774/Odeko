@@ -13,6 +13,7 @@
 	import type { LauncherIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
+	import { safeRgbColor, safeCssUrl } from '$lib/utils';
 
 	let iconGrid: IconGrid;
 
@@ -59,8 +60,6 @@
 			return;
 		}
 
-		// Per-icon launch keybinds: only active outside edit mode, only for
-		// launchable icons (apps/links/images). First match wins.
 		if (!isEditMode) {
 			const icons = settingsStore.getCurrentIcons();
 			for (const icon of icons) {
@@ -153,7 +152,6 @@
 		};
 	});
 
-	// Helper to convert background size option to CSS value
 	function getBackgroundSize(size: 'cover' | 'contain' | 'stretch'): string {
 		switch (size) {
 			case 'stretch':
@@ -201,7 +199,7 @@
 		const strength = settings.blur_strength;
 		const region = enabled ? [rect.x, rect.y, rect.width, rect.height] : null;
 
-		// Note: Tauri commands take camelCase argument names on the JS side
+		// Tauri commands take camelCase argument names on the JS side
 		// (exclude_panel -> excludePanel).
 		invoke('set_backdrop_blur', {
 			enabled,
@@ -211,8 +209,12 @@
 		}).catch((error) => console.error('Failed to apply backdrop blur:', error));
 	});
 
-	// Reactive derived values for styling
+	// Style strings below interpolate settings values that can arrive via
+	// imported presets, so colors and the background URL are scrubbed first
+	// (safeRgbColor/safeCssUrl) to prevent CSS injection.
 	let backgroundIsVideo = $derived(isVideoBackground(settingsStore.settings.background_image));
+	let backgroundRgb = $derived(safeRgbColor(settingsStore.settings.background_color, '20, 20, 30'));
+	let backgroundImageUrl = $derived(safeCssUrl(settingsStore.settings.background_image));
 
 	let launcherStyles = $derived({
 		width: `${settingsStore.settings.width_percent}%`,
@@ -221,10 +223,10 @@
 		// itself stays transparent and skips the CSS image layers.
 		backgroundColor: settingsStore.settings.background_image
 			? 'transparent'
-			: `rgba(${settingsStore.settings.background_color}, ${settingsStore.settings.background_opacity})`,
+			: `rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})`,
 		backgroundImage:
-			settingsStore.settings.background_image && !backgroundIsVideo
-				? `linear-gradient(rgba(${settingsStore.settings.background_color}, ${settingsStore.settings.background_opacity}), rgba(${settingsStore.settings.background_color}, ${settingsStore.settings.background_opacity})), url("${settingsStore.settings.background_image}")`
+			backgroundImageUrl && !backgroundIsVideo
+				? `linear-gradient(rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity}), rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})), url("${backgroundImageUrl}")`
 				: 'none',
 		backgroundSize: settingsStore.settings.background_image
 			? `cover, ${getBackgroundSize(settingsStore.settings.background_size)}`
@@ -237,9 +239,6 @@
 			: 'center',
 		borderRadius: `${settingsStore.settings.border_radius}px`
 	});
-
-	// Blurring the desktop behind the window is done natively (per platform)
-	// in src-tauri/src/window_effects.rs; CSS cannot see outside the webview.
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -249,8 +248,7 @@
 	class:macos-compositor-safe={platformStore.isMacos}
 	onclick={hideLauncher}
 >
-	<!-- Backdrop layer: dark overlay behind the launcher. The blur of the
-	     desktop behind the window is applied natively (src-tauri/src/window_effects.rs). -->
+	<!-- Backdrop layer: dark overlay behind the launcher. -->
 	<div
 		class="backdrop"
 		style:background="rgba(0, 0, 0, {settingsStore.settings.backdrop_darkness})"
@@ -280,7 +278,7 @@
 				src={settingsStore.settings.background_image}
 				fit={settingsStore.settings.background_size}
 				position={settingsStore.settings.background_position}
-				tintColor={settingsStore.settings.background_color}
+				tintColor={backgroundRgb}
 				tintOpacity={settingsStore.settings.background_opacity}
 			/>
 		{/if}

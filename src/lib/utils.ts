@@ -14,13 +14,9 @@ export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
 	ref?: U | null;
 };
 
-/**
- * Normalize a user-typed color into the "R, G, B" string format the
- * launcher/icon background settings store. Accepts hex codes
- * ("#ff8800" or "#f80"), plain "R, G, B" triples, and rgb()/rgba()
- * values. Returns null when the input is not a complete, valid color
- * so callers can leave the stored value untouched while typing.
- */
+// Normalize a user-typed color into the "R, G, B" format the launcher
+// settings store. Accepts hex, plain triples and rgb()/rgba(); returns null
+// while the input is incomplete so callers keep the stored value untouched.
 export function normalizeColorInput(value: string): string | null {
 	const trimmed = value.trim();
 
@@ -47,4 +43,26 @@ export function normalizeColorInput(value: string): string | null {
 	if (channels.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return null;
 
 	return `${channels[0]}, ${channels[1]}, ${channels[2]}`;
+}
+
+// Returns `value` only when it is a plain "R, G, B" triple of 0-255 integers.
+// Color fields arrive via imported presets (untrusted) and are interpolated
+// into rgba(...) style strings, so anything else — CSS fragments, url()
+// payloads, quotes — is rejected in favor of the fallback.
+export function safeRgbColor(value: string | undefined, fallback: string): string {
+	if (!value) return fallback;
+	const channels = value.split(',').map((part) => part.trim());
+	if (channels.length !== 3) return fallback;
+	if (!channels.every((channel) => /^\d{1,3}$/.test(channel))) return fallback;
+	const nums = channels.map(Number);
+	if (nums.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return fallback;
+	return `${nums[0]}, ${nums[1]}, ${nums[2]}`;
+}
+
+// Strips characters that could break out of a CSS url("...") string before a
+// preset-controlled background value is interpolated into style strings.
+export function safeCssUrl(value: string | null | undefined): string | null {
+	if (!value) return null;
+	const cleaned = value.replace(/["'()\\;\n\r\t\0]/g, '').trim();
+	return cleaned ? cleaned : null;
 }
