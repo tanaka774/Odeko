@@ -226,6 +226,7 @@
 							<button class="action-btn" onclick={selectFile} type="button">
 								{localIconPath ? 'Change Icon' : 'Set Custom Icon'}
 							</button>
+							<button class="action-btn" onclick={enterUrl} type="button">Enter URL</button>
 							{#if localIconPath}
 								<button class="action-btn danger" onclick={clearImage} type="button">
 									Reset to Default

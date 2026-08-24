@@ -85,3 +85,29 @@ describe('IconSettingsModal background', () => {
 		expect(onUpdateBackground).toHaveBeenCalledWith('icon-1', null, null);
 	});
 });
+
+describe('IconSettingsModal app icon URL thumbnail', () => {
+	it('offers the Enter URL button for app icons', async () => {
+		await openModal();
+
+		expect(screen.getByRole('button', { name: 'Enter URL' })).toBeTruthy();
+	});
+
+	it('saves a remote image URL as the app icon thumbnail', async () => {
+		const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('https://example.com/icon.png');
+		const onUpdateIcon = vi.fn();
+		render(IconSettingsModal, {
+			isOpen: true,
+			icon,
+			onUpdateIcon
+		});
+		await screen.findByRole('dialog');
+
+		fireEvent.click(screen.getByRole('button', { name: 'Enter URL' }));
+		clickSave();
+
+		expect(promptSpy).toHaveBeenCalledWith('Enter image URL:', 'https://');
+		expect(onUpdateIcon).toHaveBeenCalledWith('icon-1', 'https://example.com/icon.png');
+		promptSpy.mockRestore();
+	});
+});
