@@ -62,7 +62,20 @@
 
 	function handlePointerUp(event: PointerEvent) {
 		isDragging = false;
-		(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+		// This handler is bound to <svelte:window>, so event.currentTarget is
+		// the window — never call releasePointerCapture on it (TypeError on
+		// every pointerup in edit mode). Release only when the panel itself
+		// holds the capture.
+		const panel = panelEl;
+		if (!panel) return;
+		try {
+			if (panel.hasPointerCapture(event.pointerId)) {
+				panel.releasePointerCapture(event.pointerId);
+			}
+		} catch {
+			// jsdom and some minimal engines throw NotImplementedError for the
+			// pointer-capture APIs; there is nothing to release there.
+		}
 	}
 </script>
 

@@ -46,6 +46,13 @@
 	async function handleKeydown(event: KeyboardEvent) {
 		if (shouldIgnoreGlobalShortcut(event)) return;
 
+		// Escape closes an open desktop context menu before falling through
+		// to the hide-launcher keybind.
+		if (showContextMenu && event.key === 'Escape') {
+			closeContextMenu();
+			return;
+		}
+
 		const s = settingsStore.settings;
 		if (matchesKeybind(event, s.keybind_hide_launcher)) {
 			hideLauncher();

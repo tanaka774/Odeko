@@ -10,6 +10,7 @@
 	import { loadIconDataUrl } from '$lib/icon-image';
 	import { launchIcon } from '$lib/launch';
 	import { safeRgbColor } from '$lib/utils';
+	import Portal from '$lib/components/Portal.svelte';
 	import {
 		computeResizeRect,
 		getResizeDirAtPoint,
@@ -74,6 +75,9 @@
 	let showContextMenu = $state(false);
 	let contextMenuX = $state(0);
 	let contextMenuY = $state(0);
+	let contextMenuEl = $state<HTMLDivElement | null>(null);
+	let flipContextMenuX = $state(false);
+	let flipContextMenuY = $state(false);
 
 	let hasClickAction = $derived(
 		icon.icon_type === 'app' ||
@@ -123,6 +127,16 @@
 		await launchIcon(icon);
 	}
 
+	// The menu is rendered via Portal (into <body>), so measure it after it
+	// mounts and flip it back toward the window when it would overflow an edge.
+	$effect(() => {
+		if (showContextMenu && contextMenuEl) {
+			const rect = contextMenuEl.getBoundingClientRect();
+			flipContextMenuX = rect.right > window.innerWidth;
+			flipContextMenuY = rect.bottom > window.innerHeight;
+		}
+	});
+
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -130,14 +144,22 @@
 		if (isEditMode) {
 			onSelect(icon.id, false);
 		}
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		contextMenuX = event.clientX - rect.left;
-		contextMenuY = event.clientY - rect.top;
+		// Viewport coordinates: the menu is rendered into <body>, so it no
+		// longer inherits the icon's position.
+		contextMenuX = event.clientX;
+		contextMenuY = event.clientY;
 		showContextMenu = true;
 	}
 
 	function closeContextMenu() {
 		showContextMenu = false;
+	}
+
+	// Escape closes the menu.
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && showContextMenu) {
+			closeContextMenu();
+		}
 	}
 
 	function handleBringToFront() {
@@ -366,42 +388,58 @@
 	{/if}
 </div>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 {#if showContextMenu}
-	<button
-		type="button"
-		class="context-menu-overlay"
-		aria-label="Close context menu"
-		onclick={closeContextMenu}
-		oncontextmenu={(e) => {
-			e.preventDefault();
-			closeContextMenu();
-		}}
-	></button>
-	<div class="context-menu" style="left: {contextMenuX}px; top: {contextMenuY}px;">
-		{#if isEditMode}
-			<button class="context-menu-item" onclick={handleOpenSettingsInEditMode}>
-				<span class="item-label">Open Settings...</span>
-			</button>
-			<div class="context-menu-divider"></div>
-			<button class="context-menu-item" onclick={handleBringToFront}>
-				<span class="item-label">Bring to Front</span>
-			</button>
-			<button class="context-menu-item" onclick={handleSendToBack}>
-				<span class="item-label">Send to Back</span>
-			</button>
-			<div class="context-menu-divider"></div>
-			<button class="context-menu-item" onclick={handleRemove}>
-				<span class="item-label">Remove</span>
-			</button>
-		{:else}
-			<button class="context-menu-item" onclick={handleOpenSettingsFromViewMode}>
-				<span class="item-label">Open Settings...</span>
-			</button>
-			<button class="context-menu-item" onclick={handleEnterEditMode}>
-				<span class="item-label">Enter Edit Mode</span>
-			</button>
-		{/if}
-	</div>
+	<Portal>
+		<button
+			type="button"
+			class="context-menu-overlay"
+			aria-label="Close context menu"
+			onclick={closeContextMenu}
+			oncontextmenu={(e) => {
+				e.preventDefault();
+				closeContextMenu();
+			}}
+		></button>
+		<div
+			bind:this={contextMenuEl}
+			class="context-menu"
+			oncontextmenu={(e) => {
+				// Right-clicking the menu itself must not trigger the webview's
+				// native menu or bubble anywhere.
+				e.preventDefault();
+				e.stopPropagation();
+			}}
+			style="left: {contextMenuX}px; top: {contextMenuY}px; transform: {flipContextMenuX
+				? 'translateX(-100%)'
+				: ''} {flipContextMenuY ? 'translateY(-100%)' : ''};"
+		>
+			{#if isEditMode}
+				<button class="context-menu-item" onclick={handleOpenSettingsInEditMode}>
+					<span class="item-label">Open Settings...</span>
+				</button>
+				<div class="context-menu-divider"></div>
+				<button class="context-menu-item" onclick={handleBringToFront}>
+					<span class="item-label">Bring to Front</span>
+				</button>
+				<button class="context-menu-item" onclick={handleSendToBack}>
+					<span class="item-label">Send to Back</span>
+				</button>
+				<div class="context-menu-divider"></div>
+				<button class="context-menu-item" onclick={handleRemove}>
+					<span class="item-label">Remove</span>
+				</button>
+			{:else}
+				<button class="context-menu-item" onclick={handleOpenSettingsFromViewMode}>
+					<span class="item-label">Open Settings...</span>
+				</button>
+				<button class="context-menu-item" onclick={handleEnterEditMode}>
+					<span class="item-label">Enter Edit Mode</span>
+				</button>
+			{/if}
+		</div>
+	</Portal>
 {/if}
 
 <style>
@@ -529,7 +567,7 @@
 		z-index: 998;
 	}
 	.context-menu {
-		position: absolute;
+		position: fixed;
 		background: rgba(30, 30, 40, 0.95);
 		backdrop-filter: blur(10px);
 		border: 1px solid rgba(255, 255, 255, 0.2);

@@ -148,4 +148,38 @@ describe('IconGrid', () => {
 			})
 		);
 	});
+
+	it('right-click menu renders portaled into document.body and closes via overlay/Escape', async () => {
+		const { container, component } = render(IconGrid, {
+			isEditMode: true,
+			onEnterEditMode: () => {},
+			onExitEditMode: () => {}
+		});
+		await waitFor(() => expect(iconWrappers(container).length).toBe(2));
+		component.enterEditMode();
+
+		const appIcon = container.querySelector<HTMLElement>('.icon-wrapper .app-icon')!;
+		fireEvent.contextMenu(appIcon, { clientX: 115, clientY: 118, button: 2 });
+		await waitFor(() => expect(document.body.querySelector('.context-menu')).toBeTruthy());
+
+		// Portaled into <body> with viewport coordinates, so it escapes the
+		// icon's stacking context (the original z-index bug).
+		const menu = document.body.querySelector<HTMLElement>('.context-menu')!;
+		expect(document.body.contains(menu)).toBe(true);
+		expect(menu.parentElement).not.toBe(container);
+		expect(menu.closest('.icon-wrapper')).toBeNull();
+		expect(menu.style.left).toBe('115px');
+		expect(menu.style.top).toBe('118px');
+
+		// The full-screen overlay closes it on an outside click.
+		const overlay = document.body.querySelector<HTMLElement>('.context-menu-overlay')!;
+		fireEvent.click(overlay);
+		await waitFor(() => expect(document.body.querySelector('.context-menu')).toBeNull());
+
+		// Escape closes it too.
+		fireEvent.contextMenu(appIcon, { clientX: 115, clientY: 118, button: 2 });
+		await waitFor(() => expect(document.body.querySelector('.context-menu')).toBeTruthy());
+		fireEvent.keyDown(window, { key: 'Escape' });
+		await waitFor(() => expect(document.body.querySelector('.context-menu')).toBeNull());
+	});
 });

@@ -12,6 +12,12 @@
 		if (host) {
 			document.body.appendChild(host);
 		}
+		// Remove the host from <body> when this portal is destroyed so a
+		// torn-down component can never leave its popup behind (Svelte only
+		// removes the host from its original render position).
+		return () => {
+			host?.remove();
+		};
 	});
 </script>
 
