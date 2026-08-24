@@ -1,3 +1,79 @@
+Another customizable layer on top of your desktop.
+
+## What is this
+
+This app is like a floating launcher where you can put on icons or widgets. You can set free image, jump url link or app launching path on a icon. Widgets are the ones prepared to expect usual daily usage.
+You can use this app as canvas on desktop to put or customize everything you need. And with one shortcut key you open anytime.
+
+
+<sample image or video>
+
+## Motivation
+
+- Usual background widget or icon system isn't for me, because I always open every app I use and they hide most of the background. It's not good feeing when my favorite customization being overridden by ADHD-opened browser, terminal, editor or anything.
+- It seems to me current desktop customization situation is too os-dependant. I think cross-platform solution should exist.
+- I miss windows live tile! I heard everyone miss that, right?
+
+## Features
+
+### View Mode and Edit Mode
+
+View Mode is default state you can interact with things you put. You can enter Edit Mode from right-click menu or specified keybind.
+You are supposed to change any state of the app in edit mode.
+
+### Icon Types
+
+- image icon: you can add from "Add Image/Link", and set image or gif as thumbnail. Online Url is possible to use.
+- app icon: you can add from "Add App" which shows installed apps on your system. You can set image for thumbnail here too.
+- widget: you can add from "Add Widget", and choose from prepared ones. You can apply custom css to them. And if you need more check custom html.
+
+### Keybind
+
+- app-level: toggle app, enter edit mode...
+- icon-level: trigger clicking event
+
+### Grid & Snapping
+
+- In edit mode, you can snap an icon into grid line to organize its position. You can turn on/off grid-snapping on settings.
+
+### Presets
+
+- You can save the layout as preset, and import or export as json file.
+
+## TODO
+
+- [ ] autostart
+- [ ] browser widget
+- [ ] smooth preset change
+- [ ] improve custom html
+- [ ] Multi-monitor placement
+- [ ] ai chat widget
+- [ ] unaji mode(background mode)
+- [ ] custom css for settings modal or icon thumbnail too?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Odeko
 
 A customizable desktop layer that stays on top of everything, built with Tauri (Rust + Web).
