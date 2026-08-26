@@ -209,52 +209,7 @@ pub struct LauncherLayout {
 impl Default for LauncherLayout {
     fn default() -> Self {
         Self {
-            icons: vec![
-                AppIcon {
-                    id: "terminal".to_string(),
-                    name: "Terminal".to_string(),
-                    path: get_default_terminal(),
-                    icon_path: None,
-                    icon_type: IconType::App,
-                    widget_type: None,
-                    widget_config: None,
-                    url: None,
-                    x: 100.0,
-                    y: 100.0,
-                    width: 80.0,
-                    height: 80.0,
-                    show_name: None,
-                    custom_name: None,
-                    args: None,
-                    keybind: None,
-                    keybind_global: None,
-                    z: None,
-                    background_color: None,
-                    background_opacity: None,
-                },
-                AppIcon {
-                    id: "browser".to_string(),
-                    name: "Browser".to_string(),
-                    path: get_default_browser(),
-                    icon_path: None,
-                    icon_type: IconType::App,
-                    widget_type: None,
-                    widget_config: None,
-                    url: None,
-                    x: 200.0,
-                    y: 100.0,
-                    width: 80.0,
-                    height: 80.0,
-                    show_name: None,
-                    custom_name: None,
-                    args: None,
-                    keybind: None,
-                    keybind_global: None,
-                    z: None,
-                    background_color: None,
-                    background_opacity: None,
-                },
-            ],
+            icons: Vec::new(),
             settings: LauncherSettings::default(),
             active_preset: None,
         }
@@ -435,26 +390,6 @@ fn default_full_strength() -> String {
 
 fn default_grid_line_color() -> String {
     "255, 255, 255".to_string()
-}
-
-fn get_default_terminal() -> String {
-    if cfg!(target_os = "linux") {
-        "alacritty".to_string()
-    } else if cfg!(target_os = "macos") {
-        "/System/Applications/Utilities/Terminal.app".to_string()
-    } else {
-        "powershell".to_string()
-    }
-}
-
-fn get_default_browser() -> String {
-    if cfg!(target_os = "linux") {
-        "firefox".to_string()
-    } else if cfg!(target_os = "macos") {
-        "/Applications/Safari.app".to_string()
-    } else {
-        "https://google.com".to_string()
-    }
 }
 
 fn expand_tilde(arg: &str) -> String {
@@ -1255,17 +1190,16 @@ mod tests {
     }
 
     #[test]
-    fn launcher_layout_default_has_default_icons_and_settings() {
+    fn launcher_layout_default_has_no_icons_and_default_settings() {
         let layout = LauncherLayout::default();
 
-        assert_eq!(layout.icons.len(), 2);
+        assert!(layout.icons.is_empty());
         assert_eq!(layout.active_preset, None);
         assert_eq!(layout.settings.width_percent, 90.0);
 
         let json = serde_json::to_string(&layout).unwrap();
         let back: LauncherLayout = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.icons.len(), 2);
-        assert_eq!(back.icons[0].name, "Terminal");
+        assert!(back.icons.is_empty());
     }
 
     #[test]
@@ -1312,12 +1246,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn default_terminal_and_browser_are_non_empty() {
-        assert!(!get_default_terminal().is_empty());
-        assert!(!get_default_browser().is_empty());
-    }
-
     // --- Preset lifecycle tests ------------------------------------------
     // These run against a throwaway config directory so they never touch the
     // real user config. `ODEKO_CONFIG_DIR` redirects get_config_dir().
@@ -1338,6 +1266,31 @@ mod tests {
         std::env::remove_var("ODEKO_CONFIG_DIR");
         let _ = std::fs::remove_dir_all(&dir);
         result
+    }
+
+    fn test_icon() -> AppIcon {
+        AppIcon {
+            id: "test".into(),
+            name: "Test".into(),
+            path: "/usr/bin/test".into(),
+            icon_path: None,
+            icon_type: IconType::App,
+            widget_type: None,
+            widget_config: None,
+            url: None,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            show_name: None,
+            custom_name: None,
+            args: None,
+            keybind: None,
+            keybind_global: None,
+            z: None,
+            background_color: None,
+            background_opacity: None,
+        }
     }
 
     fn modified_settings() -> LauncherSettings {
@@ -1444,7 +1397,7 @@ mod tests {
     #[test]
     fn save_active_layout_round_trips_icon_positions() {
         with_fake_config_dir(|| {
-            let mut icon = LauncherLayout::default().icons[0].clone();
+            let mut icon = test_icon();
             icon.x = 350.0;
             icon.y = 220.0;
             icon.width = 120.0;
@@ -1473,7 +1426,7 @@ mod tests {
 
             let layout = load_active_layout().unwrap();
             assert_eq!(layout.active_preset, None);
-            assert_eq!(layout.icons.len(), 2);
+            assert!(layout.icons.is_empty());
             assert_eq!(layout.settings.grid_size, 40.0);
         });
     }
@@ -1569,7 +1522,7 @@ mod tests {
         settings.network_grants = vec!["api.evil.example".to_string()];
         settings.allow_local_network = true;
 
-        let mut shortcut_icon = LauncherLayout::default().icons[0].clone();
+        let mut shortcut_icon = test_icon();
         shortcut_icon.name = "Weird".into();
         shortcut_icon.keybind = Some(KeybindConfig {
             key: "KeyX".into(),
@@ -1657,7 +1610,7 @@ mod tests {
     fn import_rejects_presets_with_too_many_icons() {
         with_fake_config_dir(|| {
             let source = std::env::temp_dir().join("odeko-many-icons.json");
-            let mut icon = LauncherLayout::default().icons[0].clone();
+            let mut icon = test_icon();
             icon.id = "many".into();
             let data = PresetData {
                 icons: vec![icon; MAX_PRESET_ICONS + 1],

@@ -655,30 +655,7 @@
 	}
 
 	function getDefaultIcons(): LauncherIcon[] {
-		return [
-			{
-				id: 'terminal',
-				name: 'Terminal',
-				path: 'alacritty',
-				icon_type: 'app',
-				x: 100,
-				y: 100,
-				width: 80,
-				height: 80,
-				z: 1
-			},
-			{
-				id: 'browser',
-				name: 'Firefox',
-				path: 'firefox',
-				icon_type: 'app',
-				x: 200,
-				y: 100,
-				width: 80,
-				height: 80,
-				z: 2
-			}
-		];
+		return [];
 	}
 </script>
 
@@ -722,11 +699,6 @@
 	>
 		{#if isLoading}
 			<div class="loading">Loading apps...</div>
-		{:else if icons.length === 0}
-			<div class="empty-state">
-				<p>No items configured</p>
-				<p class="hint">Enter edit mode to add apps, images, or links</p>
-			</div>
 		{:else}
 			{#each icons as icon (icon.id)}
 				<div
@@ -866,19 +838,13 @@
 	.icon-wrapper {
 		position: absolute;
 	}
-	.loading,
-	.empty-state {
+	.loading {
 		position: absolute;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
 		text-align: center;
 		color: rgba(255, 255, 255, 0.6);
-	}
-	.hint {
-		font-size: 14px;
-		color: rgba(255, 255, 255, 0.4);
-		margin-top: 8px;
 	}
 	.marquee-box {
 		position: absolute;
