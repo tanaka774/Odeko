@@ -41,21 +41,6 @@
 		forced_power_confirmation: number;
 	}
 
-	interface PresetSummary {
-		icon_count: number;
-		app_icons: number;
-		link_icons: number;
-		custom_html_widgets: number;
-		power_widgets: number;
-		global_shortcuts: string[];
-		network_grants: string[];
-		allow_local_network: boolean;
-	}
-
-	// Review step shown before a preset with ambient capabilities (custom
-	// widgets, global shortcuts, network grants, power actions) is applied.
-	let presetReview = $state<{ name: string; summary: PresetSummary } | null>(null);
-
 	let activeTab = $state<'appearance' | 'edit' | 'keys' | 'presets'>('appearance');
 
 	let settingsContentEl: HTMLElement | undefined = $state();
@@ -250,42 +235,6 @@
 	const backdrop = createBackdropClickHandler(close);
 
 	async function handleSave() {
-		if (selectedPreset && selectedPreset !== settingsStore.activePreset) {
-			// Applying a different preset can bring in custom HTML widgets,
-			// global shortcuts, network grants and power actions; review its
-			// contents before activating it.
-			try {
-				const summary = await invoke<PresetSummary>('inspect_preset', {
-					name: selectedPreset
-				});
-				if (needsPresetReview(summary)) {
-					presetReview = { name: selectedPreset, summary };
-					return; // the dialog's Apply button calls finishSave
-				}
-			} catch (error) {
-				presetError = String(error);
-				return;
-			}
-		}
-		await finishSave();
-	}
-
-	function needsPresetReview(summary: PresetSummary): boolean {
-		return (
-			summary.custom_html_widgets > 0 ||
-			summary.power_widgets > 0 ||
-			summary.global_shortcuts.length > 0 ||
-			summary.network_grants.length > 0 ||
-			summary.allow_local_network
-		);
-	}
-
-	async function confirmApplyPreset(apply: boolean) {
-		const review = presetReview;
-		presetReview = null;
-		if (!review) return;
-		if (!apply) return;
-		selectedPreset = review.name;
 		await finishSave();
 	}
 
@@ -827,51 +776,6 @@
 		</div>
 	</div>
 
-	{#if presetReview}
-		<div class="review-overlay" role="alertdialog" aria-label="Apply preset review">
-			<div class="review-card">
-				<h3>Apply preset "{presetReview.name}"?</h3>
-				<p class="review-intro">
-					This preset contains capabilities that act without being clicked:
-				</p>
-				<ul class="review-list">
-					{#if presetReview.summary.custom_html_widgets > 0}
-						<li>
-							{presetReview.summary.custom_html_widgets} custom HTML widget(s) — run sandboxed scripts
-							that can request network access
-						</li>
-					{/if}
-					{#if presetReview.summary.global_shortcuts.length > 0}
-						<li>
-							Global shortcut(s): {presetReview.summary.global_shortcuts.join(', ')} — pressing the key
-							combination launches the bound item
-						</li>
-					{/if}
-					{#if presetReview.summary.network_grants.length > 0}
-						<li>
-							Network access grant(s): {presetReview.summary.network_grants.join(', ')}
-						</li>
-					{/if}
-					{#if presetReview.summary.allow_local_network}
-						<li>Local network access enabled (widgets may fetch private/LAN addresses)</li>
-					{/if}
-					{#if presetReview.summary.power_widgets > 0}
-						<li>
-							{presetReview.summary.power_widgets} power widget(s) (sleep / restart / shutdown)
-						</li>
-					{/if}
-					<li class="review-muted">
-						{presetReview.summary.icon_count} icon(s) total ({presetReview.summary.app_icons} app launch,
-						{presetReview.summary.link_icons} link)
-					</li>
-				</ul>
-				<div class="review-actions">
-					<button class="cancel-btn" onclick={() => confirmApplyPreset(false)}>Cancel</button>
-					<button class="save-btn" onclick={() => confirmApplyPreset(true)}>Apply Preset</button>
-				</div>
-			</div>
-		</div>
-	{/if}
 {/if}
 
 <style>
@@ -1219,67 +1123,6 @@
 		background: rgba(34, 197, 94, 0.2);
 		color: rgba(150, 255, 150, 1);
 		border: 1px solid rgba(34, 197, 94, 0.4);
-	}
-
-	/* Review step before applying a preset with ambient capabilities. */
-	.review-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1100;
-		padding: 20px;
-		box-sizing: border-box;
-	}
-
-	.review-card {
-		width: min(480px, 92%);
-		background: rgba(30, 30, 40, 0.98);
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 14px;
-		padding: 20px;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-		color: white;
-	}
-
-	.review-card h3 {
-		margin: 0 0 10px;
-		font-size: 1.1rem;
-		font-weight: 600;
-		overflow-wrap: anywhere;
-	}
-
-	.review-intro {
-		margin: 0 0 10px;
-		font-size: 0.9rem;
-		color: rgba(255, 255, 255, 0.75);
-	}
-
-	.review-list {
-		margin: 0 0 16px;
-		padding-left: 1.3em;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		font-size: 0.875rem;
-		line-height: 1.4;
-		color: rgba(255, 255, 255, 0.85);
-		overflow-wrap: anywhere;
-	}
-
-	.review-muted {
-		color: rgba(255, 255, 255, 0.5);
-		list-style: none;
-		margin-left: -1.3em;
-		margin-top: 4px;
-	}
-
-	.review-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 10px;
 	}
 
 	.tab-nav {

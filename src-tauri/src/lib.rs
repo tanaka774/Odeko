@@ -1,7 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
-use commands::launcher::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset, inspect_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_launcher, get_icon_base64};
+use commands::launcher::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_launcher, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
 use commands::media_server::{register_background_video, MediaServerState};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
@@ -135,7 +135,7 @@ pub fn run() {
             terminal_create_shell, terminal_write, terminal_resize, terminal_start_reader,
             get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players,
             execute_sleep, execute_restart, execute_shutdown,
-            list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset, inspect_preset,
+            list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset,
             update_global_shortcut, update_icon_shortcuts, get_platform, hide_launcher, get_icon_base64,
             register_background_video, set_backdrop_blur, widget_fetch
         ])

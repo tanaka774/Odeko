@@ -247,21 +247,6 @@ pub struct ImportResult {
     pub forced_power_confirmation: usize,
 }
 
-/// What applying a preset would bring in. Shown to the user before the
-/// preset is activated so ambient capabilities (widgets, shortcuts, network
-/// grants, power actions) are a conscious choice, not a silent import.
-#[derive(Debug, Serialize, Default)]
-pub struct PresetSummary {
-    pub icon_count: usize,
-    pub app_icons: usize,
-    pub link_icons: usize,
-    pub custom_html_widgets: usize,
-    pub power_widgets: usize,
-    pub global_shortcuts: Vec<String>,
-    pub network_grants: Vec<String>,
-    pub allow_local_network: bool,
-}
-
 fn is_power_widget_icon(icon: &AppIcon) -> bool {
     icon.icon_type == IconType::Widget
         && matches!(
@@ -354,24 +339,6 @@ fn sanitize_preset_name(name: &str) -> String {
     } else {
         cleaned.to_string()
     }
-}
-
-fn keybind_label(kb: &KeybindConfig) -> String {
-    let mut parts = Vec::new();
-    if kb.ctrl {
-        parts.push("Ctrl");
-    }
-    if kb.alt {
-        parts.push("Alt");
-    }
-    if kb.shift {
-        parts.push("Shift");
-    }
-    if kb.meta {
-        parts.push("Super");
-    }
-    parts.push(kb.key.as_str());
-    parts.join("+")
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -955,52 +922,6 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
         cleared_global_shortcuts,
         forced_power_confirmation,
     })
-}
-
-/// Reads a preset's contents without activating it. The UI shows this before
-/// applying a preset, so ambient capabilities (custom HTML widgets, global
-/// shortcuts, network grants, power widgets) are an explicit choice.
-#[tauri::command]
-pub fn inspect_preset(name: String) -> Result<PresetSummary, String> {
-    validate_preset_name(&name)?;
-    let preset_path = get_presets_dir().join(format!("{}.json", name));
-    if !preset_path.exists() {
-        return Err(format!("Preset '{}' not found", name));
-    }
-    let content = std::fs::read_to_string(&preset_path)
-        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
-    let data: PresetData = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
-
-    let mut summary = PresetSummary {
-        icon_count: data.icons.len(),
-        allow_local_network: data.settings.allow_local_network,
-        network_grants: data.settings.network_grants,
-        ..Default::default()
-    };
-    for icon in &data.icons {
-        match icon.icon_type {
-            IconType::App => summary.app_icons += 1,
-            IconType::Link => summary.link_icons += 1,
-            _ => {}
-        }
-        if icon.icon_type == IconType::Widget {
-            match icon.widget_type.as_deref() {
-                Some("custom") => summary.custom_html_widgets += 1,
-                Some("sleep") | Some("restart") | Some("shutdown") => summary.power_widgets += 1,
-                _ => {}
-            }
-        }
-        if icon.keybind_global == Some(true) {
-            let key = icon
-                .keybind
-                .as_ref()
-                .map(keybind_label)
-                .unwrap_or_default();
-            summary.global_shortcuts.push(format!("{} ({})", icon.name, key));
-        }
-    }
-    Ok(summary)
 }
 
 #[tauri::command]
@@ -1684,47 +1605,6 @@ mod tests {
 
             assert_eq!(result.name, "evil_name_");
             let _ = std::fs::remove_file(&source);
-        });
-    }
-
-    #[test]
-    fn inspect_preset_reports_ambient_capabilities() {
-        with_fake_config_dir(|| {
-            let mut data = malicious_preset();
-
-            neutralize_preset(&mut data);
-            let json = serde_json::to_string_pretty(&data).unwrap();
-            let dest = std::env::temp_dir().join("odeko-inspect.json");
-            std::fs::write(&dest, json).unwrap();
-            let name = import_preset(dest.to_string_lossy().to_string()).unwrap().name;
-            let _ = std::fs::remove_file(&dest);
-
-            let summary = inspect_preset(name).unwrap();
-            assert_eq!(summary.icon_count, 2);
-            assert_eq!(summary.custom_html_widgets, 0);
-            assert_eq!(summary.power_widgets, 1);
-            assert!(summary.global_shortcuts.is_empty());
-            assert!(summary.network_grants.is_empty());
-            assert!(!summary.allow_local_network);
-            assert_eq!(summary.app_icons, 1);
-
-            assert!(inspect_preset("Missing".into()).is_err());
-            assert!(inspect_preset("../evil".into()).is_err());
-        });
-    }
-
-    #[test]
-    fn inspect_preset_reports_unneutralized_preset() {
-        with_fake_config_dir(|| {
-            let data = malicious_preset();
-            let dest = std::env::temp_dir().join("odeko-inspect-raw.json");
-            std::fs::write(&dest, serde_json::to_string_pretty(&data).unwrap()).unwrap();
-            let name = import_preset(dest.to_string_lossy().to_string()).unwrap().name;
-            let _ = std::fs::remove_file(&dest);
-
-            let summary = inspect_preset(name).unwrap();
-            assert!(summary.network_grants.is_empty());
-            assert!(summary.global_shortcuts.is_empty());
         });
     }
 
