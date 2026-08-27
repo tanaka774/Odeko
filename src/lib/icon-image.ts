@@ -46,7 +46,7 @@ export async function loadIconDataUrl(iconPath: string | undefined): Promise<str
 	}
 }
 
-function isBrowserImageUrl(path: string): boolean {
+export function isBrowserImageUrl(path: string): boolean {
 	return (
 		path.startsWith('http://') ||
 		path.startsWith('https://') ||

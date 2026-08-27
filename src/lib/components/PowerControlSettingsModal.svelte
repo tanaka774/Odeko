@@ -143,6 +143,14 @@
 		localConfig.iconPath = '';
 	}
 
+	function enterIconUrl() {
+		const url = prompt('Enter image URL:', localConfig.iconPath || 'https://');
+		if (url && url.trim()) {
+			localConfig.iconType = 'custom';
+			localConfig.iconPath = url.trim();
+		}
+	}
+
 	function clearKeybind() {
 		recorderValue = { ...EMPTY_KEYBIND };
 	}
@@ -244,6 +252,7 @@
 								<button class="select-btn" onclick={selectCustomIcon} type="button">
 									Select Image
 								</button>
+								<button class="select-btn" onclick={enterIconUrl} type="button"> Enter URL </button>
 								{#if localConfig.iconPath}
 									<button class="reset-btn" onclick={resetToDefaultIcon} type="button">Reset</button
 									>
@@ -258,7 +267,7 @@
 			</SettingSection>
 		{:else}
 			<WidgetAppearanceSettings
-				widgetType={widgetType}
+				{widgetType}
 				bind:appearance={localConfig.appearance}
 				defaults={defaultAppearance}
 				hideFields={localConfig.showLabel ? [] : ['textColor']}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PowerControlWidgetConfig } from './types';
 	import { convertFileSrc } from '@tauri-apps/api/core';
+	import { isBrowserImageUrl } from '$lib/icon-image';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import { executePowerAction, type PowerActionType } from '$lib/power-control';
 
@@ -40,8 +41,15 @@
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 
-	// Get icon URL (custom or default)
-	const iconUrl = $derived(iconType === 'custom' && iconPath ? convertFileSrc(iconPath) : null);
+	// Get icon URL (custom or default). Browser image URLs (http/https/asset/data)
+	// are used as-is; local file paths are converted to asset protocol URLs.
+	const iconUrl = $derived(
+		iconType === 'custom' && iconPath
+			? isBrowserImageUrl(iconPath)
+				? iconPath
+				: convertFileSrc(iconPath)
+			: null
+	);
 
 	// Execute the power action
 	async function executeAction() {
@@ -121,8 +129,9 @@
 	}
 
 	.custom-icon {
-		width: 48px;
-		height: 48px;
+		width: 100%;
+		flex: 1;
+		min-height: 0;
 		object-fit: contain;
 		border-radius: 8px;
 	}
