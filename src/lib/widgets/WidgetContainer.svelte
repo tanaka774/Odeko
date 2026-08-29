@@ -4,8 +4,8 @@
 
 	interface Props {
 		widgetType: WidgetType;
-		/** Stable instance id; exposed as `data-widget-id` so user custom CSS
-		 *  can be scoped to exactly this widget. */
+		/** Stable instance id; exposed as `data-item-id` so user custom CSS
+		 *  can be scoped to exactly this item. */
 		id?: string;
 		config?: WidgetConfigType;
 		isEditMode?: boolean;
@@ -25,7 +25,7 @@
 	const component = $derived(WIDGET_COMPONENTS[widgetType]);
 </script>
 
-<div class="widget-container" data-widget-id={id}>
+<div class="widget-container" data-item-id={id}>
 	{#if component}
 		{@const Widget = component}
 		<Widget {config} widgetId={id} {isEditMode} {borderRadius} {onConfigChange} />

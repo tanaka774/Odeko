@@ -136,8 +136,6 @@ export interface LauncherSettings {
 	grid_size: number;
 	/** Grid line color in "R, G, B" format (edit mode only). */
 	grid_line_color: string;
-	icon_background_color: string;
-	icon_background_opacity: number;
 	keybind_toggle_launcher: KeybindConfig;
 	keybind_toggle_edit: KeybindConfig;
 	keybind_hide_launcher: KeybindConfig;
@@ -172,8 +170,6 @@ const DEFAULT_SETTINGS: LauncherSettings = {
 	magnetic_snap: true,
 	grid_size: 40,
 	grid_line_color: '255, 255, 255',
-	icon_background_color: '255, 255, 255',
-	icon_background_opacity: 0.2,
 	keybind_toggle_launcher: { ...DEFAULT_KEYBINDS.toggle_launcher },
 	keybind_toggle_edit: { ...DEFAULT_KEYBINDS.toggle_edit },
 	keybind_hide_launcher: { ...DEFAULT_KEYBINDS.hide_launcher },

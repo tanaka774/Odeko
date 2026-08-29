@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, cleanup, waitFor } from '@testing-library/svelte';
+import { render, fireEvent, screen, cleanup } from '@testing-library/svelte';
 
 vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn(),
@@ -27,14 +27,14 @@ const icon = {
 };
 
 async function openModal(iconOverrides: Record<string, unknown> = {}) {
-	const onUpdateBackground = vi.fn();
+	const onUpdateAppearance = vi.fn();
 	render(IconSettingsModal, {
 		isOpen: true,
 		icon: { ...icon, ...iconOverrides },
-		onUpdateBackground
+		onUpdateAppearance
 	});
 	await screen.findByRole('dialog');
-	return onUpdateBackground;
+	return onUpdateAppearance;
 }
 
 function clickSave() {
@@ -47,42 +47,31 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe('IconSettingsModal background', () => {
-	it('keeps following the global background when custom is unchecked', async () => {
-		const onUpdateBackground = await openModal();
+describe('IconSettingsModal appearance', () => {
+	it('saves no appearance config when nothing was customized', async () => {
+		const onUpdateAppearance = await openModal();
 
 		clickSave();
 
-		expect(onUpdateBackground).toHaveBeenCalledWith('icon-1', null, null);
+		expect(onUpdateAppearance).toHaveBeenCalledWith('icon-1', undefined);
 	});
 
-	it('persists a custom background color and opacity when enabled', async () => {
-		const onUpdateBackground = await openModal();
+	it('persists appearance changes made in the appearance settings', async () => {
+		const onUpdateAppearance = await openModal();
 
-		fireEvent.click(screen.getByLabelText('Custom background color'));
-		await waitFor(() => {
-			expect(document.querySelector('input[type="color"]')).toBeTruthy();
-		});
-		const color = document.querySelector('input[type="color"]') as HTMLInputElement;
+		const color = screen.getByLabelText('Background Color') as HTMLInputElement;
 		fireEvent.input(color, { target: { value: '#ff0000' } });
 
 		clickSave();
 
-		expect(onUpdateBackground).toHaveBeenCalledWith('icon-1', '255, 0, 0', 0.2);
+		expect(onUpdateAppearance).toHaveBeenCalledWith('icon-1', { backgroundColor: '#ff0000' });
 	});
 
-	it('prefills an existing override and clears it when unchecked', async () => {
-		const onUpdateBackground = await openModal({
-			background_color: '10, 20, 30',
-			background_opacity: 0.5
-		});
-		const checkbox = screen.getByLabelText('Custom background color') as HTMLInputElement;
-		expect(checkbox.checked).toBe(true);
+	it('prefills the existing appearance config', async () => {
+		await openModal({ appearance: { backgroundOpacity: 0.5 } });
 
-		fireEvent.click(checkbox);
-		clickSave();
-
-		expect(onUpdateBackground).toHaveBeenCalledWith('icon-1', null, null);
+		const opacity = screen.getByLabelText('Background Opacity: 50%') as HTMLInputElement;
+		expect(opacity.value).toBe('0.5');
 	});
 });
 

@@ -13,7 +13,7 @@
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import { settingsStore, matchesKeybind, type KeybindConfig } from '$lib/stores/settings.svelte';
 	import { createEditSession } from '$lib/edit-session.svelte';
-	import type { WidgetConfigType } from '$lib/widgets/types';
+	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 	import type { LauncherIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
 
@@ -506,17 +506,9 @@
 		editSession.markDirty();
 	}
 
-	function handleBackgroundChange(id: string, color: string | null, opacity: number | null) {
+	function handleAppearanceChange(id: string, appearance: WidgetAppearanceConfig | undefined) {
 		saveToHistory();
-		icons = icons.map((icon) =>
-			icon.id === id
-				? {
-						...icon,
-						background_color: color ?? undefined,
-						background_opacity: opacity ?? undefined
-					}
-				: icon
-		);
+		icons = icons.map((icon) => (icon.id === id ? { ...icon, appearance } : icon));
 		editSession.markDirty();
 	}
 
@@ -807,7 +799,7 @@
 			onUpdateArgs={handleArgsChange}
 			onUpdateKeybind={handleKeybindChange}
 			onUpdateKeybindGlobal={handleKeybindGlobalChange}
-			onUpdateBackground={handleBackgroundChange}
+			onUpdateAppearance={handleAppearanceChange}
 		/>
 	</Portal>
 </div>

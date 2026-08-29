@@ -17,9 +17,7 @@ describe('WidgetCss', () => {
 
 		const style = headStyle();
 		expect(style).not.toBeNull();
-		expect(style?.textContent).toBe(
-			'[data-widget-id="w1"] .time-display { color: red; }'
-		);
+		expect(style?.textContent).toBe('[data-item-id="w1"] .time-display { color: red; }');
 	});
 
 	it('injects nothing when custom CSS is disabled or empty', () => {

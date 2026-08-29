@@ -3,7 +3,7 @@
 	import type { WidgetAppearanceConfig } from './types';
 
 	interface Props {
-		/** Widget instance id; must match the `data-widget-id` on the widget's container. */
+		/** Stable grid item id; must match the `data-item-id` on the item's root. */
 		id: string;
 		appearance?: WidgetAppearanceConfig;
 	}
@@ -21,7 +21,7 @@
 
 		const styleEl = document.createElement('style');
 		styleEl.dataset.widgetCss = id;
-		styleEl.textContent = prefixSelectors(css, `[data-widget-id="${id}"]`);
+		styleEl.textContent = prefixSelectors(css, `[data-item-id="${id}"]`);
 		document.head.appendChild(styleEl);
 
 		return () => {

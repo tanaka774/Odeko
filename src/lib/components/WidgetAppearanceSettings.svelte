@@ -3,11 +3,14 @@
 		DEFAULT_WIDGET_APPEARANCE,
 		type WidgetAppearanceConfig,
 		type WidgetBorderStyle,
-		type WidgetAppearanceField,
-		type WidgetType
+		type WidgetAppearanceField
 	} from '$lib/widgets/types';
 	import { colorToHexInputValue } from '$lib/widgets/appearance';
-	import { SHARED_APPEARANCE_VARIABLES, WIDGET_CSS_API } from '$lib/widgets/custom-css';
+	import {
+		SHARED_APPEARANCE_VARIABLES,
+		WIDGET_CSS_API,
+		type CssApiItemType
+	} from '$lib/widgets/custom-css';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import './settings/modal-form.css';
@@ -17,8 +20,8 @@
 		defaults?: Partial<WidgetAppearanceConfig>;
 		title?: string;
 		hideFields?: WidgetAppearanceField[];
-		/** Widget type, used to show the "What can I style?" reference. */
-		widgetType?: WidgetType;
+		/** Item type, used to show the "What can I style?" reference. */
+		widgetType?: CssApiItemType;
 	}
 
 	let {

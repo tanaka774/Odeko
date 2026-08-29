@@ -480,8 +480,7 @@ mod tests {
             keybind: None,
             keybind_global: None,
             z: None,
-            background_color: None,
-            background_opacity: None,
+            appearance: None,
         }
     }
 

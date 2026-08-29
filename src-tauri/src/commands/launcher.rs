@@ -45,12 +45,10 @@ pub struct AppIcon {
     pub keybind_global: Option<bool>,
     #[serde(default)]
     pub z: Option<u32>,
-    // Per-icon background override. When both are None the icon follows the
-    // launcher-wide icon_background_color / icon_background_opacity settings.
+    // Appearance for non-widget grid items, sharing the widget appearance
+    // system (same JSON shape as widget_config.appearance).
     #[serde(default)]
-    pub background_color: Option<String>,
-    #[serde(default)]
-    pub background_opacity: Option<f64>,
+    pub appearance: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -123,10 +121,6 @@ pub struct LauncherSettings {
     #[serde(default = "default_grid_line_color")]
     pub grid_line_color: String,
     #[serde(default)]
-    pub icon_background_color: String,
-    #[serde(default)]
-    pub icon_background_opacity: f32,
-    #[serde(default)]
     pub keybind_toggle_launcher: KeybindConfig,
     #[serde(default)]
     pub keybind_toggle_edit: KeybindConfig,
@@ -162,8 +156,6 @@ impl Default for LauncherSettings {
             magnetic_snap: true,
             grid_size: 40.0,
             grid_line_color: "255, 255, 255".to_string(),
-            icon_background_color: "255, 255, 255".to_string(),
-            icon_background_opacity: 0.2,
             keybind_toggle_launcher: KeybindConfig {
                 key: "KeyZ".to_string(),
                 ctrl: false,
@@ -1026,8 +1018,7 @@ mod tests {
         assert_eq!(icon.keybind_global, None);
         assert_eq!(icon.show_name, None);
         assert_eq!(icon.custom_name, None);
-        assert_eq!(icon.background_color, None);
-        assert_eq!(icon.background_opacity, None);
+        assert_eq!(icon.appearance, None);
     }
 
     #[test]
@@ -1057,8 +1048,11 @@ mod tests {
             }),
             keybind_global: Some(true),
             z: Some(5),
-            background_color: Some("10, 20, 30".into()),
-            background_opacity: Some(0.35),
+            appearance: Some(serde_json::json!({
+                "backgroundColor": "rgba(10, 20, 30, 0.35)",
+                "backgroundOpacity": 0.35,
+                "borderRadius": 8
+            })),
         };
 
         let json = serde_json::to_string(&icon).unwrap();
@@ -1069,16 +1063,16 @@ mod tests {
         assert_eq!(value["url"], "https://example.com");
         assert_eq!(value["keybind"]["ctrl"], true);
         assert_eq!(value["keybind_global"], true);
-        assert_eq!(value["background_color"], "10, 20, 30");
-        assert_eq!(value["background_opacity"], 0.35);
+        assert_eq!(value["appearance"]["backgroundColor"], "rgba(10, 20, 30, 0.35)");
+        assert_eq!(value["appearance"]["backgroundOpacity"], 0.35);
+        assert_eq!(value["appearance"]["borderRadius"], 8);
 
         let back: AppIcon = serde_json::from_str(&json).unwrap();
         assert_eq!(back.id, icon.id);
         assert_eq!(back.icon_type, icon.icon_type);
         assert_eq!(back.keybind, icon.keybind);
         assert_eq!(back.keybind_global, icon.keybind_global);
-        assert_eq!(back.background_color, icon.background_color);
-        assert_eq!(back.background_opacity, icon.background_opacity);
+        assert_eq!(back.appearance, icon.appearance);
     }
 
     #[test]
@@ -1209,8 +1203,7 @@ mod tests {
             keybind: None,
             keybind_global: None,
             z: None,
-            background_color: None,
-            background_opacity: None,
+            appearance: None,
         }
     }
 
@@ -1233,8 +1226,6 @@ mod tests {
             magnetic_snap: false,
             grid_size: 64.0,
             grid_line_color: "200, 100, 50".into(),
-            icon_background_color: "1, 2, 3".into(),
-            icon_background_opacity: 0.33,
             keybind_toggle_launcher: KeybindConfig {
                 key: "KeyA".into(),
                 ctrl: true,
@@ -1292,8 +1283,6 @@ mod tests {
             assert!(!got.magnetic_snap);
             assert_eq!(got.grid_size, 64.0);
             assert_eq!(got.grid_line_color, "200, 100, 50");
-            assert_eq!(got.icon_background_color, "1, 2, 3");
-            assert_eq!(got.icon_background_opacity, 0.33);
             assert_eq!(got.keybind_toggle_launcher, modified.keybind_toggle_launcher);
             assert_eq!(got.keybind_toggle_edit, modified.keybind_toggle_edit);
             assert_eq!(got.keybind_hide_launcher, modified.keybind_hide_launcher);

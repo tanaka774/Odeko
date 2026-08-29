@@ -9,8 +9,14 @@
 	import { settingsStore, keybindToString } from '$lib/stores/settings.svelte';
 	import { loadIconDataUrl } from '$lib/icon-image';
 	import { launchIcon } from '$lib/launch';
-	import { safeRgbColor } from '$lib/utils';
 	import Portal from '$lib/components/Portal.svelte';
+	import WidgetCss from '$lib/widgets/WidgetCss.svelte';
+	import {
+		getWidgetAppearance,
+		getAppearanceBackground,
+		getAppearanceBorder,
+		colorWithOpacity
+	} from '$lib/widgets/appearance';
 	import {
 		computeResizeRect,
 		getResizeDirAtPoint,
@@ -89,17 +95,24 @@
 		isEditMode ? (hoverResizeDir ? RESIZE_CURSORS[hoverResizeDir] : 'move') : undefined
 	);
 
-	// Per-icon override wins; otherwise follow the launcher-wide setting. The
-	// value can arrive via an imported preset, so it is scrubbed before
-	// interpolation into the --icon-bg-color CSS variable.
-	let bgColor = $derived(
-		safeRgbColor(
-			icon.background_color ?? settingsStore.settings.icon_background_color,
-			'255, 255, 255'
+	// Icons share the widget appearance system. Unset fields fall back to the
+	// icon defaults below; the launcher-wide border_radius is the default
+	// corner radius, mirroring how widgets resolve theirs (DraggableWidget).
+	const appearance = $derived(
+		getWidgetAppearance(
+			{ appearance: icon.appearance },
+			{
+				backgroundColor: 'rgba(255, 255, 255, 1)',
+				backgroundOpacity: 0.2,
+				borderRadius: settingsStore.settings.border_radius,
+				padding: icon.icon_type === 'image' ? 0 : 8
+			}
 		)
 	);
-	let bgOpacity = $derived(
-		icon.background_opacity ?? settingsStore.settings.icon_background_opacity
+	const widgetBackground = $derived(getAppearanceBackground(appearance));
+	const widgetBorder = $derived(getAppearanceBorder(appearance));
+	const hoverBackground = $derived(
+		colorWithOpacity(appearance.backgroundColor, Math.min(1, appearance.backgroundOpacity + 0.1))
 	);
 
 	const MIN_SIZE = 40;
@@ -310,8 +323,8 @@
 	class:image-type={icon.icon_type === 'image'}
 	class:link-type={icon.icon_type === 'link'}
 	class:no-click-action={!isEditMode && !hasClickAction}
-	style="width: 100%; height: 100%; border-radius: {settingsStore.settings
-		.border_radius}px; --icon-bg-color: {bgColor}; --icon-bg-opacity: {bgOpacity}; cursor: {cursor};"
+	data-item-id={icon.id}
+	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
 	role="button"
 	tabindex="0"
 	onclick={handleClick}
@@ -386,6 +399,8 @@
 			{keybindToString(icon.keybind)}
 		</div>
 	{/if}
+
+	<WidgetCss id={icon.id} appearance={icon.appearance} />
 </div>
 
 <svelte:window onkeydown={handleWindowKeydown} />
@@ -449,15 +464,18 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: rgba(var(--icon-bg-color, 255, 255, 255), var(--icon-bg-opacity, 0.2));
-		border: none;
+		background: var(--appearance-background, rgba(255, 255, 255, 0.2));
+		border: var(--appearance-border, none);
+		border-radius: var(--appearance-border-radius, 24px);
+		color: var(--appearance-text-color, #ffffff);
+		padding: var(--appearance-padding, 8px);
+		opacity: var(--appearance-opacity, 1);
 		cursor: pointer;
 		transition:
 			background 0.2s ease,
 			border-color 0.2s ease,
 			box-shadow 0.2s ease,
 			opacity 0.2s ease;
-		padding: 8px;
 		user-select: none;
 		box-sizing: border-box;
 	}
@@ -466,17 +484,12 @@
 	}
 
 	.app-icon:not(.no-click-action):hover {
-		background: rgba(var(--icon-bg-color, 255, 255, 255), calc(var(--icon-bg-opacity, 0.2) + 0.1));
-	}
-	.app-icon.image-type {
-		border: none;
-		padding: 0;
+		background: var(--appearance-hover-background, rgba(255, 255, 255, 0.3));
 	}
 
 	.app-icon.edit-mode {
 		cursor: move;
 		border: 1px dashed var(--edit-outline);
-		background: rgba(var(--icon-bg-color, 255, 255, 255), var(--icon-bg-opacity, 0.2));
 		touch-action: none;
 	}
 	.app-icon.edit-mode.selected {
@@ -531,7 +544,7 @@
 	.icon-label {
 		margin-top: 4px;
 		font-size: clamp(10px, 2vw, 14px);
-		color: rgba(255, 255, 255, 0.8);
+		color: var(--appearance-text-color, rgba(255, 255, 255, 0.8));
 		text-align: center;
 		white-space: nowrap;
 		overflow: hidden;

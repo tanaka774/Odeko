@@ -1,10 +1,13 @@
 import type { WidgetType } from './types';
 
+/** Grid items that expose a curated custom CSS class list. */
+export type CssApiItemType = WidgetType | 'icon';
+
 /**
- * The six shared appearance knobs, set on every widget root as CSS custom
- * properties. They are the stable part of the public "custom CSS" API: a user
- * may override them (or the concrete properties they feed) with plain
- * selectors — no `!important` needed.
+ * The six shared appearance knobs, set on the root of every grid item
+ * (widgets and icons) as CSS custom properties. They are the stable part of
+ * the public "custom CSS" API: a user may override them (or the concrete
+ * properties they feed) with plain selectors — no `!important` needed.
  */
 export const SHARED_APPEARANCE_VARIABLES = [
 	'--appearance-background',
@@ -21,7 +24,7 @@ export const SHARED_APPEARANCE_VARIABLES = [
  * The settings modal renders this so users never have to guess.
  */
 export const WIDGET_CSS_API: Record<
-	WidgetType,
+	CssApiItemType,
 	{ classes: string[]; example: string; note?: string }
 > = {
 	clock: {
@@ -150,6 +153,18 @@ export const WIDGET_CSS_API: Record<
 		classes: ['.custom-widget'],
 		example: '.custom-widget h1 { color: var(--appearance-text-color); }',
 		note: 'Class names inside your HTML are your own — they are not part of the stable API. Prefer element selectors scoped under .custom-widget.'
+	},
+	icon: {
+		classes: [
+			'.app-icon',
+			'.icon-content',
+			'.icon-image',
+			'.icon-label',
+			'.icon-placeholder',
+			'.icon-initial'
+		],
+		example:
+			'.app-icon { background: linear-gradient(135deg, #1a1a2e, #16213e); }\n.icon-label { font-weight: 700; }'
 	}
 };
 

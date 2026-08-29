@@ -8,7 +8,7 @@
 // Rust expects it on every icon ('' for non-app items).
 
 import type { KeybindConfig } from '$lib/stores/settings.svelte';
-import type { WidgetType, WidgetConfigType } from '$lib/widgets/types';
+import type { WidgetType, WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 
 export type IconType = 'app' | 'image' | 'link' | 'widget';
 
@@ -35,7 +35,10 @@ export interface LauncherIcon {
 	font_size?: number | null;
 	// Stacking order: higher z renders on top of overlapping items.
 	z?: number;
-	// Per-icon background override; falls back to the launcher-wide setting.
-	background_color?: string | null;
-	background_opacity?: number | null;
+	/**
+	 * Icon appearance, sharing the widget appearance system. Unset fields fall
+	 * back to the icon defaults resolved in AppIcon.svelte (the launcher-wide
+	 * border_radius acts as the default corner radius).
+	 */
+	appearance?: WidgetAppearanceConfig;
 }

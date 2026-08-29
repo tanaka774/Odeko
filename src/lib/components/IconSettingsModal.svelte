@@ -5,10 +5,10 @@
 	import SettingsModalShell from './settings/SettingsModalShell.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
+	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import KeybindRecorder from './KeybindRecorder.svelte';
-	import Slider from '$lib/components/ui/slider/slider.svelte';
-	import ColorInput from '$lib/components/ColorInput.svelte';
 	import type { LauncherIcon } from '$lib/icons';
+	import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 	import {
 		settingsStore,
 		findKeybindConflict,
@@ -30,7 +30,7 @@
 		onUpdateArgs = (id: string, args: string | null) => {},
 		onUpdateKeybind = (id: string, keybind: KeybindConfig | null) => {},
 		onUpdateKeybindGlobal = (id: string, global: boolean) => {},
-		onUpdateBackground = (id: string, color: string | null, opacity: number | null) => {}
+		onUpdateAppearance = () => {}
 	}: {
 		isOpen: boolean;
 		icon: LauncherIcon | null;
@@ -45,7 +45,7 @@
 		onUpdateArgs?: (id: string, args: string | null) => void;
 		onUpdateKeybind?: (id: string, keybind: KeybindConfig | null) => void;
 		onUpdateKeybindGlobal?: (id: string, global: boolean) => void;
-		onUpdateBackground?: (id: string, color: string | null, opacity: number | null) => void;
+		onUpdateAppearance?: (id: string, appearance: WidgetAppearanceConfig | undefined) => void;
 	} = $props();
 
 	let localUrl = $state('');
@@ -55,9 +55,7 @@
 	let localFontFamily = $state('');
 	let localFontSize = $state(14);
 	let localArgs = $state('');
-	let localBgCustom = $state(false);
-	let localBgColor = $state('255, 255, 255');
-	let localBgOpacity = $state(0.2);
+	let localAppearance = $state<WidgetAppearanceConfig | undefined>(undefined);
 	let localKeybindGlobal = $state(false);
 	let recorderValue = $state<KeybindConfig>({
 		key: '',
@@ -84,9 +82,7 @@
 			localFontFamily = icon.font_family ?? '';
 			localFontSize = icon.font_size ?? 14;
 			localArgs = icon.args ?? '';
-			localBgCustom = icon.background_color != null || icon.background_opacity != null;
-			localBgColor = icon.background_color ?? settingsStore.settings.icon_background_color;
-			localBgOpacity = icon.background_opacity ?? settingsStore.settings.icon_background_opacity;
+			localAppearance = icon.appearance ? { ...icon.appearance } : undefined;
 			localKeybindGlobal = icon.keybind_global ?? false;
 			recorderValue = icon.keybind ? { ...icon.keybind } : { ...EMPTY_KEYBIND };
 		}
@@ -146,11 +142,7 @@
 		const resolvedKeybind = recorderValue.key && !keybindError ? recorderValue : null;
 		onUpdateKeybind(icon.id, resolvedKeybind);
 		onUpdateKeybindGlobal(icon.id, localKeybindGlobal);
-		onUpdateBackground(
-			icon.id,
-			localBgCustom ? localBgColor : null,
-			localBgCustom ? localBgOpacity : null
-		);
+		onUpdateAppearance(icon.id, localAppearance);
 		onSave?.();
 		close();
 	}
@@ -245,31 +237,17 @@
 				</div>
 			</SettingSection>
 
-			<SettingSection title="Background">
-				<SettingRow>
-					<label class="checkbox-label">
-						<input type="checkbox" bind:checked={localBgCustom} />
-						<span>Custom background color</span>
-					</label>
-				</SettingRow>
-				{#if localBgCustom}
-					<SettingRow label="Color">
-						<ColorInput value={localBgColor} onchange={(rgb) => (localBgColor = rgb)} />
-					</SettingRow>
-					<SettingRow label={`Opacity: ${Math.round(localBgOpacity * 100)}%`}>
-						<Slider
-							type="single"
-							value={localBgOpacity}
-							min={0}
-							max={1}
-							step={0.05}
-							onValueChange={(val) => {
-								localBgOpacity = val;
-							}}
-						/>
-					</SettingRow>
-					<p class="setting-hint">Uncheck to follow the launcher's global icon background.</p>
-				{/if}
+			<SettingSection title="Appearance">
+				<WidgetAppearanceSettings
+					widgetType="icon"
+					bind:appearance={localAppearance}
+					defaults={{
+						backgroundColor: 'rgba(255, 255, 255, 1)',
+						backgroundOpacity: 0.2,
+						borderRadius: settingsStore.settings.border_radius,
+						padding: icon.icon_type === 'image' ? 0 : 8
+					}}
+				/>
 			</SettingSection>
 
 			{#if icon.icon_type === 'app' && icon.path}
@@ -393,13 +371,6 @@
 	.readonly-input {
 		opacity: 0.75;
 		cursor: text;
-	}
-
-	.setting-hint {
-		margin: 0 0 4px 0;
-		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.5);
-		line-height: 1.4;
 	}
 
 	.action-buttons {

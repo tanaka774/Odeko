@@ -567,33 +567,6 @@
 							</div>
 						</section>
 
-						<section class="settings-section">
-							<h3>Icon Settings</h3>
-							<div class="setting-row">
-								<Label>Background Color</Label>
-								<ColorInput
-									value={localSettings.icon_background_color}
-									onchange={(rgb) => (localSettings.icon_background_color = rgb)}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label
-									>Background Opacity: {Math.round(
-										localSettings.icon_background_opacity * 100
-									)}%</Label
-								>
-								<Slider
-									type="single"
-									value={localSettings.icon_background_opacity}
-									min={0}
-									max={1}
-									step={0.05}
-									onValueChange={(val) => {
-										localSettings.icon_background_opacity = val;
-									}}
-								/>
-							</div>
-						</section>
 					{:else if activeTab === 'edit'}
 						<section class="settings-section">
 							<h3>Edit Mode</h3>

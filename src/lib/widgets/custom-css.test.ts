@@ -1,49 +1,49 @@
 import { describe, it, expect } from 'vitest';
 import { prefixSelectors, SHARED_APPEARANCE_VARIABLES, WIDGET_CSS_API } from './custom-css';
 
-const SCOPE = '[data-widget-id="abc"]';
+const SCOPE = '[data-item-id="abc"]';
 
 describe('prefixSelectors', () => {
 	it('prefixes a plain rule', () => {
 		expect(prefixSelectors('.clock-widget { color: red; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] .clock-widget { color: red; }'
+			'[data-item-id="abc"] .clock-widget { color: red; }'
 		);
 	});
 
 	it('prefixes every selector in a comma-separated list', () => {
 		expect(prefixSelectors('.a, .b, .c { color: red; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] .a, [data-widget-id="abc"] .b, [data-widget-id="abc"] .c { color: red; }'
+			'[data-item-id="abc"] .a, [data-item-id="abc"] .b, [data-item-id="abc"] .c { color: red; }'
 		);
 	});
 
 	it('does not split commas inside :is() / :not()', () => {
 		expect(prefixSelectors(':is(.a, .b) > .c { color: red; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] :is(.a, .b) > .c { color: red; }'
+			'[data-item-id="abc"] :is(.a, .b) > .c { color: red; }'
 		);
 	});
 
 	it('does not split commas inside attribute selectors with strings', () => {
 		expect(prefixSelectors('[data-x="a,b"] { color: red; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] [data-x="a,b"] { color: red; }'
+			'[data-item-id="abc"] [data-x="a,b"] { color: red; }'
 		);
 	});
 
 	it('keeps pseudo-classes and pseudo-elements attached to the selector', () => {
 		expect(prefixSelectors('.task-item:hover::before { content: ""; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] .task-item:hover::before { content: ""; }'
+			'[data-item-id="abc"] .task-item:hover::before { content: ""; }'
 		);
 	});
 
 	it('recurses into @media blocks', () => {
 		const css = '@media (max-width: 100px) { .a { color: red; } .b { color: blue; } }';
 		expect(prefixSelectors(css, SCOPE)).toBe(
-			'@media (max-width: 100px) { [data-widget-id="abc"] .a { color: red; } [data-widget-id="abc"] .b { color: blue; } }'
+			'@media (max-width: 100px) { [data-item-id="abc"] .a { color: red; } [data-item-id="abc"] .b { color: blue; } }'
 		);
 	});
 
 	it('recurses into @supports blocks', () => {
 		expect(prefixSelectors('@supports (display: grid) { .a { display: grid; } }', SCOPE)).toBe(
-			'@supports (display: grid) { [data-widget-id="abc"] .a { display: grid; } }'
+			'@supports (display: grid) { [data-item-id="abc"] .a { display: grid; } }'
 		);
 	});
 
@@ -63,13 +63,13 @@ describe('prefixSelectors', () => {
 
 	it('removes comments', () => {
 		expect(prefixSelectors('/* note */ .a { color: red; /* inner */ }', SCOPE)).toBe(
-			'[data-widget-id="abc"] .a { color: red;  }'
+			'[data-item-id="abc"] .a { color: red;  }'
 		);
 	});
 
 	it('handles multiple rules', () => {
 		expect(prefixSelectors('.a { color: red; } .b { color: blue; }', SCOPE)).toBe(
-			'[data-widget-id="abc"] .a { color: red; } [data-widget-id="abc"] .b { color: blue; }'
+			'[data-item-id="abc"] .a { color: red; } [data-item-id="abc"] .b { color: blue; }'
 		);
 	});
 
@@ -109,7 +109,8 @@ describe('WIDGET_CSS_API', () => {
 			'restart',
 			'shutdown',
 			'clipboard',
-			'custom'
+			'custom',
+			'icon'
 		];
 		for (const type of types) {
 			const entry = WIDGET_CSS_API[type as keyof typeof WIDGET_CSS_API];

@@ -252,9 +252,7 @@ describe('settings store', () => {
 			['position_y', 40],
 			['magnetic_snap', false],
 			['grid_size', 64],
-			['grid_line_color', '200, 100, 50'],
-			['icon_background_color', '4, 5, 6'],
-			['icon_background_opacity', 0.33]
+			['grid_line_color', '200, 100, 50']
 		];
 
 		for (const [key, value] of updates) {
