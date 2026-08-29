@@ -237,18 +237,16 @@
 				</div>
 			</SettingSection>
 
-			<SettingSection title="Appearance">
-				<WidgetAppearanceSettings
-					widgetType="icon"
-					bind:appearance={localAppearance}
-					defaults={{
-						backgroundColor: 'rgba(255, 255, 255, 1)',
-						backgroundOpacity: 0.2,
-						borderRadius: settingsStore.settings.border_radius,
-						padding: icon.icon_type === 'image' ? 0 : 8
-					}}
-				/>
-			</SettingSection>
+			<WidgetAppearanceSettings
+				widgetType="icon"
+				bind:appearance={localAppearance}
+				defaults={{
+					backgroundColor: 'rgba(255, 255, 255, 1)',
+					backgroundOpacity: 0.2,
+					borderRadius: settingsStore.settings.border_radius,
+					padding: icon.icon_type === 'image' ? 0 : 8
+				}}
+			/>
 
 			{#if icon.icon_type === 'app' && icon.path}
 				<SettingSection title="App Details">
