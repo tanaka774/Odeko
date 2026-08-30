@@ -66,18 +66,15 @@
 
 		{#if activeTab === 'settings'}
 			<SettingSection title="History">
-				<SettingRow label="Max Entries">
-					<div class="range-with-value">
-						<input
-							class="range-input"
-							type="range"
-							min="10"
-							max="100"
-							step="5"
-							bind:value={localConfig.maxEntries}
-						/>
-						<span class="range-value">{localConfig.maxEntries}</span>
-					</div>
+				<SettingRow label="Max Entries: {localConfig.maxEntries}">
+					<input
+						class="range-input"
+						type="range"
+						min="10"
+						max="100"
+						step="5"
+						bind:value={localConfig.maxEntries}
+					/>
 				</SettingRow>
 
 				<SettingRow label="Capturing">
@@ -101,22 +98,3 @@
 		{/if}
 	</div>
 </SettingsModalShell>
-
-<style>
-	.range-with-value {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.range-with-value input[type='range'] {
-		flex: 1;
-	}
-
-	.range-value {
-		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.9rem;
-		min-width: 50px;
-		text-align: right;
-	}
-</style>

@@ -124,32 +124,26 @@
 			</SettingSection>
 
 			<SettingSection title="Playback">
-				<SettingRow label="Interval">
-					<div class="range-with-value">
-						<input
-							class="range-input"
-							type="range"
-							min="1000"
-							max="60000"
-							step="1000"
-							bind:value={localConfig.intervalMs}
-						/>
-						<span class="range-value">{((localConfig.intervalMs ?? 5000) / 1000).toFixed(1)}s</span>
-					</div>
+				<SettingRow label="Interval: {((localConfig.intervalMs ?? 5000) / 1000).toFixed(1)}s">
+					<input
+						class="range-input"
+						type="range"
+						min="1000"
+						max="60000"
+						step="1000"
+						bind:value={localConfig.intervalMs}
+					/>
 				</SettingRow>
 
-				<SettingRow label="Transition">
-					<div class="range-with-value">
-						<input
-							class="range-input"
-							type="range"
-							min="200"
-							max="2000"
-							step="100"
-							bind:value={localConfig.transitionMs}
-						/>
-						<span class="range-value">{localConfig.transitionMs ?? 600}ms</span>
-					</div>
+				<SettingRow label="Transition: {localConfig.transitionMs ?? 600}ms">
+					<input
+						class="range-input"
+						type="range"
+						min="200"
+						max="2000"
+						step="100"
+						bind:value={localConfig.transitionMs}
+					/>
 				</SettingRow>
 
 				<SettingRow>
@@ -268,23 +262,6 @@
 		background: rgba(255, 255, 255, 0.12);
 		border-color: rgba(255, 255, 255, 0.4);
 		color: white;
-	}
-
-	.range-with-value {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.range-input {
-		flex: 1;
-	}
-
-	.range-value {
-		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.9rem;
-		min-width: 50px;
-		text-align: right;
 	}
 
 	.checkbox-label {

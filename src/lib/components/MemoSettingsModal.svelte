@@ -87,7 +87,13 @@
 	}
 </script>
 
-<SettingsModalShell bind:isOpen title="Memo Settings" onClose={handleClose} onSave={handleSave} tabKey={activeTab}>
+<SettingsModalShell
+	bind:isOpen
+	title="Memo Settings"
+	onClose={handleClose}
+	onSave={handleSave}
+	tabKey={activeTab}
+>
 	<div class="settings-form">
 		<TabBar
 			{activeTab}
@@ -100,17 +106,14 @@
 
 		{#if activeTab === 'settings'}
 			<SettingSection title="Text Appearance">
-				<SettingRow label="Font Size">
-					<div class="range-with-value">
-						<input
-							class="range-input"
-							type="range"
-							min="10"
-							max="32"
-							bind:value={localConfig.fontSize}
-						/>
-						<span class="range-value">{localConfig.fontSize}px</span>
-					</div>
+				<SettingRow label="Font Size: {localConfig.fontSize}px">
+					<input
+						class="range-input"
+						type="range"
+						min="10"
+						max="32"
+						bind:value={localConfig.fontSize}
+					/>
 				</SettingRow>
 
 				<SettingRow label="Font Family">
@@ -119,7 +122,7 @@
 						value={useCustomFont ? 'custom' : localConfig.fontFamily}
 						onchange={handleFontChange}
 					>
-						{#each fontOptions as opt}
+						{#each fontOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</select>
@@ -147,23 +150,6 @@
 </SettingsModalShell>
 
 <style>
-	.range-with-value {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.range-with-value input[type='range'] {
-		flex: 1;
-	}
-
-	.range-value {
-		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.9rem;
-		min-width: 50px;
-		text-align: right;
-	}
-
 	.custom-font-input {
 		margin-top: 8px;
 	}

@@ -60,3 +60,35 @@ describe('WidgetAppearanceSettings', () => {
 		expect(screen.queryByText('What can I style?')).toBeNull();
 	});
 });
+
+describe('WidgetAppearanceSettings grouping', () => {
+	it('groups the fields under Fill / Text / Border / Shape & Spacing / Overall labels', () => {
+		render(WidgetAppearanceSettings, { appearance: {} });
+
+		expect(screen.getByText('Fill')).toBeTruthy();
+		expect(screen.getByText('Text')).toBeTruthy();
+		expect(screen.getByText('Border')).toBeTruthy();
+		expect(screen.getByText('Shape & Spacing')).toBeTruthy();
+		expect(screen.getByText('Overall')).toBeTruthy();
+	});
+
+	it('hides border width and color when the border style is None', async () => {
+		render(WidgetAppearanceSettings, { appearance: { borderStyle: 'none' } });
+
+		expect(screen.queryByLabelText(/Border Width/)).toBeNull();
+		expect(screen.queryByLabelText('Border Color')).toBeNull();
+
+		const style = screen.getByLabelText('Border Style') as HTMLSelectElement;
+		await fireEvent.change(style, { target: { value: 'solid' } });
+
+		expect(screen.getByLabelText(/Border Width/)).toBeTruthy();
+		expect(screen.getByLabelText('Border Color')).toBeTruthy();
+	});
+
+	it('skips the Text group when textColor is hidden', () => {
+		render(WidgetAppearanceSettings, { appearance: {}, hideFields: ['textColor'] });
+
+		expect(screen.queryByText('Text')).toBeNull();
+		expect(screen.queryByLabelText('Text Color')).toBeNull();
+	});
+});

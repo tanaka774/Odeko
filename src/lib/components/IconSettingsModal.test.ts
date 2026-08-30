@@ -37,8 +37,12 @@ async function openModal(iconOverrides: Record<string, unknown> = {}) {
 	return onUpdateAppearance;
 }
 
-function clickSave() {
-	fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+async function openAppearanceTab() {
+	await fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+}
+
+async function clickSave() {
+	await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 }
 
 beforeEach(() => {
@@ -51,39 +55,62 @@ describe('IconSettingsModal appearance', () => {
 	it('saves no appearance config when nothing was customized', async () => {
 		const onUpdateAppearance = await openModal();
 
-		clickSave();
+		await clickSave();
 
 		expect(onUpdateAppearance).toHaveBeenCalledWith('icon-1', undefined);
 	});
 
-	it('persists appearance changes made in the appearance settings', async () => {
+	it('persists appearance changes made in the appearance tab', async () => {
 		const onUpdateAppearance = await openModal();
+		await openAppearanceTab();
 
 		const color = screen.getByLabelText('Background Color') as HTMLInputElement;
-		fireEvent.input(color, { target: { value: '#ff0000' } });
+		await fireEvent.input(color, { target: { value: '#ff0000' } });
 
-		clickSave();
+		await clickSave();
 
 		expect(onUpdateAppearance).toHaveBeenCalledWith('icon-1', { backgroundColor: '#ff0000' });
 	});
 
 	it('prefills the existing appearance config', async () => {
 		await openModal({ appearance: { backgroundOpacity: 0.5 } });
+		await openAppearanceTab();
 
 		const opacity = screen.getByLabelText('Background Opacity: 50%') as HTMLInputElement;
 		expect(opacity.value).toBe('0.5');
 	});
-});
 
-describe('IconSettingsModal app icon URL thumbnail', () => {
-	it('offers the Enter URL button for app icons', async () => {
+	it('shows a live preview tile in the appearance tab', async () => {
 		await openModal();
+		await openAppearanceTab();
 
-		expect(screen.getByRole('button', { name: 'Enter URL' })).toBeTruthy();
+		expect(document.querySelector('.tile-preview')).toBeTruthy();
 	});
 
-	it('saves a remote image URL as the app icon thumbnail', async () => {
-		const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('https://example.com/icon.png');
+	it('hides Text Color for image icons (no name label)', async () => {
+		await openModal({ icon_type: 'image' });
+		await openAppearanceTab();
+
+		expect(screen.queryByLabelText('Text Color')).toBeNull();
+	});
+
+	it('hides Text Color when the name label is turned off', async () => {
+		await openModal({ show_name: false });
+		await openAppearanceTab();
+
+		expect(screen.queryByLabelText('Text Color')).toBeNull();
+	});
+});
+
+describe('IconSettingsModal icon source', () => {
+	it('offers a File/URL source toggle for app icons', async () => {
+		await openModal();
+
+		expect(screen.getByRole('button', { name: 'File' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'URL' })).toBeTruthy();
+	});
+
+	it('saves a remote image URL entered in the URL field', async () => {
 		const onUpdateIcon = vi.fn();
 		render(IconSettingsModal, {
 			isOpen: true,
@@ -92,11 +119,18 @@ describe('IconSettingsModal app icon URL thumbnail', () => {
 		});
 		await screen.findByRole('dialog');
 
-		fireEvent.click(screen.getByRole('button', { name: 'Enter URL' }));
-		clickSave();
+		await fireEvent.click(screen.getByRole('button', { name: 'URL' }));
+		const input = screen.getByPlaceholderText('https://example.com/icon.png') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: 'https://example.com/icon.png' } });
+		await clickSave();
 
-		expect(promptSpy).toHaveBeenCalledWith('Enter image URL:', 'https://');
 		expect(onUpdateIcon).toHaveBeenCalledWith('icon-1', 'https://example.com/icon.png');
-		promptSpy.mockRestore();
+	});
+
+	it('opens the URL field for icons whose stored path is already a URL', async () => {
+		await openModal({ icon_path: 'https://example.com/icon.png' });
+
+		const input = screen.getByPlaceholderText('https://example.com/icon.png') as HTMLInputElement;
+		expect(input.value).toBe('https://example.com/icon.png');
 	});
 });

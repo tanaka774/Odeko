@@ -304,6 +304,56 @@
 	color: rgba(255, 200, 100, 0.8) !important;
 }
 
+/* Collapsible "Advanced: Custom CSS" block (WidgetAppearanceSettings). */
+.advanced-css {
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.advanced-css summary {
+	cursor: pointer;
+	padding: 10px 12px;
+	color: rgba(255, 255, 255, 0.75);
+	font-size: 0.85rem;
+	font-weight: 500;
+	user-select: none;
+}
+
+.advanced-css summary:hover {
+	color: white;
+}
+
+.advanced-css-body {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 4px 12px 12px;
+}
+
+/* The appearance fields are grouped into labeled sub-sections
+   (Fill / Text / Border / Shape & Spacing / Overall). */
+.appearance-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.appearance-group {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.appearance-group-label {
+	margin: 0;
+	color: rgba(255, 255, 255, 0.45);
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
 .appearance-fields.disabled {
 	opacity: 0.45;
 	pointer-events: none;

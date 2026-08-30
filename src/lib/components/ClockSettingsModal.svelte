@@ -85,6 +85,15 @@
 	function handleClose() {
 		isOpen = false;
 	}
+
+	// Switching to the Digital/Analog tab is the display-mode switch — no
+	// extra radio group needed (and a one-option radio group was confusing).
+	function handleTabChange(key: string) {
+		activeTab = key;
+		if (key === 'digital' || key === 'analog') {
+			localConfig.displayMode = key;
+		}
+	}
 </script>
 
 <SettingsModalShell
@@ -97,7 +106,7 @@
 	<div class="settings-form">
 		<TabBar
 			{activeTab}
-			onTabChange={(key) => (activeTab = key)}
+			onTabChange={handleTabChange}
 			tabs={[
 				{ key: 'digital', label: 'Digital' },
 				{ key: 'analog', label: 'Analog' },
@@ -107,17 +116,6 @@
 
 		{#if activeTab === 'digital' || activeTab === 'analog'}
 			{#if activeTab === 'digital'}
-				<SettingSection title="Digital Display">
-					<SettingRow>
-						<div class="radio-group">
-							<label class="radio-label">
-								<input type="radio" value="digital" bind:group={localConfig.displayMode} />
-								<span>Show digital clock</span>
-							</label>
-						</div>
-					</SettingRow>
-				</SettingSection>
-
 				<SettingSection title="Time Format">
 					<SettingRow>
 						<div class="radio-group">
@@ -148,17 +146,6 @@
 					</SettingRow>
 				</SettingSection>
 			{:else}
-				<SettingSection title="Analog Display">
-					<SettingRow>
-						<div class="radio-group">
-							<label class="radio-label">
-								<input type="radio" value="analog" bind:group={localConfig.displayMode} />
-								<span>Show analog clock</span>
-							</label>
-						</div>
-					</SettingRow>
-				</SettingSection>
-
 				<SettingSection title="Colors">
 					<SettingRow label="Background Color" labelFor="analogBackgroundColor">
 						<div class="color-control">
@@ -264,7 +251,7 @@
 			<SettingSection title="Timezone">
 				<SettingRow labelFor="timezone">
 					<select id="timezone" class="select-input" bind:value={localConfig.timezone}>
-						{#each timezones as tz}
+						{#each timezones as tz (tz.value)}
 							<option value={tz.value}>{tz.label}</option>
 						{/each}
 					</select>

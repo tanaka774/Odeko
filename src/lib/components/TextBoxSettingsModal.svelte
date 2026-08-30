@@ -138,17 +138,14 @@
 
 		{#if activeTab === 'settings'}
 			<SettingSection title="Text Appearance">
-				<SettingRow label="Font Size">
-					<div class="range-with-value">
-						<input
-							class="range-input"
-							type="range"
-							min="10"
-							max="72"
-							bind:value={localConfig.fontSize}
-						/>
-						<span class="range-value">{localConfig.fontSize}px</span>
-					</div>
+				<SettingRow label="Font Size: {localConfig.fontSize}px">
+					<input
+						class="range-input"
+						type="range"
+						min="10"
+						max="72"
+						bind:value={localConfig.fontSize}
+					/>
 				</SettingRow>
 
 				<SettingRow label="Font Family">
@@ -157,7 +154,7 @@
 						value={useCustomFont ? 'custom' : localConfig.fontFamily}
 						onchange={handleFontChange}
 					>
-						{#each fontOptions as opt}
+						{#each fontOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</select>
@@ -173,7 +170,7 @@
 
 				<SettingRow label="Text Align">
 					<div class="align-buttons">
-						{#each textAlignOptions as opt}
+						{#each textAlignOptions as opt (opt.value)}
 							<button
 								class="align-btn"
 								class:active={localConfig.textAlign === opt.value}
@@ -256,23 +253,6 @@
 </SettingsModalShell>
 
 <style>
-	.range-with-value {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.range-with-value input[type='range'] {
-		flex: 1;
-	}
-
-	.range-value {
-		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.9rem;
-		min-width: 50px;
-		text-align: right;
-	}
-
 	.custom-font-input {
 		margin-top: 8px;
 	}
