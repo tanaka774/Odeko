@@ -15,9 +15,14 @@
 	// element so nothing leaks after the widget is deleted or the CSS is
 	// cleared. The element is appended to <head> after the app's stylesheet,
 	// so on a specificity tie the user's rules win.
+	//
+	// `appearance` can arrive as null: Rust serializes an absent icon
+	// appearance as JSON null, and prop defaults don't apply to null. Guard
+	// before dereferencing — a TypeError here aborts the whole effect flush,
+	// silently killing custom CSS for every item mounted after this one.
 	$effect(() => {
-		const css = appearance.customCss;
-		if (!appearance.customCssEnabled || !css?.trim()) return;
+		const css = appearance?.customCss;
+		if (!appearance?.customCssEnabled || !css?.trim()) return;
 
 		const styleEl = document.createElement('style');
 		styleEl.dataset.widgetCss = id;

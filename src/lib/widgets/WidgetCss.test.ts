@@ -34,6 +34,21 @@ describe('WidgetCss', () => {
 		expect(headStyle('w2')).toBeNull();
 	});
 
+	it('tolerates a null appearance without breaking later instances', () => {
+		// Icons without appearance customization are persisted by the backend
+		// as "appearance": null, and prop defaults don't apply to null. A
+		// crash in the effect would abort the whole flush and silently kill
+		// custom CSS for every item mounted after this one.
+		render(WidgetCss, { id: 'w1', appearance: null as never });
+		expect(headStyle('w1')).toBeNull();
+
+		render(WidgetCss, {
+			id: 'w2',
+			appearance: { customCssEnabled: true, customCss: '.a { color: red; }' }
+		});
+		expect(headStyle('w2')).not.toBeNull();
+	});
+
 	it('replaces the injected CSS when the appearance changes', async () => {
 		const utils = render(WidgetCss, {
 			id: 'w1',

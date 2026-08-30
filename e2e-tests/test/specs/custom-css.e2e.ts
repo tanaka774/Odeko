@@ -72,7 +72,7 @@ describe('Widget custom CSS', () => {
 		// target this widget's own style element.
 		const widgetId = await browser.execute(() => {
 			const container = document.querySelector('.system-widget')?.closest('.widget-container');
-			return container?.getAttribute('data-widget-id') ?? '';
+			return container?.getAttribute('data-item-id') ?? '';
 		});
 		expect(widgetId).not.toBe('');
 		const styleEl = await $(`style[data-widget-css="${widgetId}"]`);
@@ -83,7 +83,7 @@ describe('Widget custom CSS', () => {
 				''
 			);
 		}, widgetId);
-		expect(injectedCss).toContain('[data-widget-id="');
+		expect(injectedCss).toContain('[data-item-id="');
 		expect(injectedCss).toContain(USER_CSS);
 
 		// The user rule must win over the widget's own scoped rule (cascade check).
