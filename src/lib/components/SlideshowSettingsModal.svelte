@@ -7,6 +7,7 @@
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import type { SlideshowWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -164,6 +165,7 @@
 			<WidgetAppearanceSettings
 				widgetType="slideshow"
 				bind:appearance={localConfig.appearance}
+				defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.slideshow ?? {}}
 				hideFields={['textColor', 'padding']}
 			/>
 		{/if}

@@ -6,6 +6,7 @@
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import type { TextBoxWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -69,7 +70,9 @@
 		{ value: 'justify', label: 'Justify', icon: '\u2194\ufe0f' }
 	];
 
-	const previewAppearance = $derived(getWidgetAppearance(localConfig));
+	const previewAppearance = $derived(
+		getWidgetAppearance(localConfig, WIDGET_TYPE_APPEARANCE_DEFAULTS.textbox)
+	);
 	const previewBackground = $derived(getAppearanceBackground(previewAppearance));
 
 	$effect(() => {
@@ -209,7 +212,11 @@
 				</SettingRow>
 			</SettingSection>
 		{:else}
-			<WidgetAppearanceSettings widgetType="textbox" bind:appearance={localConfig.appearance} />
+			<WidgetAppearanceSettings
+				widgetType="textbox"
+				bind:appearance={localConfig.appearance}
+				defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.textbox ?? {}}
+			/>
 		{/if}
 
 		<SettingSection title="Preview">

@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { backgroundFilePath, isVideoBackground } from '$lib/background';
 import type { LauncherIcon } from '$lib/icons';
+import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 
 export interface KeybindConfig {
 	key: string;
@@ -144,6 +145,13 @@ export interface LauncherSettings {
 	network_grants: string[];
 	/** Allow Custom HTML widgets to fetch from private/LAN addresses. */
 	allow_local_network: boolean;
+	/**
+	 * Default appearance template stamped onto new icons and widgets at
+	 * creation; changing it never restyles existing items. Stored as a partial
+	 * config: only fields the user touched are present. Custom CSS keys are
+	 * stripped on load (per-item by design; imported presets are untrusted).
+	 */
+	default_appearance?: WidgetAppearanceConfig;
 }
 
 export interface LauncherLayout {
@@ -175,7 +183,10 @@ const DEFAULT_SETTINGS: LauncherSettings = {
 	keybind_hide_launcher: { ...DEFAULT_KEYBINDS.hide_launcher },
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
 	network_grants: [],
-	allow_local_network: false
+	allow_local_network: false,
+	// Matches the legacy launcher border_radius so item corners look the same
+	// before settings load; border_radius now styles only the panel/chrome.
+	default_appearance: { borderRadius: 24 }
 };
 
 function createSettingsStore() {
@@ -194,6 +205,24 @@ function createSettingsStore() {
 		if (!merged.keybind_hide_launcher.key)
 			merged.keybind_hide_launcher = { ...DEFAULT_KEYBINDS.hide_launcher };
 		if (!merged.keybind_undo.key) merged.keybind_undo = { ...DEFAULT_KEYBINDS.undo };
+
+		// The default appearance must stay a plain object (Rust round-trips it
+		// as JSON, so it may arrive as null from older files). Custom CSS keys
+		// are never honored here — they are per-item by design and imported
+		// presets are untrusted input.
+		const appearance = merged.default_appearance;
+		const sanitized: WidgetAppearanceConfig =
+			appearance && typeof appearance === 'object' && !Array.isArray(appearance)
+				? { ...appearance }
+				: {};
+		delete sanitized.customCss;
+		delete sanitized.customCssEnabled;
+		// Legacy files have no item corner radius (it used to follow the
+		// launcher-wide border_radius), so seed it from there once.
+		if (sanitized.borderRadius == null) {
+			sanitized.borderRadius = merged.border_radius;
+		}
+		merged.default_appearance = sanitized;
 		return merged;
 	}
 

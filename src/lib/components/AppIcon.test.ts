@@ -61,7 +61,9 @@ describe('AppIcon appearance', () => {
 		const style = root().style;
 		expect(style.getPropertyValue('--appearance-background')).toBe('rgba(255, 255, 255, 0.2)');
 		expect(style.getPropertyValue('--appearance-border')).toBe('none');
-		expect(style.getPropertyValue('--appearance-border-radius')).toBe('24px');
+		// Unstamped icons fall back to the base default; real icons get the
+		// corner radius stamped onto them at creation (IconGrid).
+		expect(style.getPropertyValue('--appearance-border-radius')).toBe('12px');
 		expect(style.getPropertyValue('--appearance-text-color')).toBe('#ffffff');
 		expect(style.getPropertyValue('--appearance-padding')).toBe('8px');
 		expect(style.getPropertyValue('--appearance-opacity')).toBe('1');
@@ -91,11 +93,17 @@ describe('AppIcon appearance', () => {
 		expect(root().style.getPropertyValue('--appearance-padding')).toBe('0px');
 	});
 
-	it('follows the launcher border_radius as the default corner radius', () => {
-		settingsStore.updateSettings({ border_radius: 36 });
+	it('does not restyle an existing icon when the default appearance changes', () => {
+		// The default appearance is a creation-time template, not a live
+		// layer: changing it (or the legacy panel radius) leaves items that
+		// already exist untouched.
+		settingsStore.updateSettings({
+			default_appearance: { borderRadius: 36 },
+			border_radius: 8
+		});
 
 		renderIcon();
 
-		expect(root().style.getPropertyValue('--appearance-border-radius')).toBe('36px');
+		expect(root().style.getPropertyValue('--appearance-border-radius')).toBe('12px');
 	});
 });

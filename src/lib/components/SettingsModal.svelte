@@ -10,6 +10,7 @@
 	import KeybindRecorder from '$lib/components/KeybindRecorder.svelte';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import { isVideoBackground } from '$lib/background';
+	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 
 	let {
 		isOpen = $bindable(false),
@@ -41,7 +42,7 @@
 		forced_power_confirmation: number;
 	}
 
-	let activeTab = $state<'appearance' | 'edit' | 'keys' | 'presets'>('appearance');
+	let activeTab = $state<'appearance' | 'items' | 'edit' | 'keys' | 'presets'>('appearance');
 
 	let settingsContentEl: HTMLElement | undefined = $state();
 	$effect(() => {
@@ -326,6 +327,13 @@
 					</button>
 					<button
 						class="tab-btn"
+						class:active={activeTab === 'items'}
+						onclick={() => (activeTab = 'items')}
+					>
+						Icon Appearance
+					</button>
+					<button
+						class="tab-btn"
 						class:active={activeTab === 'edit'}
 						onclick={() => (activeTab = 'edit')}
 					>
@@ -538,7 +546,7 @@
 								</div>
 							{/if}
 							<div class="setting-row">
-								<Label>Corner Radius: {localSettings.border_radius}px</Label>
+								<Label>Panel Corner Radius: {localSettings.border_radius}px</Label>
 								<Slider
 									type="single"
 									value={localSettings.border_radius}
@@ -566,7 +574,19 @@
 								/>
 							</div>
 						</section>
-
+					{:else if activeTab === 'items'}
+						<section class="settings-section">
+							<h3>Default Item Appearance</h3>
+							<p class="settings-note">
+								These would be applied when new one is created as default style
+							</p>
+							<WidgetAppearanceSettings
+								title=""
+								hideCustomCss
+								applyToAll
+								bind:appearance={localSettings.default_appearance}
+							/>
+						</section>
 					{:else if activeTab === 'edit'}
 						<section class="settings-section">
 							<h3>Edit Mode</h3>
@@ -748,7 +768,6 @@
 			</div>
 		</div>
 	</div>
-
 {/if}
 
 <style>
@@ -1196,6 +1215,13 @@
 		color: rgba(255, 255, 255, 0.35);
 		font-size: 0.85rem;
 		font-style: italic;
+		margin: 0;
+	}
+
+	.settings-note {
+		color: rgba(255, 255, 255, 0.55);
+		font-size: 0.85rem;
+		line-height: 1.45;
 		margin: 0;
 	}
 </style>

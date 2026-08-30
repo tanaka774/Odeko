@@ -5,6 +5,7 @@
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import type { WeatherWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -51,11 +52,7 @@
 		{ value: 4, label: 'Next 4 hours' }
 	];
 
-	const defaultAppearance = {
-		backgroundColor: '#1e293b',
-		backgroundOpacity: 0.82,
-		padding: 16
-	};
+	const defaultAppearance = WIDGET_TYPE_APPEARANCE_DEFAULTS.weather ?? {};
 
 	function handleSave() {
 		onSave({
@@ -70,7 +67,13 @@
 	}
 </script>
 
-<SettingsModalShell bind:isOpen title="Weather Settings" onClose={handleClose} onSave={handleSave} tabKey={activeTab}>
+<SettingsModalShell
+	bind:isOpen
+	title="Weather Settings"
+	onClose={handleClose}
+	onSave={handleSave}
+	tabKey={activeTab}
+>
 	<div class="settings-form">
 		<TabBar
 			{activeTab}

@@ -6,7 +6,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 
 	import type { LauncherIcon } from '$lib/icons';
-	import { settingsStore, keybindToString } from '$lib/stores/settings.svelte';
+	import { keybindToString } from '$lib/stores/settings.svelte';
 	import { loadIconDataUrl } from '$lib/icon-image';
 	import { launchIcon } from '$lib/launch';
 	import Portal from '$lib/components/Portal.svelte';
@@ -96,15 +96,13 @@
 	);
 
 	// Icons share the widget appearance system. Unset fields fall back to the
-	// icon defaults below; the launcher-wide border_radius is the default
-	// corner radius, mirroring how widgets resolve theirs (DraggableWidget).
+	// icon defaults below.
 	const appearance = $derived(
 		getWidgetAppearance(
 			{ appearance: icon.appearance },
 			{
 				backgroundColor: 'rgba(255, 255, 255, 1)',
 				backgroundOpacity: 0.2,
-				borderRadius: settingsStore.settings.border_radius,
 				padding: icon.icon_type === 'image' ? 0 : 8
 			}
 		)

@@ -5,6 +5,7 @@
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import type { TerminalWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -42,11 +43,7 @@
 		{ value: 'Monaco', label: 'Monaco' }
 	];
 
-	const defaultAppearance = {
-		backgroundColor: 'rgba(30, 30, 30, 0.95)',
-		backgroundOpacity: 0.95,
-		padding: 0
-	};
+	const defaultAppearance = WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal ?? {};
 
 	function handleSave() {
 		const nextConfig = { ...localConfig };

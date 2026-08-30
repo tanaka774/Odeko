@@ -7,6 +7,7 @@
 	import {
 		createTaskGroup,
 		normalizeTaskGroups,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
 		type TaskListWidgetConfig
 	} from '$lib/widgets/types';
 
@@ -44,11 +45,7 @@
 		}
 	});
 
-	const defaultAppearance = {
-		backgroundColor: 'rgba(30, 30, 40, 0.95)',
-		backgroundOpacity: 0.95,
-		padding: 0
-	};
+	const defaultAppearance = WIDGET_TYPE_APPEARANCE_DEFAULTS.tasklist ?? {};
 
 	const allTasks = $derived((localConfig.groups ?? []).flatMap((group) => group.tasks));
 

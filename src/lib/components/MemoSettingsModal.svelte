@@ -5,6 +5,7 @@
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
 	import type { MemoWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -144,7 +145,11 @@
 				</SettingRow>
 			</SettingSection>
 		{:else}
-			<WidgetAppearanceSettings widgetType="memo" bind:appearance={localConfig.appearance} />
+			<WidgetAppearanceSettings
+				widgetType="memo"
+				bind:appearance={localConfig.appearance}
+				defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.memo ?? {}}
+			/>
 		{/if}
 	</div>
 </SettingsModalShell>

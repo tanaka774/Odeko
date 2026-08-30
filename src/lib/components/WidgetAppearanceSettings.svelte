@@ -1,11 +1,11 @@
 <script lang="ts">
 	import {
-		DEFAULT_WIDGET_APPEARANCE,
 		type WidgetAppearanceConfig,
 		type WidgetBorderStyle,
 		type WidgetAppearanceField
 	} from '$lib/widgets/types';
-	import { colorToHexInputValue } from '$lib/widgets/appearance';
+	import { colorToHexInputValue, getWidgetAppearance } from '$lib/widgets/appearance';
+	import { applyAppearanceToAllItems } from '$lib/bulk-appearance';
 	import {
 		SHARED_APPEARANCE_VARIABLES,
 		WIDGET_CSS_API,
@@ -24,6 +24,12 @@
 		widgetType?: CssApiItemType;
 		/** Label for the overall opacity field (widgets vs. launcher icons). */
 		opacityLabel?: string;
+		/** Hide the per-item custom CSS controls. */
+		hideCustomCss?: boolean;
+		/** Show the bulk "Apply to all" button. */
+		applyToAll?: boolean;
+		/** Button label for the bulk apply action. */
+		applyToAllLabel?: string;
 	}
 
 	let {
@@ -32,7 +38,12 @@
 		title = 'Appearance',
 		hideFields = [],
 		widgetType,
-		opacityLabel = 'Widget Opacity'
+		opacityLabel = 'Widget Opacity',
+		hideCustomCss = false,
+		// Off by default: bulk apply is a global action, shown only in the
+		// launcher settings' "Icon Appearance" tab.
+		applyToAll = false,
+		applyToAllLabel = 'Apply to all'
 	}: Props = $props();
 
 	const borderStyleOptions: { value: WidgetBorderStyle; label: string }[] = [
@@ -43,11 +54,9 @@
 		{ value: 'none', label: 'None' }
 	];
 
-	const resolvedAppearance = $derived({
-		...DEFAULT_WIDGET_APPEARANCE,
-		...defaults,
-		...appearance
-	});
+	// Same resolution as rendering (getWidgetAppearance), so the editor
+	// previews exactly what shows.
+	const resolvedAppearance = $derived(getWidgetAppearance({ appearance }, defaults));
 
 	const customCssApi = $derived(widgetType ? WIDGET_CSS_API[widgetType] : null);
 
@@ -60,22 +69,37 @@
 			...nextValue
 		};
 	}
+
+	function handleApplyToAll() {
+		// Stamp the full effective look onto every item. Custom CSS keys and
+		// fields this editor hides are excluded: custom CSS is per-item, and a
+		// hidden field is structural for this item type.
+		const full = getWidgetAppearance({ appearance }, defaults) as Partial<WidgetAppearanceConfig>;
+		delete full.customCss;
+		delete full.customCssEnabled;
+		for (const field of hideFields) {
+			delete full[field];
+		}
+		applyAppearanceToAllItems(full);
+	}
 </script>
 
 <SettingSection {title}>
-	<SettingRow label="Enable Custom CSS" labelFor="widget-custom-css-enabled">
-		<label class="checkbox-label">
-			<input
-				id="widget-custom-css-enabled"
-				type="checkbox"
-				checked={resolvedAppearance.customCssEnabled}
-				onchange={(event) => updateAppearance({ customCssEnabled: event.currentTarget.checked })}
-			/>
-			<span>Override the look with my own CSS</span>
-		</label>
-	</SettingRow>
+	{#if !hideCustomCss}
+		<SettingRow label="Enable Custom CSS" labelFor="widget-custom-css-enabled">
+			<label class="checkbox-label">
+				<input
+					id="widget-custom-css-enabled"
+					type="checkbox"
+					checked={resolvedAppearance.customCssEnabled}
+					onchange={(event) => updateAppearance({ customCssEnabled: event.currentTarget.checked })}
+				/>
+				<span>Override the look with my own CSS</span>
+			</label>
+		</SettingRow>
+	{/if}
 
-	{#if resolvedAppearance.customCssEnabled}
+	{#if !hideCustomCss && resolvedAppearance.customCssEnabled}
 		<!-- The advanced editor is collapsed by default so the built-in controls
 		     stay the primary editing surface. -->
 		<details class="advanced-css" open>
@@ -321,4 +345,37 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if applyToAll}
+		<div class="apply-to-all-row">
+			<button type="button" class="apply-to-all-btn" onclick={handleApplyToAll}>
+				{applyToAllLabel}
+			</button>
+		</div>
+	{/if}
 </SettingSection>
+
+<style>
+	.apply-to-all-row {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.apply-to-all-btn {
+		background: rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 6px;
+		color: rgba(255, 255, 255, 0.85);
+		cursor: pointer;
+		font-size: 0.8125rem;
+		padding: 6px 12px;
+		transition:
+			background 0.15s ease,
+			border-color 0.15s ease;
+	}
+
+	.apply-to-all-btn:hover {
+		background: rgba(255, 255, 255, 0.14);
+		border-color: rgba(255, 255, 255, 0.3);
+	}
+</style>

@@ -13,6 +13,7 @@
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import { settingsStore, matchesKeybind, type KeybindConfig } from '$lib/stores/settings.svelte';
 	import { createEditSession } from '$lib/edit-session.svelte';
+	import { setBulkAppearanceHandler } from '$lib/bulk-appearance';
 	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 	import type { LauncherIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
@@ -78,12 +79,21 @@
 	);
 
 	onMount(async () => {
+		// IconGrid owns the item list; appearance editors dispatch bulk
+		// "apply to all" requests through this handler instead of threading a
+		// callback through every modal in the tree.
+		setBulkAppearanceHandler(handleBulkAppearanceChange);
 		await loadLayout();
 	});
 
 	async function loadLayout() {
 		try {
 			isLoading = true;
+			// The radius migration in normalizeZ reads the (seeded) default
+			// appearance, so settings must be loaded before the icons resolve.
+			if (!settingsStore.isLoaded) {
+				await settingsStore.loadSettings();
+			}
 			const layout = await invoke<{ icons: LauncherIcon[] }>('load_active_layout');
 			icons = normalizeZ(layout.icons || []);
 			await refreshIconShortcuts(icons);
@@ -130,8 +140,10 @@
 				settings: object;
 				active_preset: string | null;
 			}>('load_active_layout');
-			icons = normalizeZ(layout.icons || []);
+			// Apply the preset's settings first so normalizeZ's radius
+			// migration stamps the preset's default corner radius.
 			settingsStore.applyLayout(layout as Parameters<typeof settingsStore.applyLayout>[0]);
+			icons = normalizeZ(layout.icons || []);
 		} catch (error) {
 			console.error('Failed to reload layout:', error);
 		}
@@ -512,6 +524,25 @@
 		editSession.markDirty();
 	}
 
+	// Bulk "apply this look to every icon and widget". Icons carry their
+	// appearance on the icon itself; widgets carry it inside widget_config.
+	function handleBulkAppearanceChange(appearance: WidgetAppearanceConfig) {
+		saveToHistory();
+		icons = icons.map((icon) =>
+			icon.icon_type === 'widget'
+				? {
+						...icon,
+						widget_config: Object.assign({}, icon.widget_config, { appearance })
+					}
+				: { ...icon, appearance }
+		);
+		if (isEditMode) {
+			editSession.markDirty();
+		} else {
+			void saveLayout();
+		}
+	}
+
 	function handleKeybindGlobalChange(id: string, global: boolean) {
 		saveToHistory();
 		const nextIcons = icons.map((icon) =>
@@ -537,6 +568,11 @@
 		}
 	}
 
+	// The default appearance is a template stamped onto items at creation.
+	function defaultAppearanceTemplate(): WidgetAppearanceConfig {
+		return { ...(settingsStore.settings.default_appearance ?? {}) };
+	}
+
 	export function addNewIcon() {
 		saveToHistory();
 		const newId = `icon-${Date.now()}`;
@@ -549,6 +585,7 @@
 			y: 150,
 			width: 100,
 			height: 100,
+			appearance: defaultAppearanceTemplate(),
 			z: nextZ()
 		};
 		icons = [...icons, newIcon];
@@ -557,7 +594,10 @@
 
 	function addAppIcon(app: LauncherIcon) {
 		saveToHistory();
-		icons = [...icons, { ...app, z: nextZ() }];
+		icons = [
+			...icons,
+			{ ...app, appearance: { ...defaultAppearanceTemplate(), ...app.appearance }, z: nextZ() }
+		];
 		editSession.markDirty();
 	}
 
@@ -569,6 +609,12 @@
 			...widget,
 			width: Math.min(widget.width, launcherW),
 			height: Math.min(widget.height, launcherH),
+			widget_config: Object.assign({}, widget.widget_config, {
+				appearance: {
+					...defaultAppearanceTemplate(),
+					...widget.widget_config?.appearance
+				}
+			}),
 			z: nextZ()
 		};
 		icons = [...icons, clampedWidget];
@@ -596,7 +642,30 @@
 	}
 
 	function normalizeZ(nextIcons: LauncherIcon[]): LauncherIcon[] {
-		return nextIcons.map((icon, index) => ({ ...icon, z: icon.z ?? index + 1 }));
+		// Legacy items have no corner radius of their own (it used to come
+		// from the launcher-wide border_radius); freeze the current default
+		// radius onto them once so later default changes only affect new items.
+		const defaultRadius = settingsStore.settings.default_appearance?.borderRadius;
+		return nextIcons.map((icon, index) => {
+			const normalized = { ...icon, z: icon.z ?? index + 1 };
+			if (normalized.icon_type === 'widget') {
+				const widgetConfig = normalized.widget_config as
+					| { appearance?: WidgetAppearanceConfig }
+					| undefined;
+				if (widgetConfig?.appearance?.borderRadius == null) {
+					// The CRT system monitor keeps structural square corners.
+					const radius = normalized.widget_type === 'system' ? 0 : defaultRadius;
+					if (radius != null) {
+						normalized.widget_config = Object.assign({}, widgetConfig ?? {}, {
+							appearance: Object.assign({}, widgetConfig?.appearance, { borderRadius: radius })
+						}) as WidgetConfigType;
+					}
+				}
+			} else if (normalized.appearance?.borderRadius == null && defaultRadius != null) {
+				normalized.appearance = { ...normalized.appearance, borderRadius: defaultRadius };
+			}
+			return normalized;
+		});
 	}
 
 	function renumberZ(nextIcons: LauncherIcon[]): LauncherIcon[] {

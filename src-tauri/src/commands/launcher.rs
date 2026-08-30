@@ -134,6 +134,11 @@ pub struct LauncherSettings {
     /// Allow Custom HTML widgets to fetch from private/LAN addresses.
     #[serde(default)]
     pub allow_local_network: bool,
+    /// Default appearance template for newly created icons/widgets. Opaque to
+    /// Rust — it is only round-tripped through preset files and interpreted
+    /// by the frontend.
+    #[serde(default)]
+    pub default_appearance: Option<serde_json::Value>,
 }
 
 impl Default for LauncherSettings {
@@ -186,6 +191,7 @@ impl Default for LauncherSettings {
             },
             network_grants: Vec::new(),
             allow_local_network: false,
+            default_appearance: None,
         }
     }
 }
@@ -256,6 +262,13 @@ fn neutralize_preset(data: &mut PresetData) -> (usize, bool, usize, usize) {
     data.settings.network_grants.clear();
     let cleared_local_network = data.settings.allow_local_network;
     data.settings.allow_local_network = false;
+
+    // Custom CSS is per-item by design and imported files are untrusted:
+    // never let a preset smuggle global CSS in through the default appearance.
+    if let Some(serde_json::Value::Object(obj)) = data.settings.default_appearance.as_mut() {
+        obj.remove("customCss");
+        obj.remove("customCssEnabled");
+    }
 
     let mut cleared_global_shortcuts = 0;
     let mut forced_power_confirmation = 0;

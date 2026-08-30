@@ -214,6 +214,45 @@ describe('settings store', () => {
 		expect(convertFileSrcMock).not.toHaveBeenCalled();
 	});
 
+	it('loadSettings keeps the default appearance and strips custom CSS keys', async () => {
+		invokeMock.mockResolvedValueOnce({
+			icons: [],
+			active_preset: null,
+			settings: {
+				default_appearance: {
+					backgroundColor: '#112233',
+					opacity: 0.8,
+					customCssEnabled: true,
+					customCss: 'body { background: red; }'
+				}
+			}
+		});
+
+		const mod = await loadFreshModule();
+		await mod.settingsStore.loadSettings();
+
+		// borderRadius is seeded from the legacy launcher border_radius once,
+		// so existing layouts keep their corners.
+		expect(mod.settingsStore.settings.default_appearance).toEqual({
+			backgroundColor: '#112233',
+			opacity: 0.8,
+			borderRadius: 24
+		});
+	});
+
+	it('loadSettings seeds the corner radius for a non-object default appearance', async () => {
+		invokeMock.mockResolvedValueOnce({
+			icons: [],
+			active_preset: null,
+			settings: { default_appearance: null, border_radius: 40 }
+		});
+
+		const mod = await loadFreshModule();
+		await mod.settingsStore.loadSettings();
+
+		expect(mod.settingsStore.settings.default_appearance).toEqual({ borderRadius: 40 });
+	});
+
 	it('keeps defaults when loadSettings fails', async () => {
 		invokeMock.mockRejectedValueOnce(new Error('nope'));
 		const mod = await loadFreshModule();

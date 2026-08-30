@@ -1,5 +1,27 @@
+import { settingsStore } from '$lib/stores/settings.svelte';
 import { DEFAULT_WIDGET_APPEARANCE, type WidgetAppearanceConfig, type WidgetConfig } from './types';
 
+/**
+ * The user's global "default item appearance" from the app settings. This is
+ * a TEMPLATE, not a live style layer: it is stamped onto items when they are
+ * created (see IconGrid's creation paths), so changing it only affects items
+ * added afterwards. "Apply to all" pushes it onto existing items explicitly.
+ */
+export function getGlobalDefaultAppearance(): Partial<WidgetAppearanceConfig> {
+	const stored = settingsStore.settings.default_appearance;
+	return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+}
+
+/**
+ * Resolves the effective appearance with this priority:
+ *
+ *   1. DEFAULT_WIDGET_APPEARANCE (hard-coded base)
+ *   2. `fallback` (call-site defaults: per-widget-type look)
+ *   3. `config.appearance` (the item's own appearance)
+ *
+ * The global default appearance is a creation-time template (see
+ * getGlobalDefaultAppearance), not a render layer.
+ */
 export function getWidgetAppearance(
 	config?: WidgetConfig,
 	fallback: Partial<WidgetAppearanceConfig> = {}

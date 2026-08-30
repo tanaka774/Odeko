@@ -7,6 +7,7 @@
 		getWidgetAppearance
 	} from './appearance';
 	import type { SystemWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	interface SystemStats {
 		cpu_usage: number;
@@ -29,18 +30,9 @@
 	const showActualUsage = $derived(config.showActualUsage ?? true);
 	const refreshInterval = $derived(config.refreshInterval ?? 2000);
 
-	const PHOSPHOR_GREEN = '#39ff14';
-	const CRT_BG = 'rgba(0, 8, 0, 0.85)';
-
-	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundColor: CRT_BG,
-			backgroundOpacity: 0.85,
-			textColor: PHOSPHOR_GREEN,
-			borderRadius: 0,
-			padding: 16
-		})
-	);
+	// The CRT look is the system widget's structural default: square corners
+	// unless the user sets a radius on the item.
+	const appearance = $derived(getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS.system));
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 	const textColor80 = $derived(colorWithOpacity(appearance.textColor, 0.8));

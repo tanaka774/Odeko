@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { SlideshowWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	type Props = WidgetComponentProps<SlideshowWidgetConfig>;
 
@@ -13,10 +14,7 @@
 	const transitionMs = $derived(config.transitionMs ?? 600);
 
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			borderRadius,
-			padding: 0
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.slideshow, borderRadius })
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));

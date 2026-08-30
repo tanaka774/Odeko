@@ -70,18 +70,70 @@ export function createDefaultWidgetAppearance(
 	};
 }
 
-function withDefaultAppearance<T extends object>(
-	config: T & { appearance?: WidgetAppearanceConfig },
-	appearance: Partial<WidgetAppearanceConfig> = {}
-): T & WidgetConfig {
-	return {
-		...config,
-		appearance: {
-			...config.appearance,
-			...appearance
-		}
-	};
-}
+/**
+ * Per-widget-type appearance defaults, merged BELOW each item's own
+ * appearance overrides. They define how a widget type looks "out of the box"
+ * without freezing that look onto the item's saved config.
+ *
+ * Widget components merge this table in as their fallback layer, and settings
+ * modals pass it as `defaults` so editors preview exactly what renders.
+ */
+export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
+	Record<WidgetType, Partial<WidgetAppearanceConfig>>
+> = {
+	weather: {
+		backgroundColor: 'rgba(30, 41, 59, 0.82)',
+		backgroundOpacity: 0.82,
+		padding: 16
+	},
+	terminal: {
+		backgroundColor: 'rgba(30, 30, 30, 0.95)',
+		backgroundOpacity: 0.95,
+		textColor: '#dcdfe4',
+		padding: 0
+	},
+	tasklist: {
+		backgroundColor: 'rgba(30, 30, 40, 0.95)',
+		backgroundOpacity: 0.95,
+		padding: 0
+	},
+	textbox: {
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		backgroundOpacity: 0.5,
+		textColor: '#ffffff',
+		borderColor: 'rgba(255, 255, 255, 0.2)',
+		borderWidth: 1,
+		borderStyle: 'solid',
+		padding: 12,
+		opacity: 1
+	},
+	memo: {
+		backgroundColor: 'rgba(30, 30, 40, 0.95)',
+		backgroundOpacity: 0.95,
+		textColor: '#ffffff'
+	},
+	drawing: {
+		backgroundColor: '#ffffff',
+		backgroundOpacity: 1,
+		textColor: '#111111',
+		padding: 0
+	},
+	slideshow: {
+		padding: 0
+	},
+	clipboard: {
+		backgroundColor: 'rgba(30, 30, 40, 0.95)',
+		backgroundOpacity: 0.95,
+		padding: 0
+	},
+	system: {
+		backgroundColor: 'rgba(0, 8, 0, 0.85)',
+		backgroundOpacity: 0.85,
+		textColor: '#39ff14',
+		borderRadius: 0,
+		padding: 16
+	}
+};
 
 // Base widget configuration
 export interface WidgetConfig {
@@ -488,183 +540,127 @@ export function getWidgetMeta(type: WidgetType): WidgetMeta | undefined {
 	return WIDGET_REGISTRY.find((w) => w.type === type);
 }
 
-// Helper to create default config for a widget type
+// Helper to create default config for a widget type. Appearance stays empty
+// (the per-type look comes from WIDGET_TYPE_APPEARANCE_DEFAULTS at render
+// time; the current default appearance is stamped on at creation in
+// IconGrid). The system monitor is the exception: square CRT corners are
+// structural, so they live on the item.
 export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 	switch (type) {
 		case 'clock':
-			return withDefaultAppearance({
+			return {
 				format: '24h',
 				showSeconds: true,
 				showDate: true,
 				timezone: 'local',
 				refreshInterval: 1000
-			});
+			};
 		case 'system':
-			return withDefaultAppearance({
+			return {
 				showCpu: true,
 				showMemory: true,
 				showDisk: true,
-				refreshInterval: 2000
-			});
+				refreshInterval: 2000,
+				appearance: { borderRadius: 0 }
+			};
 		case 'weather':
-			return withDefaultAppearance(
-				{
-					location: 'Tokyo',
-					unit: 'celsius',
-					forecastHours: 3,
-					refreshInterval: 30 * 60 * 1000 // 30 minutes
-				},
-				{
-					backgroundColor: 'rgba(30, 41, 59, 0.82)',
-					backgroundOpacity: 0.82
-				}
-			);
+			return {
+				location: 'Tokyo',
+				unit: 'celsius',
+				forecastHours: 3,
+				refreshInterval: 30 * 60 * 1000 // 30 minutes
+			};
 		case 'terminal':
-			return withDefaultAppearance(
-				{
-					fontSize: 14,
-					fontFamily: 'Consolas'
-				},
-				{
-					backgroundColor: 'rgba(30, 30, 30, 0.95)',
-					backgroundOpacity: 0.95,
-					textColor: '#dcdfe4',
-					padding: 0
-				}
-			);
+			return {
+				fontSize: 14,
+				fontFamily: 'Consolas'
+			};
 		case 'tasklist': {
 			const generalTab = createTaskGroup();
-			return withDefaultAppearance(
-				{
-					groups: [generalTab],
-					activeGroupId: generalTab.id,
-					autoDisappearEnabled: true,
-					autoDisappearHours: 24
-				},
-				{
-					backgroundColor: 'rgba(30, 30, 40, 0.95)',
-					backgroundOpacity: 0.95,
-					padding: 0
-				}
-			);
+			return {
+				groups: [generalTab],
+				activeGroupId: generalTab.id,
+				autoDisappearEnabled: true,
+				autoDisappearHours: 24
+			};
 		}
 		case 'music':
-			return withDefaultAppearance({
+			return {
 				showAlbumArt: true,
 				showProgressBar: true,
 				themeColor: '#86efac',
 				refreshInterval: 1000
-			});
+			};
 		case 'textbox':
-			return withDefaultAppearance(
-				{
-					content: '',
-					fontSize: 16,
-					fontFamily: 'system-ui',
-					textAlign: 'left',
-					showBorderTop: true,
-					showBorderRight: true,
-					showBorderBottom: true,
-					showBorderLeft: true
-				},
-				{
-					backgroundColor: 'rgba(0, 0, 0, 0.5)',
-					backgroundOpacity: 0.5,
-					textColor: '#ffffff',
-					borderColor: 'rgba(255, 255, 255, 0.2)',
-					borderWidth: 1,
-					borderStyle: 'solid',
-					borderRadius: 8,
-					padding: 12,
-					opacity: 1
-				}
-			);
+			return {
+				content: '',
+				fontSize: 16,
+				fontFamily: 'system-ui',
+				textAlign: 'left',
+				showBorderTop: true,
+				showBorderRight: true,
+				showBorderBottom: true,
+				showBorderLeft: true
+			};
 		case 'memo':
-			return withDefaultAppearance(
-				{
-					content: '',
-					fontSize: 14,
-					fontFamily: 'system-ui',
-					wordWrap: true
-				},
-				{
-					backgroundColor: 'rgba(30, 30, 40, 0.95)',
-					backgroundOpacity: 0.95,
-					textColor: '#ffffff'
-				}
-			);
+			return {
+				content: '',
+				fontSize: 14,
+				fontFamily: 'system-ui',
+				wordWrap: true
+			};
 		case 'drawing':
-			return withDefaultAppearance(
-				{
-					penColor: '#000000',
-					brushSize: 3,
-					eraserSize: 20,
-					canvasBackground: '#ffffff',
-					canvasState: '',
-					penOpacity: 1
-				},
-				{
-					backgroundColor: '#ffffff',
-					backgroundOpacity: 1,
-					textColor: '#111111',
-					padding: 0
-				}
-			);
+			return {
+				penColor: '#000000',
+				brushSize: 3,
+				eraserSize: 20,
+				canvasBackground: '#ffffff',
+				canvasState: '',
+				penOpacity: 1
+			};
 		case 'slideshow':
-			return withDefaultAppearance(
-				{
-					images: [],
-					intervalMs: 5000,
-					shuffle: false,
-					loop: true,
-					transitionMs: 600
-				},
-				{
-					padding: 0
-				}
-			);
+			return {
+				images: [],
+				intervalMs: 5000,
+				shuffle: false,
+				loop: true,
+				transitionMs: 600
+			};
 		case 'sleep':
-			return withDefaultAppearance({
+			return {
 				requireConfirmation: true,
 				showLabel: true,
 				buttonText: 'Sleep',
 				iconType: 'default',
 				iconPath: ''
-			});
+			};
 		case 'restart':
-			return withDefaultAppearance({
+			return {
 				requireConfirmation: true,
 				showLabel: true,
 				buttonText: 'Restart',
 				iconType: 'default',
 				iconPath: ''
-			});
+			};
 		case 'shutdown':
-			return withDefaultAppearance({
+			return {
 				requireConfirmation: true,
 				showLabel: true,
 				buttonText: 'Shutdown',
 				iconType: 'default',
 				iconPath: ''
-			});
+			};
 		case 'clipboard':
-			return withDefaultAppearance(
-				{
-					history: [],
-					maxEntries: 20,
-					showTimestamps: true,
-					captureImages: true
-				},
-				{
-					backgroundColor: 'rgba(30, 30, 40, 0.95)',
-					backgroundOpacity: 0.95,
-					padding: 0
-				}
-			);
+			return {
+				history: [],
+				maxEntries: 20,
+				showTimestamps: true,
+				captureImages: true
+			};
 		case 'custom':
-			return withDefaultAppearance({
+			return {
 				content: '<h1>My widget</h1>\n<p>Edit the HTML in the widget settings.</p>'
-			});
+			};
 		default:
 			return {};
 	}

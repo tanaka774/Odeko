@@ -35,6 +35,7 @@
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { TerminalWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 	import type { Terminal } from '@xterm/xterm';
 	import type { FitAddon } from '@xterm/addon-fit';
 
@@ -251,11 +252,7 @@
 	}
 
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundOpacity: 1,
-			borderRadius,
-			padding: 0
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal, borderRadius })
 	);
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 </script>

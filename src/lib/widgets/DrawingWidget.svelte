@@ -2,6 +2,7 @@
 	import { Canvas, PencilBrush } from 'fabric';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { DrawingWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	type Props = WidgetComponentProps<DrawingWidgetConfig>;
 
@@ -13,12 +14,7 @@
 	const canvasBackground = $derived(config.canvasBackground ?? '#ffffff');
 	const penOpacity = $derived(config.penOpacity ?? 1);
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundColor: 'rgba(0, 0, 0, 0.3)',
-			backgroundOpacity: 0.3,
-			borderRadius,
-			padding: 0
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.drawing, borderRadius })
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));

@@ -2,6 +2,8 @@
 	import Settings from '@lucide/svelte/icons/settings';
 
 	import type { WidgetType, WidgetConfigType } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
+	import { getWidgetAppearance } from './appearance';
 	import WidgetContainer from './WidgetContainer.svelte';
 	import WidgetCss from './WidgetCss.svelte';
 	import ClockSettingsModal from '$lib/components/ClockSettingsModal.svelte';
@@ -18,7 +20,7 @@
 	import ClipboardSettingsModal from '$lib/components/ClipboardSettingsModal.svelte';
 	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
 	import Portal from '$lib/components/Portal.svelte';
-	import { settingsStore, type KeybindConfig } from '$lib/stores/settings.svelte';
+	import type { KeybindConfig } from '$lib/stores/settings.svelte';
 	import {
 		computeResizeRect,
 		getResizeDirAtPoint,
@@ -107,6 +109,12 @@
 
 	const MIN_SIZE = 80;
 	const SNAP_THRESHOLD = 10;
+
+	// The widget's effective corner radius (type default < item override), so
+	// the drag frame and container match what renders.
+	const borderRadius = $derived(
+		getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS[widgetType] ?? {}).borderRadius
+	);
 
 	let cursor = $derived(
 		isEditMode ? (hoverResizeDir ? RESIZE_CURSORS[hoverResizeDir] : 'move') : undefined
@@ -350,8 +358,7 @@
 	class:dragging={isDragging}
 	class:resizing={isResizing}
 	class:selected
-	style="width: 100%; height: 100%; border-radius: {settingsStore.settings
-		.border_radius}px; cursor: {cursor};"
+	style="width: 100%; height: 100%; border-radius: {borderRadius}px; cursor: {cursor};"
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
@@ -363,7 +370,7 @@
 		{id}
 		{config}
 		{isEditMode}
-		borderRadius={settingsStore.settings.border_radius}
+		{borderRadius}
 		onConfigChange={(newConfig) => onConfigChange(id, newConfig)}
 	/>
 

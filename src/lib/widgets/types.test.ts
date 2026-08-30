@@ -5,9 +5,11 @@ import {
 	createDefaultWidgetConfig,
 	createDefaultWidgetAppearance,
 	DEFAULT_WIDGET_APPEARANCE,
+	WIDGET_TYPE_APPEARANCE_DEFAULTS,
 	type ClockWidgetConfig,
 	type WeatherWidgetConfig,
 	type SlideshowWidgetConfig,
+	type SystemWidgetConfig,
 	type PowerControlWidgetConfig,
 	type ClipboardWidgetConfig,
 	type CustomWidgetConfig
@@ -39,12 +41,15 @@ describe('createDefaultWidgetConfig', () => {
 		expect(cfg.refreshInterval).toBe(1000);
 	});
 
-	it('creates weather defaults with custom appearance', () => {
+	it('creates weather defaults without a stamped appearance', () => {
 		const cfg = createDefaultWidgetConfig('weather') as WeatherWidgetConfig;
 		expect(cfg.location).toBe('Tokyo');
 		expect(cfg.unit).toBe('celsius');
-		expect(cfg.appearance?.backgroundColor).toBe('rgba(30, 41, 59, 0.82)');
-		expect(cfg.appearance?.backgroundOpacity).toBe(0.82);
+		// The per-type look lives in the shared defaults table, merged at
+		// render time instead of being baked into the saved config.
+		expect(cfg.appearance).toBeUndefined();
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.weather?.backgroundColor).toBe('rgba(30, 41, 59, 0.82)');
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.weather?.backgroundOpacity).toBe(0.82);
 	});
 
 	it('creates slideshow defaults', () => {
@@ -52,6 +57,11 @@ describe('createDefaultWidgetConfig', () => {
 		expect(cfg.intervalMs).toBe(5000);
 		expect(cfg.loop).toBe(true);
 		expect(cfg.shuffle).toBe(false);
+	});
+
+	it('stamps structural square corners onto new system widgets', () => {
+		const cfg = createDefaultWidgetConfig('system') as SystemWidgetConfig;
+		expect(cfg.appearance?.borderRadius).toBe(0);
 	});
 
 	it('creates power widgets with confirmation enabled', () => {
@@ -74,11 +84,32 @@ describe('createDefaultWidgetConfig', () => {
 	it('creates custom defaults with placeholder HTML', () => {
 		const cfg = createDefaultWidgetConfig('custom') as CustomWidgetConfig;
 		expect(cfg.content).toContain('<h1>My widget</h1>');
-		expect(cfg.appearance).toEqual({});
+		expect(cfg.appearance).toBeUndefined();
 	});
 
 	it('returns an empty object for an unknown type', () => {
 		expect(createDefaultWidgetConfig('bogus' as never)).toEqual({});
+	});
+});
+
+describe('WIDGET_TYPE_APPEARANCE_DEFAULTS', () => {
+	it('carries the per-type looks that used to be stamped at creation', () => {
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal?.backgroundColor).toBe(
+			'rgba(30, 30, 30, 0.95)'
+		);
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal?.padding).toBe(0);
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.tasklist?.padding).toBe(0);
+		// Textbox corners follow the global default appearance like any other
+		// field; only the system monitor keeps structural square corners.
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.textbox?.borderRadius).toBeUndefined();
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.drawing?.backgroundColor).toBe('#ffffff');
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.system?.borderRadius).toBe(0);
+	});
+
+	it('leaves types without a special look unset', () => {
+		for (const type of ['clock', 'music', 'sleep', 'restart', 'shutdown', 'custom'] as const) {
+			expect(WIDGET_TYPE_APPEARANCE_DEFAULTS[type]).toBeUndefined();
+		}
 	});
 });
 

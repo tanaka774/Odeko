@@ -8,6 +8,7 @@
 	import {
 		createTaskGroup,
 		normalizeTaskGroups,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
 		type TaskListWidgetConfig,
 		type Task,
 		type TaskGroup,
@@ -27,12 +28,7 @@
 	const autoDisappearEnabled = $derived(config.autoDisappearEnabled ?? true);
 	const autoDisappearHours = $derived(config.autoDisappearHours ?? 24);
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundColor: 'rgba(30, 30, 40, 0.95)',
-			backgroundOpacity: 0.95,
-			borderRadius,
-			padding: 0
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.tasklist, borderRadius })
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));

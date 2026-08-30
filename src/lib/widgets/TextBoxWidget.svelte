@@ -1,15 +1,11 @@
 <script lang="ts">
 	import { getAppearanceBackground, getWidgetAppearance } from './appearance';
 	import type { TextBoxWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	type Props = WidgetComponentProps<TextBoxWidgetConfig>;
 
-	let {
-		config = {},
-		isEditMode = false,
-		borderRadius: globalBorderRadius = 12,
-		onConfigChange
-	}: Props = $props();
+	let { config = {}, isEditMode = false, onConfigChange }: Props = $props();
 
 	// Default config values
 	let content = $state(config.content ?? '');
@@ -20,11 +16,7 @@
 	const showBorderRight = $derived(config.showBorderRight ?? true);
 	const showBorderBottom = $derived(config.showBorderBottom ?? true);
 	const showBorderLeft = $derived(config.showBorderLeft ?? true);
-	const appearance = $derived(
-		getWidgetAppearance(config, {
-			borderRadius: globalBorderRadius
-		})
-	);
+	const appearance = $derived(getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS.textbox));
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 
 	// Auto-save content when it changes

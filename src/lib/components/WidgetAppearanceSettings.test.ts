@@ -1,8 +1,17 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, screen, cleanup } from '@testing-library/svelte';
 import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
+import { setBulkAppearanceHandler } from '$lib/bulk-appearance';
 
-afterEach(cleanup);
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: vi.fn(),
+	convertFileSrc: (path: string) => path
+}));
+
+afterEach(() => {
+	cleanup();
+	setBulkAppearanceHandler(null);
+});
 
 function appearanceFields(): HTMLElement {
 	return document.querySelector('.appearance-fields') as HTMLElement;
@@ -90,5 +99,39 @@ describe('WidgetAppearanceSettings grouping', () => {
 
 		expect(screen.queryByText('Text')).toBeNull();
 		expect(screen.queryByLabelText('Text Color')).toBeNull();
+	});
+});
+
+describe('WidgetAppearanceSettings apply to all', () => {
+	it('dispatches the effective look to the bulk handler, minus custom CSS', async () => {
+		const handler = vi.fn();
+		setBulkAppearanceHandler(handler);
+
+		render(WidgetAppearanceSettings, {
+			appearance: { backgroundColor: '#112233', customCssEnabled: true, customCss: 'x{}' },
+			defaults: { padding: 4 },
+			applyToAll: true
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /apply to all/i }));
+
+		expect(handler).toHaveBeenCalledTimes(1);
+		const payload = handler.mock.calls[0][0];
+		expect(payload.backgroundColor).toBe('#112233');
+		expect(payload.padding).toBe(4);
+		expect(payload.customCss).toBeUndefined();
+		expect(payload.customCssEnabled).toBeUndefined();
+	});
+
+	it('hides the apply-to-all button by default (bulk apply is opt-in)', () => {
+		render(WidgetAppearanceSettings, { appearance: {} });
+
+		expect(screen.queryByRole('button', { name: /apply to all/i })).toBeNull();
+	});
+
+	it('hides the custom CSS controls when hideCustomCss is set', () => {
+		render(WidgetAppearanceSettings, { appearance: {}, hideCustomCss: true });
+
+		expect(screen.queryByRole('checkbox', { name: /override the look/i })).toBeNull();
 	});
 });

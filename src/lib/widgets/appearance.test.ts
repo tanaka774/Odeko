@@ -1,11 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// settingsStore (imported by ./appearance) talks to Tauri at module load.
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: vi.fn(),
+	convertFileSrc: (path: string) => path
+}));
+
 import {
 	getWidgetAppearance,
+	getGlobalDefaultAppearance,
 	colorWithOpacity,
 	getAppearanceBackground,
 	getAppearanceBorder,
 	colorToHexInputValue
 } from './appearance';
+import { settingsStore } from '$lib/stores/settings.svelte';
+
+afterEach(() => {
+	settingsStore.resetToDefaults();
+});
 
 describe('colorWithOpacity', () => {
 	it('rewrites rgb() colors with the given opacity', () => {
@@ -71,6 +84,30 @@ describe('getWidgetAppearance', () => {
 		);
 		expect(result.opacity).toBe(0.9);
 		expect(result.padding).toBe(4);
+	});
+
+	it('never applies the global default as a render layer', () => {
+		// The default appearance is a creation-time template; existing items
+		// resolve only DEFAULT < fallback < item.
+		settingsStore.updateSettings({
+			default_appearance: { backgroundColor: '#123456', borderRadius: 30 }
+		});
+
+		const result = getWidgetAppearance({}, { padding: 4 });
+
+		expect(result.backgroundColor).toBe('rgba(0, 0, 0, 0.3)');
+		expect(result.borderRadius).toBe(12);
+		expect(result.padding).toBe(4);
+	});
+
+	it('exposes the default appearance template from the store', () => {
+		expect(getGlobalDefaultAppearance()).toEqual({ borderRadius: 24 });
+	});
+
+	it('ignores a non-object default appearance from older/imported files', () => {
+		settingsStore.updateSettings({ default_appearance: null as never });
+		expect(getGlobalDefaultAppearance()).toEqual({});
+		expect(getWidgetAppearance().backgroundColor).toBe('rgba(0, 0, 0, 0.3)');
 	});
 });
 

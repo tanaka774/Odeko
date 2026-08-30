@@ -168,14 +168,12 @@
 
 	let hasCustomSource = $derived(localFilePath !== '' || localUrlValue.trim() !== '');
 
-	// Mirror of AppIcon.svelte's fallback defaults: the launcher-wide corner
-	// radius and no padding for raw images.
+	// Mirror of AppIcon.svelte's fallback defaults: no padding for raw images.
 	const appearanceDefaults = $derived(
 		icon
 			? {
 					backgroundColor: 'rgba(255, 255, 255, 1)',
 					backgroundOpacity: 0.2,
-					borderRadius: settingsStore.settings.border_radius,
 					padding: icon.icon_type === 'image' ? 0 : 8
 				}
 			: {}

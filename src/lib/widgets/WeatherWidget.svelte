@@ -10,6 +10,7 @@
 		getWidgetAppearance
 	} from './appearance';
 	import type { WeatherWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	type Props = WidgetComponentProps<WeatherWidgetConfig>;
 
@@ -20,13 +21,7 @@
 	const refreshInterval = $derived(config.refreshInterval ?? 30 * 60 * 1000);
 	const forecastHours = $derived(config.forecastHours ?? 3);
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundColor:
-				'linear-gradient(135deg, rgba(30, 41, 59, 0.82), rgba(15, 23, 42, 0.68)), rgba(0, 0, 0, 0.3)',
-			backgroundOpacity: 1,
-			borderRadius,
-			padding: 16
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.weather, borderRadius })
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));

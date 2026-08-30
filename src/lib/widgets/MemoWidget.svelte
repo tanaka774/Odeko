@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { MemoWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	type Props = WidgetComponentProps<MemoWidgetConfig>;
 
@@ -11,6 +12,7 @@
 	const wordWrap = $derived(config.wordWrap ?? true);
 	const appearance = $derived(
 		getWidgetAppearance(config, {
+			...WIDGET_TYPE_APPEARANCE_DEFAULTS.memo,
 			borderRadius,
 			padding: 12
 		})

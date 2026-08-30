@@ -6,6 +6,7 @@
 	import SettingRow from './settings/SettingRow.svelte';
 	import { colorToHexInputValue } from '$lib/widgets/appearance';
 	import type { SystemWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 	import './settings/modal-form.css';
 
 	interface Props {
@@ -50,11 +51,7 @@
 		{ value: 10000, label: '10 seconds' }
 	];
 
-	const defaultAppearance = {
-		backgroundColor: 'rgba(0, 0, 0, 0.3)',
-		backgroundOpacity: 0.3,
-		padding: 16
-	};
+	const defaultAppearance = WIDGET_TYPE_APPEARANCE_DEFAULTS.system ?? {};
 
 	function handleSave() {
 		onSave(localConfig);

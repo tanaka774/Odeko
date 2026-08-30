@@ -23,6 +23,7 @@
 		truncate
 	} from '$lib/clipboard';
 	import type { ClipboardEntry, ClipboardWidgetConfig, WidgetComponentProps } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 
 	const POLL_INTERVAL = 500;
 	const IMAGE_CHECK_TICKS = 5; // check for images every 5th poll (2.5s)
@@ -31,7 +32,9 @@
 
 	let { config = {}, isEditMode = false, borderRadius = 12, onConfigChange }: Props = $props();
 
-	const appearance = $derived(getWidgetAppearance(config, { borderRadius, padding: 0 }));
+	const appearance = $derived(
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.clipboard, borderRadius })
+	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 	const showTimestamps = $derived(config.showTimestamps ?? true);
