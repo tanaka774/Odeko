@@ -67,6 +67,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 	onclick={executeAction}
@@ -101,7 +103,8 @@
 		gap: 12px;
 		cursor: pointer;
 		transition: all 0.2s ease;
-		font-family: inherit;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 	}
 
 	.power-widget:hover {
@@ -138,7 +141,7 @@
 
 	.label {
 		color: inherit;
-		font-size: 0.9rem;
+		font-size: 0.9em;
 		font-weight: 500;
 		text-align: center;
 	}

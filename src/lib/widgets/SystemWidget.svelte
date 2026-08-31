@@ -95,6 +95,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--widget-text-color-80={textColor80}
 	style:--widget-text-color-60={textColor60}
 	style:--gauge-fill-bg={gaugeFillBackground}
@@ -167,7 +169,8 @@
 		position: relative;
 		overflow: hidden;
 		container-type: inline-size;
-		font-family: 'Courier New', 'Consolas', 'SF Mono', monospace;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		text-shadow: 0 0 4px rgba(57, 255, 20, 0.3);
 		box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.55);
 		background: var(--appearance-background);
@@ -216,20 +219,20 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		font-size: clamp(0.7rem, 6cqw, 1.05rem);
+		font-size: clamp(0.7em, 6cqw, 1.05em);
 		color: var(--widget-text-color-80);
 		letter-spacing: 0.05em;
 	}
 
 	.stat-label span:first-child {
 		font-weight: 700;
-		font-size: clamp(0.6rem, 5cqw, 0.9rem);
+		font-size: clamp(0.6em, 5cqw, 0.9em);
 		min-width: 50px;
 	}
 
 	.stat-value {
 		color: var(--widget-text-color-60);
-		font-size: clamp(0.6rem, 5.5cqw, 0.95rem);
+		font-size: clamp(0.6em, 5.5cqw, 0.95em);
 		text-align: right;
 	}
 

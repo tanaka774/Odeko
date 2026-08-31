@@ -14,7 +14,7 @@
 		getAppearanceBorder
 	} from '$lib/widgets/appearance';
 	import type { LauncherIcon, IconType } from '$lib/icons';
-	import type { WidgetAppearanceConfig } from '$lib/widgets/types';
+	import { TEXT_APPEARANCE_FIELDS, type WidgetAppearanceConfig } from '$lib/widgets/types';
 	import {
 		settingsStore,
 		findKeybindConflict,
@@ -31,8 +31,6 @@
 		onClearImage = () => {},
 		onUpdateShowName = () => {},
 		onUpdateCustomName = () => {},
-		onUpdateFontFamily = () => {},
-		onUpdateFontSize = () => {},
 		onUpdateArgs = () => {},
 		onUpdateKeybind = () => {},
 		onUpdateKeybindGlobal = () => {},
@@ -46,8 +44,6 @@
 		onClearImage?: (id: string) => void;
 		onUpdateShowName?: (id: string, showName: boolean) => void;
 		onUpdateCustomName?: (id: string, customName: string | null) => void;
-		onUpdateFontFamily?: (id: string, fontFamily: string | null) => void;
-		onUpdateFontSize?: (id: string, fontSize: number | null) => void;
 		onUpdateArgs?: (id: string, args: string | null) => void;
 		onUpdateKeybind?: (id: string, keybind: KeybindConfig | null) => void;
 		onUpdateKeybindGlobal?: (id: string, global: boolean) => void;
@@ -61,8 +57,6 @@
 	let localUrl = $state('');
 	let localShowName = $state(true);
 	let localCustomName = $state('');
-	let localFontFamily = $state('');
-	let localFontSize = $state(14);
 	let localArgs = $state('');
 	let localAppearance = $state<WidgetAppearanceConfig | undefined>(undefined);
 	let localKeybindGlobal = $state(false);
@@ -126,8 +120,6 @@
 			localUrl = icon.url || '';
 			localShowName = icon.show_name ?? true;
 			localCustomName = icon.custom_name ?? '';
-			localFontFamily = icon.font_family ?? '';
-			localFontSize = icon.font_size ?? 14;
 			localArgs = icon.args ?? '';
 			localAppearance = icon.appearance ? { ...icon.appearance } : undefined;
 			localKeybindGlobal = icon.keybind_global ?? false;
@@ -232,8 +224,6 @@
 		}
 		onUpdateShowName(icon.id, localShowName);
 		onUpdateCustomName(icon.id, localCustomName.trim() || null);
-		onUpdateFontFamily(icon.id, localFontFamily.trim() || null);
-		onUpdateFontSize(icon.id, localFontSize || null);
 		onUpdateArgs(icon.id, localArgs.trim() || null);
 		// Persist keybind only when set and not in conflict with another binding.
 		const resolvedKeybind = recorderValue.key && !keybindError ? recorderValue : null;
@@ -396,6 +386,8 @@
 							style:border-radius="{previewAppearance.borderRadius}px"
 							style:padding="{previewAppearance.padding}px"
 							style:opacity={previewAppearance.opacity}
+							style:font-size="{previewAppearance.fontSize}px"
+							style:font-family={previewAppearance.fontFamily}
 						>
 							{#if previewImage}
 								<img src={previewImage} alt="" class="tile-preview-image" />
@@ -409,11 +401,8 @@
 								>
 							{/if}
 							{#if icon.icon_type !== 'image' && localShowName}
-								<span
-									class="tile-preview-label"
-									style:color={previewAppearance.textColor}
-									style:font-family={localFontFamily || 'inherit'}
-									style:font-size="{localFontSize}px">{localCustomName.trim() || icon.name}</span
+								<span class="tile-preview-label" style:color={previewAppearance.textColor}
+									>{localCustomName.trim() || icon.name}</span
 								>
 							{/if}
 						</div>
@@ -425,7 +414,7 @@
 					bind:appearance={localAppearance}
 					defaults={appearanceDefaults}
 					opacityLabel="Icon Opacity"
-					hideFields={icon.icon_type === 'image' || !localShowName ? ['textColor'] : []}
+					hideFields={icon.icon_type === 'image' || !localShowName ? TEXT_APPEARANCE_FIELDS : []}
 				/>
 			{:else}
 				{#if icon.icon_type !== 'image'}
@@ -444,25 +433,6 @@
 								placeholder="Custom name (optional)"
 							/>
 						</SettingRow>
-						<div class="field-grid">
-							<SettingRow label="Font Family">
-								<input
-									class="text-input"
-									type="text"
-									bind:value={localFontFamily}
-									placeholder="e.g., Arial, sans-serif"
-								/>
-							</SettingRow>
-							<SettingRow label="Font Size (px)">
-								<input
-									class="text-input"
-									type="number"
-									min="8"
-									max="48"
-									bind:value={localFontSize}
-								/>
-							</SettingRow>
-						</div>
 					</SettingSection>
 				{/if}
 
@@ -601,7 +571,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 1.75rem;
+		font-size: clamp(1em, 4vw, 2em);
 		font-weight: bold;
 		color: rgba(255, 255, 255, 0.9);
 	}
@@ -610,6 +580,7 @@
 		flex-shrink: 0;
 		max-width: 100%;
 		margin-top: 4px;
+		font-size: clamp(0.625em, 2vw, 0.875em);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

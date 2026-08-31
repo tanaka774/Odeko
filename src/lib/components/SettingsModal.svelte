@@ -578,7 +578,8 @@
 						<section class="settings-section">
 							<h3>Default Item Appearance</h3>
 							<p class="settings-note">
-								These would be applied when new one is created as default style
+								Applied to new items as their default style. Font settings only affect items that
+								show text.
 							</p>
 							<WidgetAppearanceSettings
 								title=""

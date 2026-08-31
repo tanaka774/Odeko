@@ -4,7 +4,7 @@ import type { WidgetType } from './types';
 export type CssApiItemType = WidgetType | 'icon';
 
 /**
- * The six shared appearance knobs, set on the root of every grid item
+ * The eight shared appearance knobs, set on the root of every grid item
  * (widgets and icons) as CSS custom properties. They are the stable part of
  * the public "custom CSS" API: a user may override them (or the concrete
  * properties they feed) with plain selectors — no `!important` needed.
@@ -13,6 +13,8 @@ export const SHARED_APPEARANCE_VARIABLES = [
 	'--appearance-background',
 	'--appearance-border',
 	'--appearance-text-color',
+	'--appearance-font-family',
+	'--appearance-font-size',
 	'--appearance-border-radius',
 	'--appearance-padding',
 	'--appearance-opacity'

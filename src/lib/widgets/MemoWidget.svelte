@@ -7,8 +7,6 @@
 
 	let { config = {}, isEditMode = false, borderRadius = 12, onConfigChange }: Props = $props();
 
-	const fontSize = $derived(config.fontSize ?? 14);
-	const fontFamily = $derived(config.fontFamily ?? 'system-ui');
 	const wordWrap = $derived(config.wordWrap ?? true);
 	const appearance = $derived(
 		getWidgetAppearance(config, {
@@ -62,9 +60,9 @@
 <div
 	class="memo-widget"
 	style="
-			--font-size: {fontSize}px;
-			--font-family: {fontFamily};
 			--appearance-text-color: {appearance.textColor};
+			--appearance-font-family: {appearance.fontFamily};
+			--appearance-font-size: {appearance.fontSize}px;
 			--appearance-background: {widgetBackground};
 			--appearance-border: {widgetBorder};
 			--appearance-border-radius: {appearance.borderRadius}px;
@@ -96,6 +94,8 @@
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 	}
 
 	.memo-content {
@@ -107,8 +107,8 @@
 		resize: none;
 		background: transparent;
 		color: var(--appearance-text-color);
-		font-size: var(--font-size);
-		font-family: var(--font-family);
+		font-size: 1em;
+		font-family: inherit;
 		line-height: 1.6;
 		padding: var(--appearance-padding);
 		margin: 0;

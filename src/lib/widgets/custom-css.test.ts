@@ -80,11 +80,13 @@ describe('prefixSelectors', () => {
 });
 
 describe('SHARED_APPEARANCE_VARIABLES', () => {
-	it('covers the six root-level appearance knobs', () => {
+	it('covers the eight root-level appearance knobs', () => {
 		expect(SHARED_APPEARANCE_VARIABLES).toEqual([
 			'--appearance-background',
 			'--appearance-border',
 			'--appearance-text-color',
+			'--appearance-font-family',
+			'--appearance-font-size',
 			'--appearance-border-radius',
 			'--appearance-padding',
 			'--appearance-opacity'

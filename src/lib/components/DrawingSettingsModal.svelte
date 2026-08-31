@@ -1,8 +1,11 @@
 <script lang="ts">
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import SettingsModalShell from './settings/SettingsModalShell.svelte';
-	import type { DrawingWidgetConfig } from '$lib/widgets/types';
-	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
+	import {
+		TEXT_APPEARANCE_FIELDS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type DrawingWidgetConfig
+	} from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -36,7 +39,7 @@
 			widgetType="drawing"
 			bind:appearance={localConfig.appearance}
 			defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.drawing ?? {}}
-			hideFields={['backgroundColor', 'backgroundOpacity', 'textColor']}
+			hideFields={['backgroundColor', 'backgroundOpacity', ...TEXT_APPEARANCE_FIELDS]}
 		/>
 	</div>
 </SettingsModalShell>

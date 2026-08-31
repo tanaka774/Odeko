@@ -137,6 +137,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 >
@@ -225,11 +227,8 @@
 		align-items: center;
 		justify-content: center;
 		box-sizing: border-box;
-		font-family:
-			'Segoe UI',
-			system-ui,
-			-apple-system,
-			sans-serif;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		background: var(--appearance-background);
 		border: var(--appearance-border);
 		border-radius: var(--appearance-border-radius);
@@ -317,7 +316,7 @@
 	}
 
 	.time-display {
-		font-size: clamp(1.5rem, 4vw, 3rem);
+		font-size: clamp(1.5em, 4vw, 3em);
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 		letter-spacing: 0.05em;
@@ -326,7 +325,7 @@
 	}
 
 	.date-display {
-		font-size: clamp(0.75rem, 2vw, 1rem);
+		font-size: clamp(0.75em, 2vw, 1em);
 		font-weight: 400;
 		opacity: 0.8;
 		margin-top: 8px;

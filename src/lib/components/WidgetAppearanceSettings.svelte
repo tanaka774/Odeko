@@ -196,26 +196,59 @@
 			</div>
 		{/if}
 
-		{#if !hideFields.includes('textColor')}
+		{#if !hideFields.includes('textColor') || !hideFields.includes('fontSize') || !hideFields.includes('fontFamily')}
 			<div class="appearance-group">
 				<p class="appearance-group-label">Text</p>
 
-				<SettingRow label="Text Color" labelFor="widget-text-color">
-					<div class="color-control">
+				{#if !hideFields.includes('fontSize')}
+					<SettingRow
+						label="Font Size: {resolvedAppearance.fontSize}px"
+						labelFor="widget-font-size"
+					>
 						<input
-							id="widget-text-color"
-							type="color"
-							value={colorToHexInputValue(resolvedAppearance.textColor, '#ffffff')}
-							oninput={(event) => updateAppearance({ textColor: event.currentTarget.value })}
+							id="widget-font-size"
+							class="range-input"
+							type="range"
+							min="6"
+							max="96"
+							step="1"
+							value={resolvedAppearance.fontSize}
+							oninput={(event) => updateAppearance({ fontSize: Number(event.currentTarget.value) })}
 						/>
+					</SettingRow>
+				{/if}
+
+				{#if !hideFields.includes('fontFamily')}
+					<SettingRow label="Font Family" labelFor="widget-font-family">
 						<input
+							id="widget-font-family"
+							class="text-input"
 							type="text"
-							value={resolvedAppearance.textColor}
-							placeholder="#ffffff"
-							oninput={(event) => updateAppearance({ textColor: event.currentTarget.value })}
+							value={resolvedAppearance.fontFamily}
+							placeholder="e.g., Georgia, serif"
+							oninput={(event) => updateAppearance({ fontFamily: event.currentTarget.value })}
 						/>
-					</div>
-				</SettingRow>
+					</SettingRow>
+				{/if}
+
+				{#if !hideFields.includes('textColor')}
+					<SettingRow label="Text Color" labelFor="widget-text-color">
+						<div class="color-control">
+							<input
+								id="widget-text-color"
+								type="color"
+								value={colorToHexInputValue(resolvedAppearance.textColor, '#ffffff')}
+								oninput={(event) => updateAppearance({ textColor: event.currentTarget.value })}
+							/>
+							<input
+								type="text"
+								value={resolvedAppearance.textColor}
+								placeholder="#ffffff"
+								oninput={(event) => updateAppearance({ textColor: event.currentTarget.value })}
+							/>
+						</div>
+					</SettingRow>
+				{/if}
 			</div>
 		{/if}
 

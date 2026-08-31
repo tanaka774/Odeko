@@ -263,6 +263,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 >

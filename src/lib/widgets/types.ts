@@ -23,6 +23,8 @@ export type WidgetAppearanceField =
 	| 'backgroundColor'
 	| 'backgroundOpacity'
 	| 'textColor'
+	| 'fontSize'
+	| 'fontFamily'
 	| 'borderColor'
 	| 'borderWidth'
 	| 'borderStyle'
@@ -30,10 +32,20 @@ export type WidgetAppearanceField =
 	| 'padding'
 	| 'opacity';
 
+/** Text-related appearance fields; editors for textless item types hide them. */
+export const TEXT_APPEARANCE_FIELDS: WidgetAppearanceField[] = [
+	'textColor',
+	'fontSize',
+	'fontFamily'
+];
+
 export interface WidgetAppearanceConfig {
 	backgroundColor?: string;
 	backgroundOpacity?: number;
 	textColor?: string;
+	/** Base text size in px; widget text uses em units relative to it. */
+	fontSize?: number;
+	fontFamily?: string;
 	borderColor?: string;
 	borderWidth?: number;
 	borderStyle?: WidgetBorderStyle;
@@ -51,6 +63,8 @@ export const DEFAULT_WIDGET_APPEARANCE: Required<WidgetAppearanceConfig> = {
 	backgroundColor: 'rgba(0, 0, 0, 0.3)',
 	backgroundOpacity: 0.3,
 	textColor: '#ffffff',
+	fontSize: 16,
+	fontFamily: 'system-ui',
 	borderColor: 'rgba(255, 255, 255, 0.12)',
 	borderWidth: 0,
 	borderStyle: 'solid',
@@ -90,6 +104,8 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 		backgroundColor: 'rgba(30, 30, 30, 0.95)',
 		backgroundOpacity: 0.95,
 		textColor: '#dcdfe4',
+		fontSize: 14,
+		fontFamily: 'Consolas',
 		padding: 0
 	},
 	tasklist: {
@@ -110,7 +126,8 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 	memo: {
 		backgroundColor: 'rgba(30, 30, 40, 0.95)',
 		backgroundOpacity: 0.95,
-		textColor: '#ffffff'
+		textColor: '#ffffff',
+		fontSize: 14
 	},
 	drawing: {
 		backgroundColor: '#ffffff',
@@ -130,6 +147,7 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 		backgroundColor: 'rgba(0, 8, 0, 0.85)',
 		backgroundOpacity: 0.85,
 		textColor: '#39ff14',
+		fontFamily: '"Courier New", Consolas, "SF Mono", monospace',
 		borderRadius: 0,
 		padding: 16
 	}
@@ -182,12 +200,7 @@ export interface WeatherWidgetConfig extends WidgetConfig {
 }
 
 // Terminal widget config
-export interface TerminalWidgetConfig extends WidgetConfig {
-	fontSize?: number;
-	fontFamily?: string;
-	backgroundOpacity?: number;
-	theme?: 'dark' | 'light' | 'dracula' | 'solarized-dark' | 'one-dark';
-}
+export type TerminalWidgetConfig = WidgetConfig;
 
 // Individual task structure
 export interface Task {
@@ -260,8 +273,6 @@ export interface MusicWidgetConfig extends WidgetConfig {
 // TextBox widget config
 export interface TextBoxWidgetConfig extends WidgetConfig {
 	content?: string;
-	fontSize?: number;
-	fontFamily?: string;
 	textAlign?: 'left' | 'center' | 'right' | 'justify';
 	showBorderTop?: boolean;
 	showBorderRight?: boolean;
@@ -272,8 +283,6 @@ export interface TextBoxWidgetConfig extends WidgetConfig {
 // Memo widget config
 export interface MemoWidgetConfig extends WidgetConfig {
 	content?: string;
-	fontSize?: number;
-	fontFamily?: string;
 	wordWrap?: boolean;
 }
 
@@ -571,10 +580,7 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 				refreshInterval: 30 * 60 * 1000 // 30 minutes
 			};
 		case 'terminal':
-			return {
-				fontSize: 14,
-				fontFamily: 'Consolas'
-			};
+			return {};
 		case 'tasklist': {
 			const generalTab = createTaskGroup();
 			return {
@@ -594,8 +600,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 		case 'textbox':
 			return {
 				content: '',
-				fontSize: 16,
-				fontFamily: 'system-ui',
 				textAlign: 'left',
 				showBorderTop: true,
 				showBorderRight: true,
@@ -605,8 +609,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 		case 'memo':
 			return {
 				content: '',
-				fontSize: 14,
-				fontFamily: 'system-ui',
 				wordWrap: true
 			};
 		case 'drawing':

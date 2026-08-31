@@ -44,6 +44,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 	onclick={handleContentClick}
@@ -80,14 +82,8 @@
 		color: var(--appearance-text-color);
 		padding: var(--appearance-padding);
 		opacity: var(--appearance-opacity);
-		font-family:
-			system-ui,
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			Roboto,
-			sans-serif;
-		font-size: 14px;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		line-height: 1.5;
 	}
 
@@ -100,7 +96,7 @@
 
 	.placeholder-text {
 		color: rgba(255, 255, 255, 0.45);
-		font-size: 0.9rem;
+		font-size: 0.9em;
 	}
 
 	.net-prompt {
@@ -114,7 +110,7 @@
 		background: rgba(20, 20, 30, 0.96);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 8px;
-		font-size: 0.85rem;
+		font-size: 0.85em;
 	}
 
 	.net-prompt-text {

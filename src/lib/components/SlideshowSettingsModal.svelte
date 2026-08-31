@@ -6,8 +6,11 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import type { SlideshowWidgetConfig } from '$lib/widgets/types';
-	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
+	import {
+		TEXT_APPEARANCE_FIELDS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type SlideshowWidgetConfig
+	} from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -166,7 +169,7 @@
 				widgetType="slideshow"
 				bind:appearance={localConfig.appearance}
 				defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.slideshow ?? {}}
-				hideFields={['textColor', 'padding']}
+				hideFields={[...TEXT_APPEARANCE_FIELDS, 'padding']}
 			/>
 		{/if}
 	</div>

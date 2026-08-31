@@ -99,6 +99,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--widget-text-color-96={textColor96}
 	style:--widget-text-color-92={textColor92}
 	style:--widget-text-color-76={textColor76}
@@ -151,11 +153,8 @@
 		justify-content: center;
 		gap: 12px;
 		box-sizing: border-box;
-		font-family:
-			'Segoe UI',
-			system-ui,
-			-apple-system,
-			sans-serif;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		background: var(--appearance-background);
 		border: var(--appearance-border);
 		border-radius: var(--appearance-border-radius);
@@ -201,7 +200,7 @@
 	}
 
 	.temperature {
-		font-size: clamp(2rem, 3.3vw, 2.8rem);
+		font-size: clamp(2em, 3.3vw, 2.8em);
 		font-weight: 700;
 		line-height: 1;
 		font-variant-numeric: tabular-nums;
@@ -210,7 +209,7 @@
 	.condition {
 		margin-top: 4px;
 		color: var(--widget-text-color-74);
-		font-size: 0.76rem;
+		font-size: 0.76em;
 		line-height: 1.2;
 		white-space: nowrap;
 		overflow: hidden;
@@ -225,7 +224,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		color: var(--widget-text-color-66);
-		font-size: 0.82rem;
+		font-size: 0.82em;
 	}
 
 	.forecast-list {
@@ -244,7 +243,7 @@
 		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.08);
 		color: var(--widget-text-color-76);
-		font-size: 0.72rem;
+		font-size: 0.72em;
 	}
 
 	.forecast-time,
@@ -267,13 +266,13 @@
 		gap: 10px;
 		text-align: center;
 		color: var(--widget-text-color-72);
-		font-size: 0.85rem;
+		font-size: 0.85em;
 	}
 
 	.state-view small {
 		max-width: 100%;
 		color: var(--widget-text-color-48);
-		font-size: 0.7rem;
+		font-size: 0.7em;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

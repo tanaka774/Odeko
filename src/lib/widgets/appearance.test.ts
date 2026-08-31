@@ -66,6 +66,8 @@ describe('getWidgetAppearance', () => {
 			backgroundColor: 'rgba(0, 0, 0, 0.3)',
 			backgroundOpacity: 0.3,
 			textColor: '#ffffff',
+			fontSize: 16,
+			fontFamily: 'system-ui',
 			borderColor: 'rgba(255, 255, 255, 0.12)',
 			borderWidth: 0,
 			borderStyle: 'solid',

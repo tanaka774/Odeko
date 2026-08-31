@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, screen, cleanup } from '@testing-library/svelte';
 import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 import { setBulkAppearanceHandler } from '$lib/bulk-appearance';
+import { TEXT_APPEARANCE_FIELDS } from '$lib/widgets/types';
 
 vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn(),
@@ -94,11 +95,21 @@ describe('WidgetAppearanceSettings grouping', () => {
 		expect(screen.getByLabelText('Border Color')).toBeTruthy();
 	});
 
-	it('skips the Text group when textColor is hidden', () => {
+	it('hides individual text fields when requested', () => {
 		render(WidgetAppearanceSettings, { appearance: {}, hideFields: ['textColor'] });
 
-		expect(screen.queryByText('Text')).toBeNull();
 		expect(screen.queryByLabelText('Text Color')).toBeNull();
+		expect(screen.getByText('Text')).toBeTruthy();
+		expect(screen.getByLabelText(/Font Size/)).toBeTruthy();
+		expect(screen.getByLabelText('Font Family')).toBeTruthy();
+	});
+
+	it('skips the Text group when every text field is hidden', () => {
+		render(WidgetAppearanceSettings, { appearance: {}, hideFields: TEXT_APPEARANCE_FIELDS });
+
+		expect(screen.queryByText('Text')).toBeNull();
+		expect(screen.queryByLabelText(/Font Size/)).toBeNull();
+		expect(screen.queryByLabelText('Font Family')).toBeNull();
 	});
 });
 

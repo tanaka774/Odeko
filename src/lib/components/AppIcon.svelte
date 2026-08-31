@@ -322,7 +322,7 @@
 	class:link-type={icon.icon_type === 'link'}
 	class:no-click-action={!isEditMode && !hasClickAction}
 	data-item-id={icon.id}
-	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
+	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-font-family: {appearance.fontFamily}; --appearance-font-size: {appearance.fontSize}px; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
 	role="button"
 	tabindex="0"
 	onclick={handleClick}
@@ -360,12 +360,7 @@
 	</div>
 
 	{#if icon.icon_type !== 'image' && (icon.show_name ?? true)}
-		<span
-			class="icon-label"
-			style:font-family={icon.font_family || 'inherit'}
-			style:font-size={icon.font_size ? `${icon.font_size}px` : 'inherit'}
-			>{icon.custom_name ?? icon.name}</span
-		>
+		<span class="icon-label">{icon.custom_name ?? icon.name}</span>
 	{/if}
 
 	{#if isEditMode}
@@ -466,6 +461,8 @@
 		border: var(--appearance-border, none);
 		border-radius: var(--appearance-border-radius, 24px);
 		color: var(--appearance-text-color, #ffffff);
+		font-size: var(--appearance-font-size, 16px);
+		font-family: var(--appearance-font-family, system-ui);
 		padding: var(--appearance-padding, 8px);
 		opacity: var(--appearance-opacity, 1);
 		cursor: pointer;
@@ -535,13 +532,13 @@
 		background: rgba(100, 200, 255, 0.2);
 	}
 	.icon-initial {
-		font-size: clamp(16px, 4vw, 32px);
+		font-size: clamp(1em, 4vw, 2em);
 		font-weight: bold;
 		color: rgba(255, 255, 255, 0.9);
 	}
 	.icon-label {
 		margin-top: 4px;
-		font-size: clamp(10px, 2vw, 14px);
+		font-size: clamp(0.625em, 2vw, 0.875em);
 		color: var(--appearance-text-color, rgba(255, 255, 255, 0.8));
 		text-align: center;
 		white-space: nowrap;

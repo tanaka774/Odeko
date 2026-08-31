@@ -490,18 +490,6 @@
 		editSession.markDirty();
 	}
 
-	function handleFontFamilyChange(id: string, fontFamily: string | null) {
-		saveToHistory();
-		icons = icons.map((icon) => (icon.id === id ? { ...icon, font_family: fontFamily } : icon));
-		editSession.markDirty();
-	}
-
-	function handleFontSizeChange(id: string, fontSize: number | null) {
-		saveToHistory();
-		icons = icons.map((icon) => (icon.id === id ? { ...icon, font_size: fontSize } : icon));
-		editSession.markDirty();
-	}
-
 	function handleArgsChange(id: string, args: string | null) {
 		saveToHistory();
 		icons = icons.map((icon) => (icon.id === id ? { ...icon, args: args ?? undefined } : icon));
@@ -863,8 +851,6 @@
 			onClearImage={(id) => handleIconChange(id, '')}
 			onUpdateShowName={handleShowNameChange}
 			onUpdateCustomName={handleCustomNameChange}
-			onUpdateFontFamily={handleFontFamilyChange}
-			onUpdateFontSize={handleFontSizeChange}
 			onUpdateArgs={handleArgsChange}
 			onUpdateKeybind={handleKeybindChange}
 			onUpdateKeybindGlobal={handleKeybindGlobalChange}

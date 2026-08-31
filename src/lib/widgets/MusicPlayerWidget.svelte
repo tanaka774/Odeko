@@ -253,6 +253,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--widget-text-color-70={textColor70}
 	style:--widget-text-color-60={textColor60}
 	style:--widget-text-color-50={textColor50}
@@ -444,7 +446,8 @@
 		align-items: center;
 		justify-content: space-between;
 		box-sizing: border-box;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		gap: 12px;
 		position: relative;
 		background: var(--appearance-background);
@@ -506,7 +509,7 @@
 		align-items: center;
 		justify-content: space-between;
 		cursor: pointer;
-		font-size: 0.8rem;
+		font-size: 0.8em;
 		text-align: left;
 		transition: background 0.2s ease;
 	}
@@ -523,12 +526,12 @@
 	}
 
 	.option-playing {
-		font-size: 0.7rem;
+		font-size: 0.7em;
 		margin-left: 8px;
 	}
 
 	.option-paused {
-		font-size: 0.7rem;
+		font-size: 0.7em;
 		color: var(--widget-text-color-50);
 		margin-left: 8px;
 	}
@@ -565,7 +568,7 @@
 	}
 
 	.song-title {
-		font-size: 1.1rem;
+		font-size: 1.1em;
 		font-weight: 600;
 		white-space: nowrap;
 		overflow: hidden;
@@ -574,7 +577,7 @@
 	}
 
 	.song-artist {
-		font-size: 0.85rem;
+		font-size: 0.85em;
 		color: var(--widget-text-color-70);
 		white-space: nowrap;
 		overflow: hidden;
@@ -612,7 +615,7 @@
 	.time-display {
 		display: flex;
 		justify-content: space-between;
-		font-size: 0.75rem;
+		font-size: 0.75em;
 		color: var(--widget-text-color-60);
 		font-variant-numeric: tabular-nums;
 	}

@@ -219,6 +219,8 @@
 			--appearance-border-radius: {appearance.borderRadius}px;
 			--appearance-opacity: {appearance.opacity};
 			--appearance-text-color: {appearance.textColor};
+			--appearance-font-family: {appearance.fontFamily};
+			--appearance-font-size: {appearance.fontSize}px;
 		"
 >
 	<div class="toolbar">
@@ -317,6 +319,8 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		background: var(--appearance-background);
 		border: var(--appearance-border);
 		border-radius: var(--appearance-border-radius);
@@ -358,7 +362,7 @@
 		border: none;
 		outline: none;
 		color: var(--appearance-text-color);
-		font-size: 0.85rem;
+		font-size: 0.85em;
 		padding: 6px 0;
 	}
 
@@ -444,7 +448,7 @@
 		flex: 1;
 		min-width: 0;
 		color: var(--appearance-text-color);
-		font-size: 0.85rem;
+		font-size: 0.85em;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -460,7 +464,7 @@
 
 	.entry-time {
 		color: rgba(255, 255, 255, 0.4);
-		font-size: 0.7rem;
+		font-size: 0.7em;
 		flex-shrink: 0;
 	}
 
@@ -469,7 +473,7 @@
 		align-items: center;
 		gap: 4px;
 		color: #8dffa8;
-		font-size: 0.7rem;
+		font-size: 0.7em;
 		font-weight: 600;
 		flex-shrink: 0;
 	}
@@ -533,7 +537,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		border-radius: 6px;
 		color: var(--appearance-text-color);
-		font-size: 0.85rem;
+		font-size: 0.85em;
 		padding: 6px 8px;
 		resize: none;
 		outline: none;

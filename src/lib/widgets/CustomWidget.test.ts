@@ -47,6 +47,8 @@ describe('CustomWidget', () => {
 					backgroundColor: 'rgba(10, 20, 30, 0.5)',
 					backgroundOpacity: 0.5,
 					textColor: 'rgb(200, 210, 220)',
+					fontSize: 22,
+					fontFamily: 'Georgia, serif',
 					borderRadius: 18,
 					padding: 14,
 					opacity: 0.8
@@ -57,6 +59,8 @@ describe('CustomWidget', () => {
 		const root = container.querySelector('.custom-widget') as HTMLElement;
 		expect(root.style.getPropertyValue('--appearance-background')).toBe('rgba(10, 20, 30, 0.5)');
 		expect(root.style.getPropertyValue('--appearance-text-color')).toBe('rgb(200, 210, 220)');
+		expect(root.style.getPropertyValue('--appearance-font-size')).toBe('22px');
+		expect(root.style.getPropertyValue('--appearance-font-family')).toBe('Georgia, serif');
 		expect(root.style.getPropertyValue('--appearance-border-radius')).toBe('18px');
 		expect(root.style.getPropertyValue('--appearance-padding')).toBe('14px');
 		expect(root.style.getPropertyValue('--appearance-opacity')).toBe('0.8');

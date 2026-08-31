@@ -11,7 +11,11 @@
 		findKeybindConflict,
 		type KeybindConfig
 	} from '$lib/stores/settings.svelte';
-	import type { PowerControlWidgetConfig, WidgetType } from '$lib/widgets/types';
+	import {
+		TEXT_APPEARANCE_FIELDS,
+		type PowerControlWidgetConfig,
+		type WidgetType
+	} from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -270,7 +274,7 @@
 				{widgetType}
 				bind:appearance={localConfig.appearance}
 				defaults={defaultAppearance}
-				hideFields={localConfig.showLabel ? [] : ['textColor']}
+				hideFields={localConfig.showLabel ? [] : TEXT_APPEARANCE_FIELDS}
 			/>
 		{/if}
 	</div>

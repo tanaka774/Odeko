@@ -45,13 +45,16 @@
 
 	let { config = {}, borderRadius = 12 }: Props = $props();
 
-	// Extract config values with defaults
-	const fontSize = $derived(config.fontSize ?? 14);
-	const fontFamily = $derived(config.fontFamily ?? 'Consolas');
+	const appearance = $derived(
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal, borderRadius })
+	);
+	const widgetBorder = $derived(getAppearanceBorder(appearance));
+	const fontSize = $derived(appearance.fontSize);
+	const fontFamily = $derived(appearance.fontFamily);
 
 	// Create a key that changes when any visual config value changes - triggers terminal recreation
 	const configKey = $derived(
-		`${config.fontSize}-${config.fontFamily}-${config.appearance?.backgroundColor}-${config.appearance?.backgroundOpacity}-${config.appearance?.textColor}`
+		`${fontSize}-${fontFamily}-${config.appearance?.backgroundColor}-${config.appearance?.backgroundOpacity}-${config.appearance?.textColor}`
 	);
 
 	// DOM reference for the terminal container
@@ -250,17 +253,14 @@
 	export function handleResize() {
 		fitTerminal();
 	}
-
-	const appearance = $derived(
-		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal, borderRadius })
-	);
-	const widgetBorder = $derived(getAppearanceBorder(appearance));
 </script>
 
 <div
 	class="terminal-widget"
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--appearance-opacity={appearance.opacity}
 >
 	<div bind:this={terminalContainer} class="terminal-container"></div>
@@ -283,6 +283,8 @@
 		flex-direction: column;
 		overflow: hidden;
 		position: relative;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		border: var(--appearance-border);
 		border-radius: var(--appearance-border-radius);
 		opacity: var(--appearance-opacity);
@@ -352,6 +354,6 @@
 
 	.loading-text {
 		color: rgba(255, 255, 255, 0.7);
-		font-size: 14px;
+		font-size: 0.875em;
 	}
 </style>

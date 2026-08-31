@@ -9,8 +9,6 @@
 
 	// Default config values
 	let content = $state(config.content ?? '');
-	const fontSize = $derived(config.fontSize ?? 16);
-	const fontFamily = $derived(config.fontFamily ?? 'system-ui');
 	const textAlign = $derived(config.textAlign ?? 'left');
 	const showBorderTop = $derived(config.showBorderTop ?? true);
 	const showBorderRight = $derived(config.showBorderRight ?? true);
@@ -43,9 +41,9 @@
 <div
 	class="textbox-widget"
 	style="
-			--font-size: {fontSize}px;
-			--font-family: {fontFamily};
 			--appearance-text-color: {appearance.textColor};
+			--appearance-font-family: {appearance.fontFamily};
+			--appearance-font-size: {appearance.fontSize}px;
 			--appearance-background: {widgetBackground};
 			--text-align: {textAlign};
 			--border-top: {getBorderEdgeStyle(showBorderTop)};
@@ -84,6 +82,8 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 	}
 
 	.textbox-content {
@@ -95,8 +95,8 @@
 		resize: none;
 		background: transparent;
 		color: var(--appearance-text-color);
-		font-size: var(--font-size);
-		font-family: var(--font-family);
+		font-size: 1em;
+		font-family: inherit;
 		text-align: var(--text-align);
 		line-height: 1.5;
 		padding: 0;

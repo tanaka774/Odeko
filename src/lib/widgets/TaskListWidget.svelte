@@ -213,6 +213,8 @@
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"
 	style:--appearance-text-color={appearance.textColor}
+	style:--appearance-font-family={appearance.fontFamily}
+	style:--appearance-font-size="{appearance.fontSize}px"
 	style:--widget-text-color-90={textColor90}
 	style:--widget-text-color-50={textColor50}
 	style:--widget-text-color-40={textColor40}
@@ -375,6 +377,8 @@
 		flex-direction: column;
 		overflow: hidden;
 		box-sizing: border-box;
+		font-size: var(--appearance-font-size);
+		font-family: var(--appearance-font-family);
 		background: var(--appearance-background);
 		border: var(--appearance-border);
 		border-radius: var(--appearance-border-radius);
@@ -435,7 +439,7 @@
 		border: none;
 		border-radius: 8px 8px 0 0;
 		color: var(--widget-text-color-50);
-		font-size: 13px;
+		font-size: 0.8125em;
 		cursor: pointer;
 		white-space: nowrap;
 		transition: background 0.2s ease;
@@ -494,7 +498,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 8px;
 		color: inherit;
-		font-size: 14px;
+		font-size: 0.875em;
 		outline: none;
 		transition: border-color 0.2s ease;
 	}
@@ -588,7 +592,7 @@
 	}
 
 	.task-text {
-		font-size: 14px;
+		font-size: 0.875em;
 		color: var(--widget-text-color-90);
 		word-break: break-word;
 		line-height: 1.4;

@@ -4,7 +4,7 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import type { ClockWidgetConfig } from '$lib/widgets/types';
+	import { TEXT_APPEARANCE_FIELDS, type ClockWidgetConfig } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -265,7 +265,7 @@
 					...defaultAppearance,
 					padding: localConfig.displayMode === 'analog' ? 10 : 16
 				}}
-				hideFields={localConfig.displayMode === 'analog' ? ['textColor'] : []}
+				hideFields={localConfig.displayMode === 'analog' ? TEXT_APPEARANCE_FIELDS : []}
 			/>
 		{/if}
 	</div>

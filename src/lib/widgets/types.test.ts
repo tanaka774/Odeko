@@ -98,12 +98,16 @@ describe('WIDGET_TYPE_APPEARANCE_DEFAULTS', () => {
 			'rgba(30, 30, 30, 0.95)'
 		);
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal?.padding).toBe(0);
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal?.fontSize).toBe(14);
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.terminal?.fontFamily).toBe('Consolas');
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.tasklist?.padding).toBe(0);
 		// Textbox corners follow the global default appearance like any other
 		// field; only the system monitor keeps structural square corners.
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.textbox?.borderRadius).toBeUndefined();
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.drawing?.backgroundColor).toBe('#ffffff');
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.system?.borderRadius).toBe(0);
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.system?.fontFamily).toContain('monospace');
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.memo?.fontSize).toBe(14);
 	});
 
 	it('leaves types without a special look unset', () => {

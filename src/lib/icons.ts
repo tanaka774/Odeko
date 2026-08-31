@@ -31,8 +31,6 @@ export interface LauncherIcon {
 	height: number;
 	show_name?: boolean;
 	custom_name?: string | null;
-	font_family?: string | null;
-	font_size?: number | null;
 	// Stacking order: higher z renders on top of overlapping items.
 	z?: number;
 	/**

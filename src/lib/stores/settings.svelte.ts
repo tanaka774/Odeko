@@ -217,6 +217,16 @@ function createSettingsStore() {
 				: {};
 		delete sanitized.customCss;
 		delete sanitized.customCssEnabled;
+		if (typeof sanitized.fontSize === 'number' && Number.isFinite(sanitized.fontSize)) {
+			sanitized.fontSize = Math.min(96, Math.max(6, sanitized.fontSize));
+		} else {
+			delete sanitized.fontSize;
+		}
+		if (typeof sanitized.fontFamily === 'string' && sanitized.fontFamily.trim()) {
+			sanitized.fontFamily = sanitized.fontFamily.trim();
+		} else {
+			delete sanitized.fontFamily;
+		}
 		// Legacy files have no item corner radius (it used to follow the
 		// launcher-wide border_radius), so seed it from there once.
 		if (sanitized.borderRadius == null) {

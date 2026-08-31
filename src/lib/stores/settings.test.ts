@@ -253,6 +253,29 @@ describe('settings store', () => {
 		expect(mod.settingsStore.settings.default_appearance).toEqual({ borderRadius: 40 });
 	});
 
+	it('loadSettings clamps font size and drops malformed font fields', async () => {
+		invokeMock.mockResolvedValueOnce({
+			icons: [],
+			active_preset: null,
+			settings: {
+				default_appearance: {
+					borderRadius: 24,
+					fontSize: 200,
+					fontFamily: '  Georgia, serif  '
+				}
+			}
+		});
+
+		const mod = await loadFreshModule();
+		await mod.settingsStore.loadSettings();
+
+		expect(mod.settingsStore.settings.default_appearance).toEqual({
+			borderRadius: 24,
+			fontSize: 96,
+			fontFamily: 'Georgia, serif'
+		});
+	});
+
 	it('keeps defaults when loadSettings fails', async () => {
 		invokeMock.mockRejectedValueOnce(new Error('nope'));
 		const mod = await loadFreshModule();

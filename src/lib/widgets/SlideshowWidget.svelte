@@ -116,6 +116,8 @@
 		--appearance-background: {widgetBackground};
 		--appearance-border: {widgetBorder};
 		--appearance-border-radius: {appearance.borderRadius}px;
+		--appearance-font-family: {appearance.fontFamily};
+		--appearance-font-size: {appearance.fontSize}px;
 		--appearance-opacity: {appearance.opacity};
 	"
 >
