@@ -76,35 +76,22 @@
 		meta: false
 	};
 
-	// Titles match the other settings modals ("<Item> Settings") and name the
-	// actual item type instead of calling every non-app icon an "Image".
+	// Titles match the other settings modals ("<Type> Settings") and name the
+	// actual icon type instead of calling every non-app icon an "Image".
 	const TYPE_TITLES: Record<IconType, string> = {
 		app: 'App Icon Settings',
 		image: 'Image Settings',
-		link: 'Link Settings',
 		widget: 'Widget Icon Settings'
 	};
 	let modalTitle = $derived(
 		icon ? (TYPE_TITLES[icon.icon_type] ?? 'Icon Settings') : 'Icon Settings'
 	);
 
-	// Every icon type gets the same three tabs; only the third tab's label
-	// changes (images have no display name to configure).
-	let tabs = $derived<{ key: string; label: string }[]>(
-		icon
-			? icon.icon_type === 'image'
-				? [
-						{ key: 'icon', label: 'Icon' },
-						{ key: 'appearance', label: 'Appearance' },
-						{ key: 'shortcut', label: 'Shortcut' }
-					]
-				: [
-						{ key: 'icon', label: 'Icon' },
-						{ key: 'appearance', label: 'Appearance' },
-						{ key: 'name', label: 'Name & Shortcut' }
-					]
-			: []
-	);
+	const tabs: { key: string; label: string }[] = [
+		{ key: 'icon', label: 'Icon' },
+		{ key: 'appearance', label: 'Appearance' },
+		{ key: 'name', label: 'Name & Shortcut' }
+	];
 
 	// Reset the local working copy once per open (tracked by icon id, so
 	// in-place icon updates while the modal is open do not yank the user
@@ -176,10 +163,7 @@
 	const previewBackground = $derived(getAppearanceBackground(previewAppearance));
 	const previewBorder = $derived(getAppearanceBorder(previewAppearance));
 
-	// Whether this icon can have a launch keybind (apps/links/images only).
-	let isLaunchable = $derived(
-		icon?.icon_type === 'app' || icon?.icon_type === 'link' || icon?.icon_type === 'image'
-	);
+	let isLaunchable = $derived(icon?.icon_type === 'app' || icon?.icon_type === 'image');
 
 	// Check the currently recorded keybind against app-level keybinds and other icons.
 	// Returns a human-readable conflict message, or null if it's safe (or empty).
@@ -351,19 +335,6 @@
 					</SettingSection>
 				{/if}
 
-				{#if icon.icon_type === 'link'}
-					<SettingSection title="Link URL">
-						<SettingRow label="Open this URL on click">
-							<input
-								class="text-input"
-								type="text"
-								bind:value={localUrl}
-								placeholder="https://example.com"
-							/>
-						</SettingRow>
-					</SettingSection>
-				{/if}
-
 				{#if icon.icon_type === 'image'}
 					<SettingSection title="Click Action">
 						<SettingRow label="Open URL on click">
@@ -393,14 +364,10 @@
 								<img src={previewImage} alt="" class="tile-preview-image" />
 							{:else}
 								<span class="tile-preview-initial"
-									>{icon.icon_type === 'image'
-										? '🖼️'
-										: icon.icon_type === 'link'
-											? '🔗'
-											: icon.name.charAt(0).toUpperCase()}</span
+									>{icon.icon_type === 'image' ? '🖼️' : icon.name.charAt(0).toUpperCase()}</span
 								>
 							{/if}
-							{#if icon.icon_type !== 'image' && localShowName}
+							{#if localShowName}
 								<span class="tile-preview-label" style:color={previewAppearance.textColor}
 									>{localCustomName.trim() || icon.name}</span
 								>
@@ -414,27 +381,25 @@
 					bind:appearance={localAppearance}
 					defaults={appearanceDefaults}
 					opacityLabel="Icon Opacity"
-					hideFields={icon.icon_type === 'image' || !localShowName ? TEXT_APPEARANCE_FIELDS : []}
+					hideFields={!localShowName ? TEXT_APPEARANCE_FIELDS : []}
 				/>
 			{:else}
-				{#if icon.icon_type !== 'image'}
-					<SettingSection title="Display Name">
-						<SettingRow>
-							<label class="checkbox-label">
-								<input type="checkbox" bind:checked={localShowName} />
-								<span>Show app name</span>
-							</label>
-						</SettingRow>
-						<SettingRow label="Custom Name">
-							<input
-								class="text-input"
-								type="text"
-								bind:value={localCustomName}
-								placeholder="Custom name (optional)"
-							/>
-						</SettingRow>
-					</SettingSection>
-				{/if}
+				<SettingSection title="Display Name">
+					<SettingRow>
+						<label class="checkbox-label">
+							<input type="checkbox" bind:checked={localShowName} />
+							<span>Show app name</span>
+						</label>
+					</SettingRow>
+					<SettingRow label="Custom Name">
+						<input
+							class="text-input"
+							type="text"
+							bind:value={localCustomName}
+							placeholder="Custom name (optional)"
+						/>
+					</SettingRow>
+				</SettingSection>
 
 				{#if isLaunchable}
 					<SettingSection title="Launch Keybind">

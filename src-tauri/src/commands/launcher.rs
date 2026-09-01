@@ -9,7 +9,6 @@ use tauri::Manager;
 pub enum IconType {
     App,
     Image,
-    Link,
     Widget,
 }
 
@@ -543,7 +542,7 @@ pub fn open_url(url: String) -> Result<(), String> {
 }
 
 pub fn launch_icon_sync(icon: &AppIcon) {
-    if icon.icon_type == IconType::Link || icon.icon_type == IconType::Image {
+    if icon.icon_type == IconType::Image {
         if let Some(ref url) = icon.url {
             let _ = open_url_sync(url);
         }
@@ -968,12 +967,10 @@ mod tests {
     fn icon_type_serializes_to_snake_case() {
         let app = serde_json::to_string(&IconType::App).unwrap();
         let image = serde_json::to_string(&IconType::Image).unwrap();
-        let link = serde_json::to_string(&IconType::Link).unwrap();
         let widget = serde_json::to_string(&IconType::Widget).unwrap();
 
         assert_eq!(app, "\"app\"");
         assert_eq!(image, "\"image\"");
-        assert_eq!(link, "\"link\"");
         assert_eq!(widget, "\"widget\"");
     }
 
@@ -1041,7 +1038,7 @@ mod tests {
             name: "Test".into(),
             path: "/usr/bin/test".into(),
             icon_path: Some("/icon.png".into()),
-            icon_type: IconType::Link,
+            icon_type: IconType::Image,
             widget_type: None,
             widget_config: None,
             url: Some("https://example.com".into()),
@@ -1072,7 +1069,7 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert_eq!(value["id"], "test");
-        assert_eq!(value["icon_type"], "link");
+        assert_eq!(value["icon_type"], "image");
         assert_eq!(value["url"], "https://example.com");
         assert_eq!(value["keybind"]["ctrl"], true);
         assert_eq!(value["keybind_global"], true);
@@ -1269,6 +1266,10 @@ mod tests {
             },
             network_grants: vec!["api.example.com".to_string()],
             allow_local_network: true,
+            default_appearance: Some(serde_json::json!({
+                "backgroundColor": "rgba(1, 2, 3, 0.5)",
+                "borderRadius": 7
+            })),
         }
     }
 
@@ -1300,6 +1301,7 @@ mod tests {
             assert_eq!(got.keybind_toggle_edit, modified.keybind_toggle_edit);
             assert_eq!(got.keybind_hide_launcher, modified.keybind_hide_launcher);
             assert_eq!(got.keybind_undo, modified.keybind_undo);
+            assert_eq!(got.default_appearance, modified.default_appearance);
         });
     }
 

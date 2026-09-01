@@ -27,14 +27,6 @@ describe('isLaunchable', () => {
 		expect(isLaunchable(makeIcon({ icon_type: 'app' }))).toBe(true);
 	});
 
-	it('returns true for links with a url', () => {
-		expect(isLaunchable(makeIcon({ icon_type: 'link', url: 'https://example.com' }))).toBe(true);
-	});
-
-	it('returns false for links without a url', () => {
-		expect(isLaunchable(makeIcon({ icon_type: 'link' }))).toBe(false);
-	});
-
 	it('returns true for images with a url', () => {
 		expect(isLaunchable(makeIcon({ icon_type: 'image', url: '/some/pic.png' }))).toBe(true);
 	});
@@ -64,8 +56,8 @@ describe('launchIcon', () => {
 		expect(invokeMock).toHaveBeenCalledWith('hide_launcher');
 	});
 
-	it('opens a link url', async () => {
-		await launchIcon(makeIcon({ icon_type: 'link', url: 'https://example.com' }));
+	it('opens an image url', async () => {
+		await launchIcon(makeIcon({ icon_type: 'image', url: 'https://example.com' }));
 
 		expect(invokeMock).toHaveBeenCalledWith('open_url', { url: 'https://example.com' });
 		expect(invokeMock).toHaveBeenCalledWith('hide_launcher');

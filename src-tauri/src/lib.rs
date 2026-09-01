@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn is_power_widget_rejects_non_power_icons() {
         assert!(!is_power_widget(&icon_with_type(IconType::App, None)));
-        assert!(!is_power_widget(&icon_with_type(IconType::Link, Some("sleep"))));
+        assert!(!is_power_widget(&icon_with_type(IconType::Image, Some("sleep"))));
         assert!(!is_power_widget(&icon_with_type(IconType::Widget, Some("clock"))));
         assert!(!is_power_widget(&icon_with_type(IconType::Widget, None)));
     }

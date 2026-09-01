@@ -467,7 +467,7 @@
 		editSession.markDirty();
 	}
 
-	function handleTypeChange(id: string, type: 'app' | 'image' | 'link', url?: string) {
+	function handleTypeChange(id: string, type: 'app' | 'image', url?: string) {
 		saveToHistory();
 		icons = icons.map((icon) => {
 			if (icon.id === id) {
@@ -807,7 +807,6 @@
 							onBringToFront={bringToFront}
 							onSendToBack={sendToBack}
 							onRemove={removeIcon}
-							onTypeChange={handleTypeChange}
 							onOpenSettings={() => openIconSettings(icon.id)}
 							onOpenSettingsFromViewMode={() => enterEditModeAndOpenIconSettings(icon.id)}
 							{onEnterEditMode}
@@ -844,7 +843,7 @@
 			onUpdateIcon={handleIconChange}
 			onUpdateUrl={(id, url) => {
 				const type = selectedIcon?.icon_type;
-				if (type === 'app' || type === 'image' || type === 'link') {
+				if (type === 'app' || type === 'image') {
 					handleTypeChange(id, type, url);
 				}
 			}}

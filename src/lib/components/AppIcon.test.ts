@@ -42,7 +42,6 @@ describe('AppIcon appearance', () => {
 			onPositionChange: vi.fn(),
 			onSizeChange: vi.fn(),
 			onIconChange: vi.fn(),
-			onTypeChange: vi.fn(),
 			onOpenSettings: vi.fn(),
 			onOpenSettingsFromViewMode: vi.fn(),
 			onEnterEditMode: vi.fn(),

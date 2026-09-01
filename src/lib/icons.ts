@@ -1,5 +1,5 @@
 // Single source of truth for everything that lives on the launcher grid:
-// apps, images, links, and widgets. Any component or store that deals with a
+// apps, images, and widgets. Any component or store that deals with a
 // grid item imports `LauncherIcon` from here — there must be no local copies.
 //
 // The shape is intentionally flat (one interface, discriminated by
@@ -10,7 +10,7 @@
 import type { KeybindConfig } from '$lib/stores/settings.svelte';
 import type { WidgetType, WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 
-export type IconType = 'app' | 'image' | 'link' | 'widget';
+export type IconType = 'app' | 'image' | 'widget';
 
 export interface LauncherIcon {
 	id: string;

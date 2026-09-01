@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ImageIcon from '@lucide/svelte/icons/image';
-	import Link from '@lucide/svelte/icons/link';
 	import Package from '@lucide/svelte/icons/package';
 	import Rocket from '@lucide/svelte/icons/rocket';
 	import Settings from '@lucide/svelte/icons/settings';
@@ -35,7 +34,6 @@
 		onPositionChange,
 		onSizeChange,
 		onIconChange,
-		onTypeChange,
 		onOpenSettings,
 		onOpenSettingsFromViewMode,
 		onEnterEditMode,
@@ -56,7 +54,6 @@
 		onPositionChange: (id: string, x: number, y: number) => void;
 		onSizeChange: (id: string, width: number, height: number) => void;
 		onIconChange: (id: string, iconPath: string) => void;
-		onTypeChange: (id: string, type: 'app' | 'image' | 'link', url?: string) => void;
 		onOpenSettings: () => void;
 		onOpenSettingsFromViewMode: () => void;
 		onEnterEditMode: () => void;
@@ -86,9 +83,7 @@
 	let flipContextMenuY = $state(false);
 
 	let hasClickAction = $derived(
-		icon.icon_type === 'app' ||
-			(icon.icon_type === 'link' && icon.url) ||
-			(icon.icon_type === 'image' && icon.url)
+		icon.icon_type === 'app' || (icon.icon_type === 'image' && !!icon.url)
 	);
 
 	let cursor = $derived(
@@ -309,7 +304,7 @@
 		return path?.toLowerCase().endsWith('.gif') ?? false;
 	}
 
-	const typeLabel = $derived(`${icon.icon_type} item`);
+	const typeLabel = $derived(`${icon.icon_type} icon`);
 </script>
 
 <div
@@ -319,7 +314,6 @@
 	class:resizing={isResizing}
 	class:selected
 	class:image-type={icon.icon_type === 'image'}
-	class:link-type={icon.icon_type === 'link'}
 	class:no-click-action={!isEditMode && !hasClickAction}
 	data-item-id={icon.id}
 	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-font-family: {appearance.fontFamily}; --appearance-font-size: {appearance.fontSize}px; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
@@ -350,8 +344,6 @@
 			<div class="icon-placeholder">
 				{#if icon.icon_type === 'image'}
 					<span class="icon-initial">🖼️</span>
-				{:else if icon.icon_type === 'link'}
-					<span class="icon-initial">🔗</span>
 				{:else}
 					<span class="icon-initial">{icon.name.charAt(0).toUpperCase()}</span>
 				{/if}
@@ -359,7 +351,7 @@
 		{/if}
 	</div>
 
-	{#if icon.icon_type !== 'image' && (icon.show_name ?? true)}
+	{#if icon.show_name ?? true}
 		<span class="icon-label">{icon.custom_name ?? icon.name}</span>
 	{/if}
 
@@ -369,8 +361,6 @@
 				<Rocket size={13} strokeWidth={2.2} />
 			{:else if icon.icon_type === 'image'}
 				<ImageIcon size={13} strokeWidth={2.2} />
-			{:else if icon.icon_type === 'link'}
-				<Link size={13} strokeWidth={2.2} />
 			{:else if icon.icon_type === 'widget'}
 				<Settings size={13} strokeWidth={2.2} />
 			{:else}
@@ -379,14 +369,14 @@
 		</div>
 	{/if}
 
-	{#if icon.icon_type === 'link' && icon.url && isEditMode}
+	{#if icon.icon_type === 'image' && icon.url && isEditMode}
 		<div class="url-badge" title={icon.url}>🌐</div>
 	{/if}
 
 	{#if isEditMode && icon.keybind?.key}
 		<div
 			class="keybind-badge"
-			class:shift-right={icon.icon_type === 'link' && !!icon.url}
+			class:shift-right={icon.icon_type === 'image' && !!icon.url}
 			title="Keybind: {keybindToString(icon.keybind)}"
 		>
 			{keybindToString(icon.keybind)}

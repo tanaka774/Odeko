@@ -87,11 +87,11 @@ describe('IconSettingsModal appearance', () => {
 		expect(document.querySelector('.tile-preview')).toBeTruthy();
 	});
 
-	it('hides Text Color for image icons (no name label)', async () => {
-		await openModal({ icon_type: 'image' });
+	it('shows Text Color for image icons when the name label is on', async () => {
+		await openModal({ icon_type: 'image', show_name: true });
 		await openAppearanceTab();
 
-		expect(screen.queryByLabelText('Text Color')).toBeNull();
+		expect(screen.getByLabelText('Text Color')).toBeTruthy();
 	});
 
 	it('hides Text Color when the name label is turned off', async () => {
