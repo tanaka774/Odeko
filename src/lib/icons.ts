@@ -1,6 +1,6 @@
 // Single source of truth for everything that lives on the canvas grid:
-// apps, images, and widgets. Any component or store that deals with a
-// grid item imports `CanvasIcon` from here — there must be no local copies.
+// apps, images, and widgets. Any component or store that deals with an
+// icon imports `CanvasIcon` from here — there must be no local copies.
 //
 // The shape is intentionally flat (one interface, discriminated by
 // `icon_type`). It matches the Rust `AppIcon` struct on the Tauri side, so the

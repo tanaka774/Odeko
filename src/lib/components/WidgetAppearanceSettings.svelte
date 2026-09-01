@@ -24,7 +24,7 @@
 		widgetType?: CssApiItemType;
 		/** Label for the overall opacity field (widgets vs. canvas icons). */
 		opacityLabel?: string;
-		/** Hide the per-item custom CSS controls. */
+		/** Hide the per-icon custom CSS controls. */
 		hideCustomCss?: boolean;
 		/** Show the bulk "Apply to all" button. */
 		applyToAll?: boolean;
@@ -71,9 +71,9 @@
 	}
 
 	function handleApplyToAll() {
-		// Stamp the full effective look onto every item. Custom CSS keys and
-		// fields this editor hides are excluded: custom CSS is per-item, and a
-		// hidden field is structural for this item type.
+		// Stamp the full effective look onto every icon. Custom CSS keys and
+		// fields this editor hides are excluded: custom CSS is per-icon, and a
+		// hidden field is structural for this icon type.
 		const full = getWidgetAppearance({ appearance }, defaults) as Partial<WidgetAppearanceConfig>;
 		delete full.customCss;
 		delete full.customCssEnabled;

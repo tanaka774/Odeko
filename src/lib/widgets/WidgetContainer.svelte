@@ -5,7 +5,7 @@
 	interface Props {
 		widgetType: WidgetType;
 		/** Stable instance id; exposed as `data-item-id` so user custom CSS
-		 *  can be scoped to exactly this item. */
+		 *  can be scoped to exactly this icon. */
 		id?: string;
 		config?: WidgetConfigType;
 		isEditMode?: boolean;

@@ -576,9 +576,9 @@
 						</section>
 					{:else if activeTab === 'items'}
 						<section class="settings-section">
-							<h3>Default Item Appearance</h3>
+							<h3>Default Icon Appearance</h3>
 							<p class="settings-note">
-								Applied to new items as their default style. Font settings only affect items that
+								Applied to new icons as their default style. Font settings only affect icons that
 								show text.
 							</p>
 							<WidgetAppearanceSettings
@@ -657,8 +657,8 @@
 							</div>
 							<div class="key-shortcuts" style="margin-top: 24px;">
 								<p class="key-hint">
-									Per-item launch keybinds can be set from each item's own settings (right-click the
-									item → Open Settings).
+									Per-icon launch keybinds can be set from each icon's own settings (right-click the
+									icon → Open Settings).
 								</p>
 							</div>
 						</section>

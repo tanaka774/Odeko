@@ -3,7 +3,7 @@
 	import type { WidgetAppearanceConfig } from './types';
 
 	interface Props {
-		/** Stable grid item id; must match the `data-item-id` on the item's root. */
+		/** Stable instance id; must match the `data-item-id` on the icon's root. */
 		id: string;
 		appearance?: WidgetAppearanceConfig;
 	}
@@ -19,7 +19,7 @@
 	// `appearance` can arrive as null: Rust serializes an absent icon
 	// appearance as JSON null, and prop defaults don't apply to null. Guard
 	// before dereferencing — a TypeError here aborts the whole effect flush,
-	// silently killing custom CSS for every item mounted after this one.
+	// silently killing custom CSS for every icon mounted after this one.
 	$effect(() => {
 		const css = appearance?.customCss;
 		if (!appearance?.customCssEnabled || !css?.trim()) return;

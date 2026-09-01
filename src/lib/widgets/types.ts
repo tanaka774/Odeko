@@ -32,7 +32,7 @@ export type WidgetAppearanceField =
 	| 'padding'
 	| 'opacity';
 
-/** Text-related appearance fields; editors for textless item types hide them. */
+/** Text-related appearance fields; editors for textless icon types hide them. */
 export const TEXT_APPEARANCE_FIELDS: WidgetAppearanceField[] = [
 	'textColor',
 	'fontSize',
@@ -85,9 +85,9 @@ export function createDefaultWidgetAppearance(
 }
 
 /**
- * Per-widget-type appearance defaults, merged BELOW each item's own
+ * Per-widget-type appearance defaults, merged BELOW each icon's own
  * appearance overrides. They define how a widget type looks "out of the box"
- * without freezing that look onto the item's saved config.
+ * without freezing that look onto the icon's saved config.
  *
  * Widget components merge this table in as their fallback layer, and settings
  * modals pass it as `defaults` so editors preview exactly what renders.
@@ -553,7 +553,7 @@ export function getWidgetMeta(type: WidgetType): WidgetMeta | undefined {
 // (the per-type look comes from WIDGET_TYPE_APPEARANCE_DEFAULTS at render
 // time; the current default appearance is stamped on at creation in
 // IconGrid). The system monitor is the exception: square CRT corners are
-// structural, so they live on the item.
+// structural, so they live on the icon.
 export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 	switch (type) {
 		case 'clock':

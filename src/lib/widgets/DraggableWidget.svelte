@@ -110,7 +110,7 @@
 	const MIN_SIZE = 80;
 	const SNAP_THRESHOLD = 10;
 
-	// The widget's effective corner radius (type default < item override), so
+	// The widget's effective corner radius (type default < icon override), so
 	// the drag frame and container match what renders.
 	const borderRadius = $derived(
 		getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS[widgetType] ?? {}).borderRadius
@@ -252,7 +252,7 @@
 		const resizeDirFromEdge = getResizeDirAtPoint(rect, event.clientX, event.clientY);
 
 		if (resizeDirFromEdge) {
-			// Resizing acts on a single item and does not require preselecting it.
+			// Resizing acts on a single icon and does not require preselecting it.
 			onSelect(id, false);
 			isResizing = true;
 			resizeDir = resizeDirFromEdge;

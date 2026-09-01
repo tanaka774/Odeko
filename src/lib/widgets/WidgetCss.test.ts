@@ -38,7 +38,7 @@ describe('WidgetCss', () => {
 		// Icons without appearance customization are persisted by the backend
 		// as "appearance": null, and prop defaults don't apply to null. A
 		// crash in the effect would abort the whole flush and silently kill
-		// custom CSS for every item mounted after this one.
+		// custom CSS for every icon mounted after this one.
 		render(WidgetCss, { id: 'w1', appearance: null as never });
 		expect(headStyle('w1')).toBeNull();
 

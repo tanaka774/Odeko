@@ -79,7 +79,7 @@
 	);
 
 	onMount(async () => {
-		// IconGrid owns the item list; appearance editors dispatch bulk
+		// IconGrid owns the icon list; appearance editors dispatch bulk
 		// "apply to all" requests through this handler instead of threading a
 		// callback through every modal in the tree.
 		setBulkAppearanceHandler(handleBulkAppearanceChange);
@@ -265,7 +265,7 @@
 	async function removeSelected() {
 		const count = selectedIds.size;
 		if (count === 0) return;
-		const ok = await confirm(`Delete ${count} selected item${count > 1 ? 's' : ''}?`, {
+		const ok = await confirm(`Delete ${count} selected icon${count > 1 ? 's' : ''}?`, {
 			title: 'Confirm Delete'
 		});
 		if (!ok) return;
@@ -556,7 +556,7 @@
 		}
 	}
 
-	// The default appearance is a template stamped onto items at creation.
+	// The default appearance is a template stamped onto icons at creation.
 	function defaultAppearanceTemplate(): WidgetAppearanceConfig {
 		return { ...(settingsStore.settings.default_appearance ?? {}) };
 	}
@@ -630,9 +630,9 @@
 	}
 
 	function normalizeZ(nextIcons: CanvasIcon[]): CanvasIcon[] {
-		// Legacy items have no corner radius of their own (it used to come
+		// Legacy icons have no corner radius of their own (it used to come
 		// from the canvas-wide border_radius); freeze the current default
-		// radius onto them once so later default changes only affect new items.
+		// radius onto them once so later default changes only affect new icons.
 		const defaultRadius = settingsStore.settings.default_appearance?.borderRadius;
 		return nextIcons.map((icon, index) => {
 			const normalized = { ...icon, z: icon.z ?? index + 1 };

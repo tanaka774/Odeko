@@ -147,9 +147,9 @@ export interface CanvasSettings {
 	allow_local_network: boolean;
 	/**
 	 * Default appearance template stamped onto new icons and widgets at
-	 * creation; changing it never restyles existing items. Stored as a partial
+	 * creation; changing it never restyles existing icons. Stored as a partial
 	 * config: only fields the user touched are present. Custom CSS keys are
-	 * stripped on load (per-item by design; imported presets are untrusted).
+	 * stripped on load (per-icon by design; imported presets are untrusted).
 	 */
 	default_appearance?: WidgetAppearanceConfig;
 }
@@ -184,7 +184,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
 	network_grants: [],
 	allow_local_network: false,
-	// Matches the legacy canvas border_radius so item corners look the same
+	// Matches the legacy canvas border_radius so icon corners look the same
 	// before settings load; border_radius now styles only the panel/chrome.
 	default_appearance: { borderRadius: 24 }
 };
@@ -208,7 +208,7 @@ function createSettingsStore() {
 
 		// The default appearance must stay a plain object (Rust round-trips it
 		// as JSON, so it may arrive as null from older files). Custom CSS keys
-		// are never honored here — they are per-item by design and imported
+		// are never honored here — they are per-icon by design and imported
 		// presets are untrusted input.
 		const appearance = merged.default_appearance;
 		const sanitized: WidgetAppearanceConfig =
@@ -227,7 +227,7 @@ function createSettingsStore() {
 		} else {
 			delete sanitized.fontFamily;
 		}
-		// Legacy files have no item corner radius (it used to follow the
+		// Legacy files have no icon corner radius (it used to follow the
 		// canvas-wide border_radius), so seed it from there once.
 		if (sanitized.borderRadius == null) {
 			sanitized.borderRadius = merged.border_radius;
