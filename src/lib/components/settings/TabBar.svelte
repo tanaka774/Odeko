@@ -44,12 +44,12 @@
 	}
 
 	.tab-btn {
-		padding: 12px 20px;
+		padding: 9px 12px;
 		background: none;
 		border: none;
 		border-bottom: 2px solid transparent;
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.875rem;
+		font-size: 0.9375rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
 		margin-bottom: -1px;

@@ -129,7 +129,7 @@ describe('SettingsModal', () => {
 	it('does not show a stale preset success message after reopening', async () => {
 		const utils = await openModal();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
 		await screen.findByText('Active Preset');
 		fireEvent.input(screen.getByPlaceholderText('Preset name...'), {
 			target: { value: 'new' }
@@ -163,7 +163,7 @@ describe('SettingsModal', () => {
 		});
 		await openModal();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
 		await screen.findByText('Active Preset');
 		fireEvent.click(screen.getByRole('button', { name: 'Import Preset...' }));
 
@@ -181,7 +181,7 @@ describe('SettingsModal', () => {
 		});
 		await openModal();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Presets' }));
+		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
 		await screen.findByText('Active Preset');
 		fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Shared' } });
 		clickSave();

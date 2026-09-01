@@ -11,6 +11,7 @@
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import { isVideoBackground } from '$lib/background';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
+	import TabBar from './settings/TabBar.svelte';
 
 	let {
 		isOpen = $bindable(false),
@@ -43,6 +44,18 @@
 	}
 
 	let activeTab = $state<'appearance' | 'items' | 'edit' | 'keys' | 'presets'>('appearance');
+
+	const tabs = [
+		{ key: 'appearance', label: 'Appearance' },
+		{ key: 'items', label: 'Icon Appearance' },
+		{ key: 'edit', label: 'Edit' },
+		{ key: 'keys', label: 'Keys' },
+		{ key: 'presets', label: 'Presets' }
+	];
+
+	function selectTab(key: string) {
+		activeTab = key as typeof activeTab;
+	}
 
 	let settingsContentEl: HTMLElement | undefined = $state();
 	$effect(() => {
@@ -317,45 +330,8 @@
 					<button class="close-btn" onclick={close}>✕</button>
 				</div>
 
-				<div class="tab-nav">
-					<button
-						class="tab-btn"
-						class:active={activeTab === 'appearance'}
-						onclick={() => (activeTab = 'appearance')}
-					>
-						Appearance
-					</button>
-					<button
-						class="tab-btn"
-						class:active={activeTab === 'items'}
-						onclick={() => (activeTab = 'items')}
-					>
-						Icon Appearance
-					</button>
-					<button
-						class="tab-btn"
-						class:active={activeTab === 'edit'}
-						onclick={() => (activeTab = 'edit')}
-					>
-						Edit
-					</button>
-					<button
-						class="tab-btn"
-						class:active={activeTab === 'keys'}
-						onclick={() => (activeTab = 'keys')}
-					>
-						Keys
-					</button>
-					<button
-						class="tab-btn"
-						class:active={activeTab === 'presets'}
-						onclick={() => (activeTab = 'presets')}
-					>
-						Presets
-					</button>
-				</div>
-
 				<div class="settings-content" bind:this={settingsContentEl}>
+					<TabBar {tabs} {activeTab} onTabChange={selectTab} />
 					{#if activeTab === 'appearance'}
 						<section class="settings-section">
 							<h3>Size</h3>
@@ -1116,36 +1092,6 @@
 		background: rgba(34, 197, 94, 0.2);
 		color: rgba(150, 255, 150, 1);
 		border: 1px solid rgba(34, 197, 94, 0.4);
-	}
-
-	.tab-nav {
-		display: flex;
-		gap: 0;
-		padding: 0 16px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.15);
-	}
-
-	.tab-btn {
-		padding: 8px 14px;
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		margin-bottom: -1px;
-	}
-
-	.tab-btn:hover {
-		color: rgba(255, 255, 255, 0.8);
-	}
-
-	.tab-btn.active {
-		color: white;
-		border-bottom-color: rgba(120, 160, 200, 0.8);
-		background: rgba(255, 255, 255, 0.05);
 	}
 
 	.settings-content::-webkit-scrollbar {
