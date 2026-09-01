@@ -94,16 +94,16 @@
 	}
 
 	/* The dialog box. Centered on screen by the overlay, then shifted so its
-	   center sits over the launcher panel (App.svelte publishes the offset as
-	   --launcher-dx/dy). Falls back to screen-centered when the vars are
-	   unset. The clamp keeps the dialog fully on screen when the launcher is
+	   center sits over the canvas panel (App.svelte publishes the offset as
+	   --canvas-dx/dy). Falls back to screen-centered when the vars are
+	   unset. The clamp keeps the dialog fully on screen when the canvas is
 	   near an edge. */
 	.modal-anchor {
 		width: min(480px, 92%);
 		height: min(85%, 640px);
 		transform: translate(
-			clamp(calc(240px - 50vw), var(--launcher-dx, 0px), calc(50vw - 240px)),
-			clamp(calc(320px - 50vh), var(--launcher-dy, 0px), calc(50vh - 320px))
+			clamp(calc(240px - 50vw), var(--canvas-dx, 0px), calc(50vw - 240px)),
+			clamp(calc(320px - 50vh), var(--canvas-dy, 0px), calc(50vh - 320px))
 		);
 	}
 

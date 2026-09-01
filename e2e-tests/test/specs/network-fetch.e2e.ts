@@ -2,7 +2,7 @@ import { $, $$, browser, expect } from '@wdio/globals';
 import { enterEditMode } from '../helpers';
 
 /**
- * A minimal network widget: fetches a stable host through the launcher's fetch
+ * A minimal network widget: fetches a stable host through the canvas's fetch
  * proxy and posts the result back to the parent. The parent cannot read the
  * opaque-origin iframe's DOM, so the iframe reports its own outcome.
  */

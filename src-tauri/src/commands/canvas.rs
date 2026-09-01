@@ -77,7 +77,7 @@ impl Default for KeybindConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LauncherSettings {
+pub struct CanvasSettings {
     #[serde(default)]
     pub width_percent: f32,
     #[serde(default)]
@@ -109,7 +109,7 @@ pub struct LauncherSettings {
     #[serde(default = "default_true")]
     pub backdrop_blur: bool,
     /// Blur strength: `"full"` blurs the whole screen, `"light"` blurs only
-    /// the launcher panel area.
+    /// the canvas panel area.
     #[serde(default = "default_full_strength")]
     pub blur_strength: String,
     #[serde(default)]
@@ -120,11 +120,11 @@ pub struct LauncherSettings {
     #[serde(default = "default_grid_line_color")]
     pub grid_line_color: String,
     #[serde(default)]
-    pub keybind_toggle_launcher: KeybindConfig,
+    pub keybind_toggle_canvas: KeybindConfig,
     #[serde(default)]
     pub keybind_toggle_edit: KeybindConfig,
     #[serde(default)]
-    pub keybind_hide_launcher: KeybindConfig,
+    pub keybind_hide_canvas: KeybindConfig,
     #[serde(default)]
     pub keybind_undo: KeybindConfig,
     /// App-wide allowed hostnames for Custom HTML widgets (see widget_fetch).
@@ -140,7 +140,7 @@ pub struct LauncherSettings {
     pub default_appearance: Option<serde_json::Value>,
 }
 
-impl Default for LauncherSettings {
+impl Default for CanvasSettings {
     fn default() -> Self {
         Self {
             width_percent: 90.0,
@@ -160,7 +160,7 @@ impl Default for LauncherSettings {
             magnetic_snap: true,
             grid_size: 40.0,
             grid_line_color: "255, 255, 255".to_string(),
-            keybind_toggle_launcher: KeybindConfig {
+            keybind_toggle_canvas: KeybindConfig {
                 key: "KeyZ".to_string(),
                 ctrl: false,
                 alt: true,
@@ -174,7 +174,7 @@ impl Default for LauncherSettings {
                 shift: false,
                 meta: false,
             },
-            keybind_hide_launcher: KeybindConfig {
+            keybind_hide_canvas: KeybindConfig {
                 key: "Escape".to_string(),
                 ctrl: false,
                 alt: false,
@@ -196,18 +196,18 @@ impl Default for LauncherSettings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LauncherLayout {
+pub struct CanvasLayout {
     pub icons: Vec<AppIcon>,
-    pub settings: LauncherSettings,
+    pub settings: CanvasSettings,
     #[serde(default)]
     pub active_preset: Option<String>,
 }
 
-impl Default for LauncherLayout {
+impl Default for CanvasLayout {
     fn default() -> Self {
         Self {
             icons: Vec::new(),
-            settings: LauncherSettings::default(),
+            settings: CanvasSettings::default(),
             active_preset: None,
         }
     }
@@ -216,7 +216,7 @@ impl Default for LauncherLayout {
 #[derive(Debug, Serialize, Deserialize)]
 struct PresetData {
     icons: Vec<AppIcon>,
-    settings: LauncherSettings,
+    settings: CanvasSettings,
 }
 
 /// Max size of an importable preset file (widget HTML can be large, but a
@@ -379,7 +379,7 @@ fn expand_tilde(arg: &str) -> String {
 }
 
 pub(crate) fn get_config_dir() -> PathBuf {
-    // Allow tests (or power users) to redirect where the launcher stores its
+    // Allow tests (or power users) to redirect where the canvas stores its
     // config. Only used in tests today, but harmless in production.
     if let Ok(override_dir) = std::env::var("ODEKO_CONFIG_DIR") {
         return PathBuf::from(override_dir).join("odeko");
@@ -610,7 +610,7 @@ fn open_url_sync(url: &str) -> Result<(), String> {
 /// Load the active layout: reads config.json to find the active preset, then
 /// loads that preset file. On first run with no preset, returns defaults.
 #[tauri::command]
-pub fn load_active_layout() -> Result<LauncherLayout, String> {
+pub fn load_active_layout() -> Result<CanvasLayout, String> {
     let config = read_config();
 
     match &config.active_preset {
@@ -618,14 +618,14 @@ pub fn load_active_layout() -> Result<LauncherLayout, String> {
             let preset_path = get_presets_dir().join(format!("{}.json", name));
             if !preset_path.exists() {
                 log::info!("Active preset '{}' not found, using defaults", name);
-                return Ok(LauncherLayout::default());
+                return Ok(CanvasLayout::default());
             }
             let content = std::fs::read_to_string(&preset_path)
                 .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
             let data: PresetData = serde_json::from_str(&content)
                 .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
             log::info!("Loaded active preset: {}", name);
-            Ok(LauncherLayout {
+            Ok(CanvasLayout {
                 icons: data.icons,
                 settings: data.settings,
                 active_preset: Some(name.clone()),
@@ -633,7 +633,7 @@ pub fn load_active_layout() -> Result<LauncherLayout, String> {
         }
         None => {
             log::info!("No active preset set, using defaults");
-            Ok(LauncherLayout::default())
+            Ok(CanvasLayout::default())
         }
     }
 }
@@ -643,7 +643,7 @@ pub fn load_active_layout() -> Result<LauncherLayout, String> {
 #[tauri::command]
 pub fn save_active_layout(
     icons: Vec<AppIcon>,
-    settings: LauncherSettings,
+    settings: CanvasSettings,
 ) -> Result<String, String> {
     let mut config = read_config();
     let preset_name = match &config.active_preset {
@@ -676,7 +676,7 @@ pub fn save_active_layout(
 /// does not persist uncommitted icon changes.
 /// Returns the preset name that was saved to.
 #[tauri::command]
-pub fn save_active_settings(settings: LauncherSettings) -> Result<String, String> {
+pub fn save_active_settings(settings: CanvasSettings) -> Result<String, String> {
     let mut config = read_config();
     let preset_name = match &config.active_preset {
         Some(name) if !name.is_empty() => name.clone(),
@@ -737,7 +737,7 @@ pub fn set_active_preset(name: String) -> Result<(), String> {
 pub fn save_preset_as(
     name: String,
     icons: Vec<AppIcon>,
-    settings: LauncherSettings,
+    settings: CanvasSettings,
 ) -> Result<(), String> {
     validate_preset_name(&name)?;
     let presets_dir = get_presets_dir();
@@ -835,7 +835,7 @@ pub fn save_default_preset(name: String) -> Result<(), String> {
     std::fs::create_dir_all(&presets_dir)
         .map_err(|e| format!("Failed to create presets directory: {}", e))?;
     let preset_path = presets_dir.join(format!("{}.json", name));
-    let default_layout = LauncherLayout::default();
+    let default_layout = CanvasLayout::default();
     let data = PresetData {
         icons: default_layout.icons,
         settings: default_layout.settings,
@@ -929,7 +929,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
 }
 
 #[tauri::command]
-pub fn hide_launcher(app: tauri::AppHandle) {
+pub fn hide_canvas(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
@@ -937,7 +937,7 @@ pub fn hide_launcher(app: tauri::AppHandle) {
 
 /// Returns a PNG file as a base64 data URL for icon display. The path is
 /// untrusted (it can come from an imported preset), so only existing PNG
-/// files under a size cap are served — a launcher icon, not a general
+/// files under a size cap are served — a canvas icon, not a general
 /// file-read primitive.
 #[tauri::command]
 pub fn get_icon_base64(icon_path: String) -> Result<String, String> {
@@ -1086,11 +1086,11 @@ mod tests {
     }
 
     #[test]
-    fn launcher_settings_default_round_trips() {
-        let settings = LauncherSettings::default();
+    fn canvas_settings_default_round_trips() {
+        let settings = CanvasSettings::default();
 
         let json = serde_json::to_string(&settings).unwrap();
-        let back: LauncherSettings = serde_json::from_str(&json).unwrap();
+        let back: CanvasSettings = serde_json::from_str(&json).unwrap();
 
         assert_eq!(back.width_percent, settings.width_percent);
         assert_eq!(back.height_percent, settings.height_percent);
@@ -1098,32 +1098,32 @@ mod tests {
         assert_eq!(back.grid_size, settings.grid_size);
         assert_eq!(back.magnetic_snap, settings.magnetic_snap);
         assert_eq!(back.grid_line_color, settings.grid_line_color);
-        assert_eq!(back.keybind_toggle_launcher, settings.keybind_toggle_launcher);
+        assert_eq!(back.keybind_toggle_canvas, settings.keybind_toggle_canvas);
         assert_eq!(back.keybind_undo, settings.keybind_undo);
     }
 
     #[test]
-    fn launcher_settings_missing_grid_line_color_defaults_to_white() {
+    fn canvas_settings_missing_grid_line_color_defaults_to_white() {
 
         let json = r#"{
             "width_percent": 90.0,
             "grid_size": 40.0,
             "magnetic_snap": true
         }"#;
-        let back: LauncherSettings = serde_json::from_str(json).unwrap();
+        let back: CanvasSettings = serde_json::from_str(json).unwrap();
         assert_eq!(back.grid_line_color, "255, 255, 255");
     }
 
     #[test]
-    fn launcher_layout_default_has_no_icons_and_default_settings() {
-        let layout = LauncherLayout::default();
+    fn canvas_layout_default_has_no_icons_and_default_settings() {
+        let layout = CanvasLayout::default();
 
         assert!(layout.icons.is_empty());
         assert_eq!(layout.active_preset, None);
         assert_eq!(layout.settings.width_percent, 90.0);
 
         let json = serde_json::to_string(&layout).unwrap();
-        let back: LauncherLayout = serde_json::from_str(&json).unwrap();
+        let back: CanvasLayout = serde_json::from_str(&json).unwrap();
         assert!(back.icons.is_empty());
     }
 
@@ -1217,8 +1217,8 @@ mod tests {
         }
     }
 
-    fn modified_settings() -> LauncherSettings {
-        LauncherSettings {
+    fn modified_settings() -> CanvasSettings {
+        CanvasSettings {
             width_percent: 50.0,
             height_percent: 60.0,
             background_color: "10, 20, 30".into(),
@@ -1236,7 +1236,7 @@ mod tests {
             magnetic_snap: false,
             grid_size: 64.0,
             grid_line_color: "200, 100, 50".into(),
-            keybind_toggle_launcher: KeybindConfig {
+            keybind_toggle_canvas: KeybindConfig {
                 key: "KeyA".into(),
                 ctrl: true,
                 alt: false,
@@ -1250,7 +1250,7 @@ mod tests {
                 shift: false,
                 meta: false,
             },
-            keybind_hide_launcher: KeybindConfig {
+            keybind_hide_canvas: KeybindConfig {
                 key: "KeyC".into(),
                 ctrl: false,
                 alt: false,
@@ -1297,9 +1297,9 @@ mod tests {
             assert!(!got.magnetic_snap);
             assert_eq!(got.grid_size, 64.0);
             assert_eq!(got.grid_line_color, "200, 100, 50");
-            assert_eq!(got.keybind_toggle_launcher, modified.keybind_toggle_launcher);
+            assert_eq!(got.keybind_toggle_canvas, modified.keybind_toggle_canvas);
             assert_eq!(got.keybind_toggle_edit, modified.keybind_toggle_edit);
-            assert_eq!(got.keybind_hide_launcher, modified.keybind_hide_launcher);
+            assert_eq!(got.keybind_hide_canvas, modified.keybind_hide_canvas);
             assert_eq!(got.keybind_undo, modified.keybind_undo);
             assert_eq!(got.default_appearance, modified.default_appearance);
         });
@@ -1329,7 +1329,7 @@ mod tests {
             icon.height = 90.0;
             icon.args = Some("--fullscreen".into());
 
-            save_active_layout(vec![icon.clone()], LauncherSettings::default()).unwrap();
+            save_active_layout(vec![icon.clone()], CanvasSettings::default()).unwrap();
 
             let layout = load_active_layout().unwrap();
             assert_eq!(layout.icons.len(), 1);
@@ -1361,7 +1361,7 @@ mod tests {
         with_fake_config_dir(|| {
             assert!(set_active_preset("Missing".into()).is_err());
 
-            save_preset_as("My".into(), vec![], LauncherSettings::default()).unwrap();
+            save_preset_as("My".into(), vec![], CanvasSettings::default()).unwrap();
             set_active_preset("My".into()).unwrap();
 
             let layout = load_active_layout().unwrap();
@@ -1372,8 +1372,8 @@ mod tests {
     #[test]
     fn preset_save_list_delete_lifecycle() {
         with_fake_config_dir(|| {
-            save_preset_as("Alpha".into(), vec![], LauncherSettings::default()).unwrap();
-            save_preset_as("Beta".into(), vec![], LauncherSettings::default()).unwrap();
+            save_preset_as("Alpha".into(), vec![], CanvasSettings::default()).unwrap();
+            save_preset_as("Beta".into(), vec![], CanvasSettings::default()).unwrap();
 
             assert_eq!(list_presets().unwrap(), vec!["Alpha", "Beta"]);
 
@@ -1387,7 +1387,7 @@ mod tests {
     #[test]
     fn delete_preset_clears_the_active_preset() {
         with_fake_config_dir(|| {
-            save_preset_as("My".into(), vec![], LauncherSettings::default()).unwrap();
+            save_preset_as("My".into(), vec![], CanvasSettings::default()).unwrap();
             set_active_preset("My".into()).unwrap();
 
             delete_preset("My".into()).unwrap();
@@ -1400,8 +1400,8 @@ mod tests {
     #[test]
     fn rename_preset_validates_and_updates_active() {
         with_fake_config_dir(|| {
-            save_preset_as("A".into(), vec![], LauncherSettings::default()).unwrap();
-            save_preset_as("B".into(), vec![], LauncherSettings::default()).unwrap();
+            save_preset_as("A".into(), vec![], CanvasSettings::default()).unwrap();
+            save_preset_as("B".into(), vec![], CanvasSettings::default()).unwrap();
 
             assert!(rename_preset("Missing".into(), "X".into()).is_err());
 
@@ -1421,7 +1421,7 @@ mod tests {
 
             assert!(export_preset("Missing".into(), String::new()).is_err());
 
-            save_preset_as("ExportMe".into(), vec![], LauncherSettings::default()).unwrap();
+            save_preset_as("ExportMe".into(), vec![], CanvasSettings::default()).unwrap();
             let dest = std::env::temp_dir().join("odeko-export-test.json");
             export_preset("ExportMe".into(), dest.to_string_lossy().to_string()).unwrap();
             assert!(dest.exists());
@@ -1443,7 +1443,7 @@ mod tests {
     /// A preset carrying every kind of ambient authority the import path
     /// must strip.
     fn malicious_preset() -> PresetData {
-        let mut settings = LauncherSettings::default();
+        let mut settings = CanvasSettings::default();
         settings.network_grants = vec!["api.evil.example".to_string()];
         settings.allow_local_network = true;
 
@@ -1539,7 +1539,7 @@ mod tests {
             icon.id = "many".into();
             let data = PresetData {
                 icons: vec![icon; MAX_PRESET_ICONS + 1],
-                settings: LauncherSettings::default(),
+                settings: CanvasSettings::default(),
             };
             std::fs::write(
                 &source,
@@ -1581,8 +1581,8 @@ mod tests {
     #[test]
     fn save_and_rename_reject_bad_names() {
         with_fake_config_dir(|| {
-            assert!(save_preset_as("../evil".into(), vec![], LauncherSettings::default()).is_err());
-            assert!(save_preset_as("ok".into(), vec![], LauncherSettings::default()).is_ok());
+            assert!(save_preset_as("../evil".into(), vec![], CanvasSettings::default()).is_err());
+            assert!(save_preset_as("ok".into(), vec![], CanvasSettings::default()).is_ok());
             assert!(rename_preset("ok".into(), "../../x".into()).is_err());
             assert!(set_active_preset("a/b".into()).is_err());
             assert!(delete_preset("../evil".into()).is_err());
@@ -1599,7 +1599,7 @@ mod tests {
                 &source,
                 serde_json::to_string_pretty(&PresetData {
                     icons: vec![],
-                    settings: LauncherSettings::default(),
+                    settings: CanvasSettings::default(),
                 })
                 .unwrap(),
             )

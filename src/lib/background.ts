@@ -1,4 +1,4 @@
-// Helpers for the launcher background media (image or video).
+// Helpers for the canvas background media (image or video).
 
 // Video containers the webview can decode natively (hardware accelerated).
 // mkv is a container, so it still needs the codecs inside (H.264/VP9/...) to

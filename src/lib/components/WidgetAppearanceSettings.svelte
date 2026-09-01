@@ -22,7 +22,7 @@
 		hideFields?: WidgetAppearanceField[];
 		/** Item type, used to show the "What can I style?" reference. */
 		widgetType?: CssApiItemType;
-		/** Label for the overall opacity field (widgets vs. launcher icons). */
+		/** Label for the overall opacity field (widgets vs. canvas icons). */
 		opacityLabel?: string;
 		/** Hide the per-item custom CSS controls. */
 		hideCustomCss?: boolean;
@@ -41,7 +41,7 @@
 		opacityLabel = 'Widget Opacity',
 		hideCustomCss = false,
 		// Off by default: bulk apply is a global action, shown only in the
-		// launcher settings' "Icon Appearance" tab.
+		// canvas settings' "Icon Appearance" tab.
 		applyToAll = false,
 		applyToAllLabel = 'Apply to all'
 	}: Props = $props();

@@ -2,7 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { loadIconDataUrl } from '$lib/icon-image';
-	import type { LauncherIcon } from '$lib/icons';
+	import type { CanvasIcon } from '$lib/icons';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 
 	interface SystemApp {
@@ -19,7 +19,7 @@
 
 	let { isOpen = $bindable(false), onSelect } = $props<{
 		isOpen: boolean;
-		onSelect: (app: LauncherIcon) => void;
+		onSelect: (app: CanvasIcon) => void;
 	}>();
 
 	let apps = $state<SystemApp[]>([]);
@@ -76,7 +76,7 @@
 
 	function confirmSelection() {
 		if (selectedApp) {
-			const newIcon: LauncherIcon = {
+			const newIcon: CanvasIcon = {
 				id: `app-${Date.now()}`,
 				name: selectedApp.name,
 				path: selectedApp.exec,
@@ -175,7 +175,7 @@
 							>{selectedApp.exec}{selectedApp.args ? ` ${selectedApp.args}` : ''}</span
 						>
 					</div>
-					<button class="add-btn" onclick={confirmSelection}> Add to Launcher </button>
+					<button class="add-btn" onclick={confirmSelection}> Add to Canvas </button>
 				</div>
 			{/if}
 		</div>

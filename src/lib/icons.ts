@@ -1,6 +1,6 @@
-// Single source of truth for everything that lives on the launcher grid:
+// Single source of truth for everything that lives on the canvas grid:
 // apps, images, and widgets. Any component or store that deals with a
-// grid item imports `LauncherIcon` from here — there must be no local copies.
+// grid item imports `CanvasIcon` from here — there must be no local copies.
 //
 // The shape is intentionally flat (one interface, discriminated by
 // `icon_type`). It matches the Rust `AppIcon` struct on the Tauri side, so the
@@ -12,7 +12,7 @@ import type { WidgetType, WidgetConfigType, WidgetAppearanceConfig } from '$lib/
 
 export type IconType = 'app' | 'image' | 'widget';
 
-export interface LauncherIcon {
+export interface CanvasIcon {
 	id: string;
 	name: string;
 	/** App launch path; '' for non-app icons (kept for wire compatibility). */
@@ -35,7 +35,7 @@ export interface LauncherIcon {
 	z?: number;
 	/**
 	 * Icon appearance, sharing the widget appearance system. Unset fields fall
-	 * back to the icon defaults resolved in AppIcon.svelte (the launcher-wide
+	 * back to the icon defaults resolved in AppIcon.svelte (the canvas-wide
 	 * border_radius acts as the default corner radius).
 	 */
 	appearance?: WidgetAppearanceConfig;

@@ -5,7 +5,7 @@
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { backgroundFilePath } from '$lib/background';
 
-	// Video background layer for the launcher overlay.
+	// Video background layer for the canvas overlay.
 	//
 	// Why the server URL: on Linux (WebKitGTK) a <video> cannot play from
 	// the asset:// protocol, and data: URLs get rejected by the media
@@ -21,7 +21,7 @@
 	//
 	// Performance notes:
 	// - The native <video> element is decoded by the GPU, so playback is cheap.
-	// - The launcher window spends most of its life hidden, so we pause the
+	// - The canvas window spends most of its life hidden, so we pause the
 	//   video while the window is hidden and resume it when it is shown again.
 	//   While hidden, the video costs literally 0% CPU/GPU.
 	// - `muted` both allows autoplay and skips the whole audio pipeline.
@@ -46,7 +46,7 @@
 	// Resolved, playable URL for the <video> element (null while loading).
 	let videoSrc = $state<string | null>(null);
 	// When the file cannot be played, fall back to the plain color
-	// background so the launcher never looks broken.
+	// background so the canvas never looks broken.
 	let failed = $state(false);
 
 	// CSS object-fit calls the "stretch" behavior "fill".

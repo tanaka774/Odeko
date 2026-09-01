@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { settingsStore, type LauncherSettings } from '$lib/stores/settings.svelte';
+	import { settingsStore, type CanvasSettings } from '$lib/stores/settings.svelte';
 	import { open, save } from '@tauri-apps/plugin-dialog';
 	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { invoke } from '@tauri-apps/api/core';
@@ -22,8 +22,8 @@
 		onApplyPreset?: () => void;
 	}>();
 
-	let localSettings = $state<LauncherSettings>({ ...settingsStore.settings });
-	let originalSettings = $state<LauncherSettings | null>(null);
+	let localSettings = $state<CanvasSettings>({ ...settingsStore.settings });
+	let originalSettings = $state<CanvasSettings | null>(null);
 
 	let presets = $state<string[]>([]);
 	let selectedPreset = $state<string>('');
@@ -260,7 +260,7 @@
 		}
 
 		invoke('update_global_shortcut', {
-			keybind: settingsStore.settings.keybind_toggle_launcher
+			keybind: settingsStore.settings.keybind_toggle_canvas
 		});
 
 		onSave?.();
@@ -313,7 +313,7 @@
 		<div class="modal-anchor">
 			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="modal-header">
-					<h2>Launcher Settings</h2>
+					<h2>Canvas Settings</h2>
 					<button class="close-btn" onclick={close}>✕</button>
 				</div>
 
@@ -469,7 +469,7 @@
 													localSettings.background_repeat = e.currentTarget.checked;
 												}}
 											/>
-											<span>Repeat image if smaller than launcher</span>
+											<span>Repeat image if smaller than canvas</span>
 										</label>
 									</div>
 								{/if}
@@ -491,7 +491,7 @@
 													class:active={localSettings.background_position === pos}
 													onclick={() => {
 														localSettings.background_position =
-															pos as LauncherSettings['background_position'];
+															pos as CanvasSettings['background_position'];
 													}}
 												>
 													{#if pos === 'top'}
@@ -541,7 +541,7 @@
 										class="bg-select"
 									>
 										<option value="full">Full - Blur entire screen</option>
-										<option value="light">Light - Blur only behind the launcher</option>
+										<option value="light">Light - Blur only behind the canvas</option>
 									</select>
 								</div>
 							{/if}
@@ -629,16 +629,16 @@
 							<h3>Keyboard Shortcuts</h3>
 							<div class="key-shortcuts">
 								<KeybindRecorder
-									bind:value={localSettings.keybind_toggle_launcher}
-									label="Toggle launcher (global shortcut)"
+									bind:value={localSettings.keybind_toggle_canvas}
+									label="Toggle canvas (global shortcut)"
 								/>
 								<KeybindRecorder
 									bind:value={localSettings.keybind_toggle_edit}
 									label="Enter / exit edit mode"
 								/>
 								<KeybindRecorder
-									bind:value={localSettings.keybind_hide_launcher}
-									label="Hide launcher"
+									bind:value={localSettings.keybind_hide_canvas}
+									label="Hide canvas"
 								/>
 								<KeybindRecorder
 									bind:value={localSettings.keybind_undo}
@@ -791,8 +791,8 @@
 		width: min(750px, 92%);
 		height: min(85%, 640px);
 		transform: translate(
-			clamp(calc(375px - 50vw), var(--launcher-dx, 0px), calc(50vw - 375px)),
-			clamp(calc(320px - 50vh), var(--launcher-dy, 0px), calc(50vh - 320px))
+			clamp(calc(375px - 50vw), var(--canvas-dx, 0px), calc(50vw - 375px)),
+			clamp(calc(320px - 50vh), var(--canvas-dy, 0px), calc(50vh - 320px))
 		);
 	}
 

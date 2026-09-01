@@ -623,7 +623,7 @@
 	.draggable-widget.dragging {
 		opacity: 0.9;
 		z-index: 1000;
-		box-shadow: var(--launcher-drag-shadow);
+		box-shadow: var(--canvas-drag-shadow);
 	}
 
 	.draggable-widget.resizing {

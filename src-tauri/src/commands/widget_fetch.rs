@@ -1,7 +1,7 @@
 //! Network fetch proxy for Custom HTML widgets.
 //!
 //! Sandboxed iframes inside a Custom HTML widget cannot call Tauri IPC
-//! directly (their origin is opaque) and the launcher's CSP blocks arbitrary
+//! directly (their origin is opaque) and the canvas's CSP blocks arbitrary
 //! `fetch()` from the webview. Widgets reach the network by `postMessage`-ing
 //! the parent window, which calls this command.
 //!

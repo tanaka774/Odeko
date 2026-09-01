@@ -152,7 +152,7 @@ function guardIframe(node: Element) {
 
 // Makes anchors inert by default: the widget's own click listener opens
 // absolute URLs in the system browser, so a click can never navigate the
-// webview away from the launcher. Fragments scroll in place and stay.
+// webview away from the canvas. Fragments scroll in place and stay.
 function hardenAnchor(node: Element) {
 	const href = node.getAttribute('href');
 

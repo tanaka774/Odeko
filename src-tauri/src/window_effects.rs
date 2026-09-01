@@ -1,4 +1,4 @@
-//! OS-level background blur for the launcher window.
+//! OS-level background blur for the canvas window.
 //!
 //! CSS `backdrop-filter` can only blur what is *inside* the webview, never the
 //! desktop behind the window. Real blur has to come from the OS compositor,
@@ -14,7 +14,7 @@
 //!   (KWin X11, picom).
 //!
 //! On unsupported compositors nothing is applied and the window simply keeps
-//! its own translucent background, so the launcher stays readable everywhere.
+//! its own translucent background, so the canvas stays readable everywhere.
 
 use tauri::WebviewWindow;
 
@@ -43,7 +43,7 @@ fn apply_windows(window: &WebviewWindow, strength: &str) {
         // Plain blur, no tint: the wallpaper stays recognizable behind it.
         builder = builder.effect(Effect::Blur);
     } else {
-        // Acrylic = blur + tint. The tint matches the launcher's dark theme
+        // Acrylic = blur + tint. The tint matches the canvas's dark theme
         // so the panel stays readable over any wallpaper.
         builder = builder.effect(Effect::Acrylic).color(Color(16, 16, 24, 200));
     }
@@ -62,7 +62,7 @@ fn apply_macos(window: &WebviewWindow, strength: &str) {
     use tauri::window::{Effect, EffectsBuilder};
 
     // HudWindow is the dark frosted material Spotlight uses; it reads well
-    // behind the launcher's translucent panel. UnderWindowBackground is a
+    // behind the canvas's translucent panel. UnderWindowBackground is a
     // gentler material that lets the desktop show through more.
     let effect = if strength == "light" {
         Effect::UnderWindowBackground
@@ -247,7 +247,7 @@ impl WindowBlur {
             ("full", None, _) | ("light", None, _) => {
                 region.add(0, 0, i32::MAX, i32::MAX);
             }
-            // Light: blur only behind the launcher panel.
+            // Light: blur only behind the canvas panel.
             ("light", Some((x, y, w, h)), false) => {
                 region.add(x, y, w, h);
             }

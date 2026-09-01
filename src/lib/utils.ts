@@ -14,7 +14,7 @@ export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
 	ref?: U | null;
 };
 
-// Normalize a user-typed color into the "R, G, B" format the launcher
+// Normalize a user-typed color into the "R, G, B" format the canvas
 // settings store. Accepts hex, plain triples and rgb()/rgba(); returns null
 // while the input is incomplete so callers keep the stored value untouched.
 export function normalizeColorInput(value: string): string | null {

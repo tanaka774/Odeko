@@ -99,9 +99,9 @@
 		return findKeybindConflict(recorderValue, {
 			excludeIconId: widgetId,
 			appKeybinds: {
-				toggle_launcher: s.keybind_toggle_launcher,
+				toggle_canvas: s.keybind_toggle_canvas,
 				toggle_edit: s.keybind_toggle_edit,
-				hide_launcher: s.keybind_hide_launcher,
+				hide_canvas: s.keybind_hide_canvas,
 				undo: s.keybind_undo
 			},
 			icons: settingsStore.getCurrentIcons() as IconForConflictCheck[]
@@ -213,7 +213,7 @@
 							onRemove={recorderValue.key ? clearKeybind : undefined}
 						/>
 						<SettingRow>
-							<label class="checkbox-label" title="Works even when the launcher is hidden">
+							<label class="checkbox-label" title="Works even when the canvas is hidden">
 								<input type="checkbox" bind:checked={localKeybindGlobal} />
 								<span>Global</span>
 							</label>

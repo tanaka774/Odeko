@@ -6,9 +6,9 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { isLaunchable, launchIcon } from './launch';
-import type { LauncherIcon } from '$lib/icons';
+import type { CanvasIcon } from '$lib/icons';
 
-function makeIcon(overrides: Partial<LauncherIcon> = {}): LauncherIcon {
+function makeIcon(overrides: Partial<CanvasIcon> = {}): CanvasIcon {
 	return {
 		id: '1',
 		name: 'Test',
@@ -53,14 +53,14 @@ describe('launchIcon', () => {
 			path: '/usr/bin/htop',
 			args: '-x --flag'
 		});
-		expect(invokeMock).toHaveBeenCalledWith('hide_launcher');
+		expect(invokeMock).toHaveBeenCalledWith('hide_canvas');
 	});
 
 	it('opens an image url', async () => {
 		await launchIcon(makeIcon({ icon_type: 'image', url: 'https://example.com' }));
 
 		expect(invokeMock).toHaveBeenCalledWith('open_url', { url: 'https://example.com' });
-		expect(invokeMock).toHaveBeenCalledWith('hide_launcher');
+		expect(invokeMock).toHaveBeenCalledWith('hide_canvas');
 	});
 
 	it('opens an image url', async () => {

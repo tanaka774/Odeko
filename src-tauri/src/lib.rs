@@ -1,7 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
-use commands::launcher::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_launcher, get_icon_base64};
+use commands::canvas::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
 use commands::media_server::{register_background_video, MediaServerState};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
@@ -32,7 +32,7 @@ struct BlurControl {
     /// Whether the user enabled the blur (see `set_backdrop_blur`).
     enabled: bool,
     /// Blur area: "full" blurs the whole screen (minus the panel when it is
-    /// a video), "light" blurs only the launcher panel rectangle so the rest
+    /// a video), "light" blurs only the canvas panel rectangle so the rest
     /// of the desktop stays sharp.
     spec: window_effects::BlurSpec,
     /// Persistent handle so the blur can be rebuilt on every show (the
@@ -84,7 +84,7 @@ pub fn run() {
 
             // Manage the blur state before the window is configured: on some
             // platforms the window is already visible at this point and
-            // configure_launcher_window() calls sync_window_blur(), which
+            // configure_canvas_window() calls sync_window_blur(), which
             // reads the state. Reading unmanaged state panics.
             #[cfg(target_os = "linux")]
             app.manage(BlurState(parking_lot::Mutex::new(BlurControl {
@@ -98,7 +98,7 @@ pub fn run() {
                 blur: None,
             })));
 
-            configure_launcher_window(app);
+            configure_canvas_window(app);
 
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
@@ -108,7 +108,7 @@ pub fn run() {
                             let state = app.state::<GlobalShortcutState>();
                             let current = state.current.lock().unwrap();
                             if *current == *shortcut {
-                                toggle_launcher_window(app);
+                                toggle_canvas_window(app);
                             }
                         }
                     })
@@ -124,7 +124,7 @@ pub fn run() {
             app.manage(MediaServerState::new());
 
             log::info!("Odeko initialized successfully!");
-            log::info!("Press Win+Alt+Z to toggle the launcher");
+            log::info!("Press Win+Alt+Z to toggle the canvas");
 
             Ok(())
         })
@@ -136,17 +136,17 @@ pub fn run() {
             get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players,
             execute_sleep, execute_restart, execute_shutdown,
             list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset,
-            update_global_shortcut, update_icon_shortcuts, get_platform, hide_launcher, get_icon_base64,
+            update_global_shortcut, update_icon_shortcuts, get_platform, hide_canvas, get_icon_base64,
             register_background_video, set_backdrop_blur, widget_fetch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
-fn configure_launcher_window(app: &tauri::App) {
+fn configure_canvas_window(app: &tauri::App) {
     if let Some(window) = app.get_webview_window("main") {
         if let Err(error) = window.set_background_color(Some(Color(0, 0, 0, 0))) {
-            log::warn!("Failed to make launcher background transparent: {}", error);
+            log::warn!("Failed to make canvas background transparent: {}", error);
         }
 
         // Real backdrop blur behind the transparent window (window_effects.rs).
@@ -163,7 +163,7 @@ fn configure_launcher_window(app: &tauri::App) {
 
             let app_handle = app.handle().clone();
             window.on_window_event(move |event| {
-                // The launcher is shown and focused together (toggle), so a
+                // The canvas is shown and focused together (toggle), so a
                 // focus event means it is on screen again.
                 if matches!(event, WindowEvent::Focused(true)) {
                     sync_window_blur(&app_handle);
@@ -179,11 +179,11 @@ fn configure_launcher_window(app: &tauri::App) {
         }
 
         if let Err(error) = window.set_always_on_top(true) {
-            log::warn!("Failed to keep launcher above other windows: {}", error);
+            log::warn!("Failed to keep canvas above other windows: {}", error);
         }
 
         if let Err(error) = window.set_visible_on_all_workspaces(true) {
-            log::warn!("Failed to show launcher on all workspaces: {}", error);
+            log::warn!("Failed to show canvas on all workspaces: {}", error);
         }
 
         #[cfg(target_os = "macos")]
@@ -231,7 +231,7 @@ fn sync_window_blur(app: &tauri::AppHandle) {
 /// Turns the native backdrop blur on or off (called by the frontend whenever
 /// the setting changes or loads).
 ///
-/// `strength` is `"light"` or `"full"`; `region` is the launcher panel's
+/// `strength` is `"light"` or `"full"`; `region` is the canvas panel's
 /// rectangle in logical pixels; `exclude_panel` is set when the panel has a
 /// video background, so the blur skips the panel area (it is opaque there —
 /// the blur would be invisible but force a costly re-blur on every video
@@ -283,16 +283,16 @@ fn set_backdrop_blur(
     Ok(())
 }
 
-fn toggle_launcher_window(app: &tauri::AppHandle) {
+fn toggle_canvas_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(is_visible) = window.is_visible() {
             if is_visible {
                 let _ = window.hide();
-                log::info!("Launcher hidden");
+                log::info!("Canvas hidden");
             } else {
                 let _ = window.show();
                 let _ = window.set_focus();
-                log::info!("Launcher shown");
+                log::info!("Canvas shown");
             }
         }
     }

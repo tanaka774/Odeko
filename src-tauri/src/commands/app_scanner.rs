@@ -713,7 +713,7 @@ mod platform {
     }
 
     fn extract_icon_to_png(lnk_path: &Path) -> Option<String> {
-        let cache_dir = dirs::cache_dir()?.join("floating-launcher").join("app-icons");
+        let cache_dir = dirs::cache_dir()?.join("odeko").join("app-icons");
         let id = format!("{:016x}", hash_path(lnk_path));
         let png_path = cache_dir.join(format!("{id}.png"));
 

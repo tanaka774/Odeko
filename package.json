@@ -2,7 +2,7 @@
 	"name": "odeko",
 	"private": true,
 	"version": "0.1.0",
-	"description": "A cross-platform floating launcher and widget overlay built with Tauri 2, Svelte 5, and Rust.",
+	"description": "A cross-platform floating desktop canvas — launch apps, pin images and widgets — built with Tauri 2, Svelte 5, and Rust.",
 	"author": "Odeko contributors",
 	"type": "module",
 	"scripts": {

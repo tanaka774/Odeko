@@ -24,10 +24,10 @@
 	--border: oklch(1 0 0 / 0.2);
 	--input: oklch(1 0 0 / 0.15);
 	--ring: rgba(120, 160, 200, 0.9);
-	--launcher-bg: oklch(0.1 0 0 / 0.7);
-	--launcher-hover-bg: rgba(255, 255, 255, 0.02);
-	--launcher-hover-bg-subtle: rgba(255, 255, 255, 0.01);
-	--launcher-drag-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+	--canvas-bg: oklch(0.1 0 0 / 0.7);
+	--canvas-hover-bg: rgba(255, 255, 255, 0.02);
+	--canvas-hover-bg-subtle: rgba(255, 255, 255, 0.01);
+	--canvas-drag-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
 	--edit-outline: rgba(210, 232, 245, 0.36);
 	--edit-outline-strong: rgba(210, 232, 245, 0.48);
 	--edit-control-bg: rgba(30, 42, 58, 0.78);
@@ -62,7 +62,7 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	--color-launcher-bg: var(--launcher-bg);
+	--color-canvas-bg: var(--canvas-bg);
 }
 
 @layer base {
@@ -95,7 +95,7 @@
 /* Glass morphism utilities */
 @layer utilities {
 	.glass {
-		@apply bg-launcher-bg border border-white/10 backdrop-blur-xl;
+		@apply bg-canvas-bg border border-white/10 backdrop-blur-xl;
 	}
 
 	.glass-hover {

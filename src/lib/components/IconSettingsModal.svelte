@@ -13,7 +13,7 @@
 		getAppearanceBackground,
 		getAppearanceBorder
 	} from '$lib/widgets/appearance';
-	import type { LauncherIcon, IconType } from '$lib/icons';
+	import type { CanvasIcon, IconType } from '$lib/icons';
 	import { TEXT_APPEARANCE_FIELDS, type WidgetAppearanceConfig } from '$lib/widgets/types';
 	import {
 		settingsStore,
@@ -37,7 +37,7 @@
 		onUpdateAppearance = () => {}
 	}: {
 		isOpen: boolean;
-		icon: LauncherIcon | null;
+		icon: CanvasIcon | null;
 		onSave?: () => void;
 		onUpdateIcon?: (id: string, iconPath: string) => void;
 		onUpdateUrl?: (id: string, url: string | undefined) => void;
@@ -174,9 +174,9 @@
 		return findKeybindConflict(kb, {
 			excludeIconId: icon?.id,
 			appKeybinds: {
-				toggle_launcher: s.keybind_toggle_launcher,
+				toggle_canvas: s.keybind_toggle_canvas,
 				toggle_edit: s.keybind_toggle_edit,
-				hide_launcher: s.keybind_hide_launcher,
+				hide_canvas: s.keybind_hide_canvas,
 				undo: s.keybind_undo
 			},
 			icons: settingsStore.getCurrentIcons()
@@ -409,7 +409,7 @@
 							onRemove={recorderValue.key ? clearKeybind : undefined}
 						/>
 						<SettingRow>
-							<label class="checkbox-label" title="Works even when the launcher is hidden">
+							<label class="checkbox-label" title="Works even when the canvas is hidden">
 								<input type="checkbox" bind:checked={localKeybindGlobal} />
 								<span>Global</span>
 							</label>

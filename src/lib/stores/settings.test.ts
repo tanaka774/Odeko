@@ -15,7 +15,7 @@ import {
 	eventToKeybind,
 	findKeybindConflict,
 	type KeybindConfig,
-	type LauncherSettings
+	type CanvasSettings
 } from './settings.svelte';
 
 type SettingsModule = typeof import('./settings.svelte');
@@ -73,23 +73,23 @@ describe('keybind helpers', () => {
 			{ key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 			{
 				appKeybinds: {
-					toggle_launcher: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
+					toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 					toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
-					hide_launcher: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
+					hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
 					undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
 				},
 				icons: []
 			}
 		);
-		expect(conflict).toContain('Toggle Launcher');
+		expect(conflict).toContain('Toggle Canvas');
 	});
 
 	it('findKeybindConflict detects conflicts with other icons', () => {
 		const conflict = findKeybindConflict(KB, {
 			appKeybinds: {
-				toggle_launcher: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
+				toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 				toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
-				hide_launcher: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
+				hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
 				undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
 			},
 			icons: [{ id: 'other', name: 'Other App', keybind: KB }]
@@ -100,9 +100,9 @@ describe('keybind helpers', () => {
 	it('findKeybindConflict ignores the excluded icon itself', () => {
 		const result = findKeybindConflict(KB, {
 			appKeybinds: {
-				toggle_launcher: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
+				toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 				toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
-				hide_launcher: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
+				hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
 				undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
 			},
 			icons: [{ id: 'me', name: 'Me', keybind: KB }],
@@ -114,9 +114,9 @@ describe('keybind helpers', () => {
 	it('findKeybindConflict returns null for an empty key or no conflict', () => {
 		const opts = {
 			appKeybinds: {
-				toggle_launcher: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
+				toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 				toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
-				hide_launcher: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
+				hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
 				undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
 			},
 			icons: []
@@ -138,7 +138,7 @@ describe('settings store', () => {
 			active_preset: 'MyPreset',
 			settings: {
 				grid_size: 64,
-				keybind_toggle_launcher: { key: '', ctrl: false, alt: false, shift: false, meta: false }
+				keybind_toggle_canvas: { key: '', ctrl: false, alt: false, shift: false, meta: false }
 			}
 		});
 
@@ -148,8 +148,8 @@ describe('settings store', () => {
 		expect(mod.settingsStore.settings.grid_size).toBe(64);
 		expect(mod.settingsStore.settings.width_percent).toBe(90);
 		expect(mod.settingsStore.settings.grid_line_color).toBe('255, 255, 255');
-		expect(mod.settingsStore.settings.keybind_toggle_launcher.key).toBe('KeyZ');
-		expect(mod.settingsStore.settings.keybind_toggle_launcher.meta).toBe(true);
+		expect(mod.settingsStore.settings.keybind_toggle_canvas.key).toBe('KeyZ');
+		expect(mod.settingsStore.settings.keybind_toggle_canvas.meta).toBe(true);
 		expect(mod.settingsStore.activePreset).toBe('MyPreset');
 		expect(mod.settingsStore.isLoaded).toBe(true);
 	});
@@ -231,7 +231,7 @@ describe('settings store', () => {
 		const mod = await loadFreshModule();
 		await mod.settingsStore.loadSettings();
 
-		// borderRadius is seeded from the legacy launcher border_radius once,
+		// borderRadius is seeded from the legacy canvas border_radius once,
 		// so existing layouts keep their corners.
 		expect(mod.settingsStore.settings.default_appearance).toEqual({
 			backgroundColor: '#112233',
@@ -300,7 +300,7 @@ describe('settings store', () => {
 
 	it('updateSettings applies every settings field individually', async () => {
 		const mod = await loadFreshModule();
-		const updates: Array<[keyof LauncherSettings, unknown]> = [
+		const updates: Array<[keyof CanvasSettings, unknown]> = [
 			['width_percent', 50],
 			['height_percent', 60],
 			['background_color', '1, 2, 3'],

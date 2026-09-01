@@ -20,7 +20,7 @@
 
 	/**
 	 * Anchors inside user HTML must never navigate the webview (that would
-	 * replace the launcher with the linked page). Fragment links scroll inside
+	 * replace the canvas with the linked page). Fragment links scroll inside
 	 * the widget; absolute links open in the system browser via the existing
 	 * `open_url` command.
 	 */

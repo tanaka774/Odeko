@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { backgroundFilePath, isVideoBackground } from '$lib/background';
-import type { LauncherIcon } from '$lib/icons';
+import type { CanvasIcon } from '$lib/icons';
 import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 
 export interface KeybindConfig {
@@ -13,9 +13,9 @@ export interface KeybindConfig {
 }
 
 export const DEFAULT_KEYBINDS = {
-	toggle_launcher: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
+	toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 	toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
-	hide_launcher: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
+	hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
 	undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
 } as const;
 
@@ -63,11 +63,11 @@ export function keybindEquals(a: KeybindConfig, b: KeybindConfig): boolean {
 export interface KeybindConflictCheckOptions {
 	/** Icon id to exclude from the "other icons" check (the icon being edited). */
 	excludeIconId?: string;
-	/** App-level keybinds to check against (from LauncherSettings). */
+	/** App-level keybinds to check against (from CanvasSettings). */
 	appKeybinds: {
-		toggle_launcher: KeybindConfig;
+		toggle_canvas: KeybindConfig;
 		toggle_edit: KeybindConfig;
-		hide_launcher: KeybindConfig;
+		hide_canvas: KeybindConfig;
 		undo: KeybindConfig;
 	};
 	/** Other icons' currently-assigned keybinds. */
@@ -75,9 +75,9 @@ export interface KeybindConflictCheckOptions {
 }
 
 export const APP_KEYBIND_LABELS = {
-	toggle_launcher: 'Toggle Launcher',
+	toggle_canvas: 'Toggle Canvas',
 	toggle_edit: 'Toggle Edit',
-	hide_launcher: 'Hide Launcher',
+	hide_canvas: 'Hide Canvas',
 	undo: 'Undo'
 } as const;
 
@@ -102,7 +102,7 @@ export function findKeybindConflict(
 	return null;
 }
 
-export interface LauncherSettings {
+export interface CanvasSettings {
 	width_percent: number;
 	height_percent: number;
 	background_color: string;
@@ -127,7 +127,7 @@ export interface LauncherSettings {
 	/** Native backdrop blur behind the window (applied by the Rust side). */
 	backdrop_blur: boolean;
 	/**
-	 * How strong the backdrop blur is: `light` blurs only the launcher panel
+	 * How strong the backdrop blur is: `light` blurs only the canvas panel
 	 * area (desktop stays visible), `full` blurs the whole screen.
 	 */
 	blur_strength: 'light' | 'full';
@@ -137,9 +137,9 @@ export interface LauncherSettings {
 	grid_size: number;
 	/** Grid line color in "R, G, B" format (edit mode only). */
 	grid_line_color: string;
-	keybind_toggle_launcher: KeybindConfig;
+	keybind_toggle_canvas: KeybindConfig;
 	keybind_toggle_edit: KeybindConfig;
-	keybind_hide_launcher: KeybindConfig;
+	keybind_hide_canvas: KeybindConfig;
 	keybind_undo: KeybindConfig;
 	/** App-wide allowed hostnames for Custom HTML widgets (see network-bridge). */
 	network_grants: string[];
@@ -154,13 +154,13 @@ export interface LauncherSettings {
 	default_appearance?: WidgetAppearanceConfig;
 }
 
-export interface LauncherLayout {
+export interface CanvasLayout {
 	icons: unknown[];
-	settings: LauncherSettings;
+	settings: CanvasSettings;
 	active_preset: string | null;
 }
 
-const DEFAULT_SETTINGS: LauncherSettings = {
+const DEFAULT_SETTINGS: CanvasSettings = {
 	width_percent: 90,
 	height_percent: 85,
 	background_color: '20, 20, 30',
@@ -178,32 +178,32 @@ const DEFAULT_SETTINGS: LauncherSettings = {
 	magnetic_snap: true,
 	grid_size: 40,
 	grid_line_color: '255, 255, 255',
-	keybind_toggle_launcher: { ...DEFAULT_KEYBINDS.toggle_launcher },
+	keybind_toggle_canvas: { ...DEFAULT_KEYBINDS.toggle_canvas },
 	keybind_toggle_edit: { ...DEFAULT_KEYBINDS.toggle_edit },
-	keybind_hide_launcher: { ...DEFAULT_KEYBINDS.hide_launcher },
+	keybind_hide_canvas: { ...DEFAULT_KEYBINDS.hide_canvas },
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
 	network_grants: [],
 	allow_local_network: false,
-	// Matches the legacy launcher border_radius so item corners look the same
+	// Matches the legacy canvas border_radius so item corners look the same
 	// before settings load; border_radius now styles only the panel/chrome.
 	default_appearance: { borderRadius: 24 }
 };
 
 function createSettingsStore() {
-	let settings = $state<LauncherSettings>({ ...DEFAULT_SETTINGS });
+	let settings = $state<CanvasSettings>({ ...DEFAULT_SETTINGS });
 	let activePreset = $state<string | null>(null);
 	let isLoaded = $state(false);
-	let _currentIcons = $state<LauncherIcon[]>([]);
+	let _currentIcons = $state<CanvasIcon[]>([]);
 
-	function applyDefaults(loadedSettings: LauncherSettings): LauncherSettings {
+	function applyDefaults(loadedSettings: CanvasSettings): CanvasSettings {
 		const merged = { ...DEFAULT_SETTINGS, ...loadedSettings };
 		if (!merged.grid_line_color?.trim()) merged.grid_line_color = DEFAULT_SETTINGS.grid_line_color;
-		if (!merged.keybind_toggle_launcher.key)
-			merged.keybind_toggle_launcher = { ...DEFAULT_KEYBINDS.toggle_launcher };
+		if (!merged.keybind_toggle_canvas.key)
+			merged.keybind_toggle_canvas = { ...DEFAULT_KEYBINDS.toggle_canvas };
 		if (!merged.keybind_toggle_edit.key)
 			merged.keybind_toggle_edit = { ...DEFAULT_KEYBINDS.toggle_edit };
-		if (!merged.keybind_hide_launcher.key)
-			merged.keybind_hide_launcher = { ...DEFAULT_KEYBINDS.hide_launcher };
+		if (!merged.keybind_hide_canvas.key)
+			merged.keybind_hide_canvas = { ...DEFAULT_KEYBINDS.hide_canvas };
 		if (!merged.keybind_undo.key) merged.keybind_undo = { ...DEFAULT_KEYBINDS.undo };
 
 		// The default appearance must stay a plain object (Rust round-trips it
@@ -228,7 +228,7 @@ function createSettingsStore() {
 			delete sanitized.fontFamily;
 		}
 		// Legacy files have no item corner radius (it used to follow the
-		// launcher-wide border_radius), so seed it from there once.
+		// canvas-wide border_radius), so seed it from there once.
 		if (sanitized.borderRadius == null) {
 			sanitized.borderRadius = merged.border_radius;
 		}
@@ -236,7 +236,7 @@ function createSettingsStore() {
 		return merged;
 	}
 
-	function convertBackgroundImage(loadedSettings: LauncherSettings) {
+	function convertBackgroundImage(loadedSettings: CanvasSettings) {
 		const background = loadedSettings.background_image;
 		if (!background) return loadedSettings;
 
@@ -264,7 +264,7 @@ function createSettingsStore() {
 
 	async function loadSettings() {
 		try {
-			const layout = await invoke<LauncherLayout>('load_active_layout');
+			const layout = await invoke<CanvasLayout>('load_active_layout');
 			if (layout.settings) {
 				settings = convertBackgroundImage(applyDefaults(layout.settings));
 			}
@@ -291,10 +291,10 @@ function createSettingsStore() {
 			console.error('Failed to save settings:', error);
 		}
 		// The native backdrop blur is synced by App.svelte (it knows the
-		// launcher panel's position for the "light" strength).
+		// canvas panel's position for the "light" strength).
 	}
 
-	function applyLayout(layout: LauncherLayout) {
+	function applyLayout(layout: CanvasLayout) {
 		if (layout.settings) {
 			settings = convertBackgroundImage(applyDefaults(layout.settings));
 		}
@@ -302,7 +302,7 @@ function createSettingsStore() {
 		isLoaded = true;
 	}
 
-	function updateSettings(newSettings: Partial<LauncherSettings>) {
+	function updateSettings(newSettings: Partial<CanvasSettings>) {
 		settings = { ...settings, ...newSettings };
 	}
 
@@ -315,11 +315,11 @@ function createSettingsStore() {
 		activePreset = name;
 	}
 
-	function setCurrentIcons(icons: LauncherIcon[]) {
+	function setCurrentIcons(icons: CanvasIcon[]) {
 		_currentIcons = icons;
 	}
 
-	function getCurrentIcons(): LauncherIcon[] {
+	function getCurrentIcons(): CanvasIcon[] {
 		return _currentIcons;
 	}
 

@@ -1,6 +1,6 @@
 # Custom HTML widget examples
 
-Ready-to-paste examples for the launcher's **Custom HTML** widget. Each `.html`
+Ready-to-paste examples for the canvas's **Custom HTML** widget. Each `.html`
 file contains exactly what goes into the widget's HTML editor — copy the whole
 file content.
 
@@ -24,9 +24,9 @@ from the "Custom CSS ideas" section below.
   Inline `onclick` attributes are **not executed** inside the sandbox
   (WebKitGTK quirk).
 - Nothing persists inside an iframe — its state resets when the widget
-  re-renders or the launcher restarts (a Game of Life pattern survives only
+  re-renders or the canvas restarts (a Game of Life pattern survives only
   while the widget stays mounted).
-- Network access goes through the launcher's **fetch proxy**: an iframe script
+- Network access goes through the canvas's **fetch proxy**: an iframe script
   calls `widgetFetch(url)` (see `weather-ticker.html` and `crypto-ticker.html`),
   which posts a message to the app. The app asks you to **Allow** the host the
   first time and remembers app-wide. Local/private addresses are blocked unless
@@ -37,7 +37,7 @@ from the "Custom CSS ideas" section below.
 
 ## Network fetch
 
-Live-data widgets (weather, crypto, RSS…) fetch through the launcher's proxy,
+Live-data widgets (weather, crypto, RSS…) fetch through the canvas's proxy,
 not `fetch()` directly — the CSP blocks `fetch()` inside the sandbox. Drop this
 helper into your `<script>` block and use it like `fetch`:
 

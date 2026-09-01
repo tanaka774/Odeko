@@ -10,7 +10,7 @@
 	import { settingsStore, matchesKeybind } from '$lib/stores/settings.svelte';
 	import { platformStore } from '$lib/stores/platform.svelte';
 	import { launchIcon, isLaunchable } from '$lib/launch';
-	import type { LauncherIcon } from '$lib/icons';
+	import type { CanvasIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
 	import { safeRgbColor, safeCssUrl } from '$lib/utils';
@@ -23,7 +23,7 @@
 	let contextMenuX = $state(0);
 	let contextMenuY = $state(0);
 
-	async function hideLauncher() {
+	async function hideCanvas() {
 		const window = getCurrentWindow();
 		await window.hide();
 	}
@@ -47,15 +47,15 @@
 		if (shouldIgnoreGlobalShortcut(event)) return;
 
 		// Escape closes an open desktop context menu before falling through
-		// to the hide-launcher keybind.
+		// to the hide-canvas keybind.
 		if (showContextMenu && event.key === 'Escape') {
 			closeContextMenu();
 			return;
 		}
 
 		const s = settingsStore.settings;
-		if (matchesKeybind(event, s.keybind_hide_launcher)) {
-			hideLauncher();
+		if (matchesKeybind(event, s.keybind_hide_canvas)) {
+			hideCanvas();
 			return;
 		}
 		if (matchesKeybind(event, s.keybind_toggle_edit)) {
@@ -89,11 +89,11 @@
 		}
 	}
 
-	function isPowerWidget(icon: LauncherIcon): boolean {
+	function isPowerWidget(icon: CanvasIcon): boolean {
 		return icon.icon_type === 'widget' && isPowerActionType(icon.widget_type);
 	}
 
-	async function executePowerWidget(icon: LauncherIcon) {
+	async function executePowerWidget(icon: CanvasIcon) {
 		if (!isPowerActionType(icon.widget_type)) return;
 		const config = icon.widget_config as PowerControlWidgetConfig | undefined;
 		await executePowerAction(icon.widget_type, config?.requireConfirmation ?? true);
@@ -134,7 +134,7 @@
 			window.setFocus();
 			await settingsStore.loadSettings();
 			invoke('update_global_shortcut', {
-				keybind: settingsStore.settings.keybind_toggle_launcher
+				keybind: settingsStore.settings.keybind_toggle_canvas
 			});
 			const icons = settingsStore.getCurrentIcons();
 			invoke('update_icon_shortcuts', { icons });
@@ -171,37 +171,34 @@
 		}
 	}
 
-	// The launcher panel element, so the "light" blur can follow its bounds.
-	let launcherOverlayEl = $state<HTMLElement | null>(null);
+	// The canvas panel element, so the "light" blur can follow its bounds.
+	let canvasPanelEl = $state<HTMLElement | null>(null);
 	// Bumped on window resizes so the blur region follows the panel.
 	let layoutVersion = $state(0);
 
 	// Keeps the native backdrop blur in sync with the settings: on/off,
-	// strength, and the launcher panel's rectangle. The rectangle is used for
+	// strength, and the canvas panel's rectangle. The rectangle is used for
 	// the "light" strength (blur only the panel) and to keep the panel out of
 	// the blur when it plays a video (opaque, and re-blurring below a video
 	// every frame is expensive).
 	$effect(() => {
 		const settings = settingsStore.settings;
 		// Tracked dependencies: re-run on window resizes (layoutVersion) and
-		// when the launcher panel moves or resizes (the geometry settings),
+		// when the canvas panel moves or resizes (the geometry settings),
 		// so the anchored modals keep following the panel.
 		void layoutVersion;
 		void settings.width_percent;
 		void settings.height_percent;
 		void settings.position_x;
 		void settings.position_y;
-		if (!launcherOverlayEl) return;
+		if (!canvasPanelEl) return;
 
-		const rect = launcherOverlayEl.getBoundingClientRect();
-		// Center of the launcher panel as an offset from the screen center,
+		const rect = canvasPanelEl.getBoundingClientRect();
+		// Center of the canvas panel as an offset from the screen center,
 		// consumed by the modals' anchor transform (see SettingsModalShell).
 		const rootStyle = document.documentElement.style;
-		rootStyle.setProperty('--launcher-dx', `${rect.x + rect.width / 2 - window.innerWidth / 2}px`);
-		rootStyle.setProperty(
-			'--launcher-dy',
-			`${rect.y + rect.height / 2 - window.innerHeight / 2}px`
-		);
+		rootStyle.setProperty('--canvas-dx', `${rect.x + rect.width / 2 - window.innerWidth / 2}px`);
+		rootStyle.setProperty('--canvas-dy', `${rect.y + rect.height / 2 - window.innerHeight / 2}px`);
 		const enabled = settings.backdrop_blur;
 		const strength = settings.blur_strength;
 		const region = enabled ? [rect.x, rect.y, rect.width, rect.height] : null;
@@ -223,7 +220,7 @@
 	let backgroundRgb = $derived(safeRgbColor(settingsStore.settings.background_color, '20, 20, 30'));
 	let backgroundImageUrl = $derived(safeCssUrl(settingsStore.settings.background_image));
 
-	let launcherStyles = $derived({
+	let canvasStyles = $derived({
 		width: `${settingsStore.settings.width_percent}%`,
 		height: `${settingsStore.settings.height_percent}%`,
 		// Video backgrounds are painted by <BackgroundVideo>, so the overlay
@@ -251,30 +248,30 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <main
-	class="launcher-container"
+	class="canvas-container"
 	class:macos-compositor-safe={platformStore.isMacos}
-	onclick={hideLauncher}
+	onclick={hideCanvas}
 >
-	<!-- Backdrop layer: dark overlay behind the launcher. -->
+	<!-- Backdrop layer: dark overlay behind the canvas. -->
 	<div
 		class="backdrop"
 		style:background="rgba(0, 0, 0, {settingsStore.settings.backdrop_darkness})"
 	></div>
 
-	<!-- Launcher overlay -->
+	<!-- Canvas panel -->
 	<div
-		bind:this={launcherOverlayEl}
-		class="launcher-overlay"
+		bind:this={canvasPanelEl}
+		class="canvas-panel"
 		onclick={(e) => e.stopPropagation()}
 		oncontextmenu={handleOverlayContextMenu}
-		style:width={launcherStyles.width}
-		style:height={launcherStyles.height}
-		style:background-color={launcherStyles.backgroundColor}
-		style:background-image={launcherStyles.backgroundImage}
-		style:background-size={launcherStyles.backgroundSize}
-		style:background-repeat={launcherStyles.backgroundRepeat}
-		style:background-position={launcherStyles.backgroundPosition}
-		style:border-radius={launcherStyles.borderRadius}
+		style:width={canvasStyles.width}
+		style:height={canvasStyles.height}
+		style:background-color={canvasStyles.backgroundColor}
+		style:background-image={canvasStyles.backgroundImage}
+		style:background-size={canvasStyles.backgroundSize}
+		style:background-repeat={canvasStyles.backgroundRepeat}
+		style:background-position={canvasStyles.backgroundPosition}
+		style:border-radius={canvasStyles.borderRadius}
 		style:left="{settingsStore.settings.position_x}%"
 		style:top="{settingsStore.settings.position_y}%"
 		style:transform="translate(-{settingsStore.settings.position_x}%, -{settingsStore.settings
@@ -309,7 +306,7 @@
 			</button>
 		{/if}
 
-		<div class="launcher-content">
+		<div class="canvas-content">
 			<IconGrid
 				bind:this={iconGrid}
 				{isEditMode}
@@ -423,7 +420,7 @@
 </main>
 
 <style>
-	.launcher-container {
+	.canvas-container {
 		width: 100vw;
 		height: 100vh;
 		background: transparent;
@@ -440,7 +437,7 @@
 		pointer-events: none;
 	}
 
-	.launcher-overlay {
+	.canvas-panel {
 		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 		display: flex;
 		flex-direction: column;
@@ -468,7 +465,7 @@
 		color: white;
 	}
 
-	.launcher-content {
+	.canvas-content {
 		flex: 1;
 		padding: 0;
 		overflow: hidden;

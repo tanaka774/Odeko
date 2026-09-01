@@ -1,6 +1,6 @@
 pub mod app_scanner;
 pub mod errors;
-pub mod launcher;
+pub mod canvas;
 pub mod media;
 pub mod media_server;
 pub mod power_control;

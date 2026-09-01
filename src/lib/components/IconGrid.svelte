@@ -15,7 +15,7 @@
 	import { createEditSession } from '$lib/edit-session.svelte';
 	import { setBulkAppearanceHandler } from '$lib/bulk-appearance';
 	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
-	import type { LauncherIcon } from '$lib/icons';
+	import type { CanvasIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
 
 	interface Props {
@@ -26,7 +26,7 @@
 
 	let { isEditMode, onEnterEditMode, onExitEditMode }: Props = $props();
 
-	let icons = $state<LauncherIcon[]>([]);
+	let icons = $state<CanvasIcon[]>([]);
 	let isLoading = $state(true);
 	let showAppPicker = $state(false);
 	let showWidgetPicker = $state(false);
@@ -71,7 +71,7 @@
 		selectedIconId ? icons.find((icon) => icon.id === selectedIconId) || null : null
 	);
 
-	const editSession = createEditSession<LauncherIcon>();
+	const editSession = createEditSession<CanvasIcon>();
 	const GROUP_SNAP_THRESHOLD = 10;
 
 	let hasTerminalWidget = $derived(
@@ -94,7 +94,7 @@
 			if (!settingsStore.isLoaded) {
 				await settingsStore.loadSettings();
 			}
-			const layout = await invoke<{ icons: LauncherIcon[] }>('load_active_layout');
+			const layout = await invoke<{ icons: CanvasIcon[] }>('load_active_layout');
 			icons = normalizeZ(layout.icons || []);
 			await refreshIconShortcuts(icons);
 		} catch (error) {
@@ -136,7 +136,7 @@
 	async function reloadAll() {
 		try {
 			const layout = await invoke<{
-				icons: LauncherIcon[];
+				icons: CanvasIcon[];
 				settings: object;
 				active_preset: string | null;
 			}>('load_active_layout');
@@ -564,7 +564,7 @@
 	export function addNewIcon() {
 		saveToHistory();
 		const newId = `icon-${Date.now()}`;
-		const newIcon: LauncherIcon = {
+		const newIcon: CanvasIcon = {
 			id: newId,
 			name: 'New Icon',
 			path: '',
@@ -580,7 +580,7 @@
 		editSession.markDirty();
 	}
 
-	function addAppIcon(app: LauncherIcon) {
+	function addAppIcon(app: CanvasIcon) {
 		saveToHistory();
 		icons = [
 			...icons,
@@ -589,14 +589,14 @@
 		editSession.markDirty();
 	}
 
-	function addWidget(widget: LauncherIcon) {
+	function addWidget(widget: CanvasIcon) {
 		saveToHistory();
-		const launcherW = window.innerWidth * (settingsStore.settings.width_percent / 100) * 0.85;
-		const launcherH = window.innerHeight * (settingsStore.settings.height_percent / 100) * 0.85;
+		const canvasW = window.innerWidth * (settingsStore.settings.width_percent / 100) * 0.85;
+		const canvasH = window.innerHeight * (settingsStore.settings.height_percent / 100) * 0.85;
 		const clampedWidget = {
 			...widget,
-			width: Math.min(widget.width, launcherW),
-			height: Math.min(widget.height, launcherH),
+			width: Math.min(widget.width, canvasW),
+			height: Math.min(widget.height, canvasH),
 			widget_config: Object.assign({}, widget.widget_config, {
 				appearance: {
 					...defaultAppearanceTemplate(),
@@ -613,7 +613,7 @@
 		const source = icons.find((icon) => icon.id === id);
 		if (!source || source.icon_type !== 'widget') return;
 		saveToHistory();
-		const newIcon: LauncherIcon = {
+		const newIcon: CanvasIcon = {
 			...source,
 			id: `widget-${Date.now()}`,
 			x: source.x + 30,
@@ -629,9 +629,9 @@
 		return Math.max(0, ...icons.map((icon) => icon.z ?? 0)) + 1;
 	}
 
-	function normalizeZ(nextIcons: LauncherIcon[]): LauncherIcon[] {
+	function normalizeZ(nextIcons: CanvasIcon[]): CanvasIcon[] {
 		// Legacy items have no corner radius of their own (it used to come
-		// from the launcher-wide border_radius); freeze the current default
+		// from the canvas-wide border_radius); freeze the current default
 		// radius onto them once so later default changes only affect new items.
 		const defaultRadius = settingsStore.settings.default_appearance?.borderRadius;
 		return nextIcons.map((icon, index) => {
@@ -656,7 +656,7 @@
 		});
 	}
 
-	function renumberZ(nextIcons: LauncherIcon[]): LauncherIcon[] {
+	function renumberZ(nextIcons: CanvasIcon[]): CanvasIcon[] {
 		return nextIcons.map((icon, index) => ({ ...icon, z: index + 1 }));
 	}
 
@@ -703,7 +703,7 @@
 		selectedIconId = null;
 	}
 
-	function getDefaultIcons(): LauncherIcon[] {
+	function getDefaultIcons(): CanvasIcon[] {
 		return [];
 	}
 </script>

@@ -5,7 +5,7 @@
 		createDefaultWidgetConfig,
 		getWidgetMeta
 	} from '$lib/widgets/types';
-	import type { LauncherIcon } from '$lib/icons';
+	import type { CanvasIcon } from '$lib/icons';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Cpu from '@lucide/svelte/icons/cpu';
@@ -26,7 +26,7 @@
 
 	interface Props {
 		isOpen?: boolean;
-		onSelect: (widget: LauncherIcon) => void;
+		onSelect: (widget: CanvasIcon) => void;
 		hasTerminal?: boolean;
 	}
 
@@ -54,7 +54,7 @@
 		const meta = getWidgetMeta(widgetType);
 		if (!meta) return;
 
-		const newWidget: LauncherIcon = {
+		const newWidget: CanvasIcon = {
 			id: `widget-${Date.now()}`,
 			name: meta.name,
 			path: '',

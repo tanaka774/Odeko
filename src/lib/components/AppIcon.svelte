@@ -4,7 +4,7 @@
 	import Rocket from '@lucide/svelte/icons/rocket';
 	import Settings from '@lucide/svelte/icons/settings';
 
-	import type { LauncherIcon } from '$lib/icons';
+	import type { CanvasIcon } from '$lib/icons';
 	import { keybindToString } from '$lib/stores/settings.svelte';
 	import { loadIconDataUrl } from '$lib/icon-image';
 	import { launchIcon } from '$lib/launch';
@@ -44,7 +44,7 @@
 		onRemove = () => {},
 		onDraggingChange = () => {}
 	} = $props<{
-		icon: LauncherIcon;
+		icon: CanvasIcon;
 		isEditMode: boolean;
 		snapToGrid?: boolean;
 		gridSize?: number;
@@ -485,7 +485,7 @@
 	.app-icon.dragging {
 		opacity: 0.8;
 		z-index: 1000;
-		box-shadow: var(--launcher-drag-shadow);
+		box-shadow: var(--canvas-drag-shadow);
 	}
 	.app-icon.resizing {
 		z-index: 1000;
