@@ -506,6 +506,9 @@
 									<span>Backdrop Blur</span>
 								</label>
 							</div>
+							<p class="setting-hint">
+								Backdrop blur works only on systems that support native blur effects.
+							</p>
 							{#if localSettings.backdrop_blur}
 								<div class="setting-row">
 									<Label>Blur Strength</Label>
@@ -987,6 +990,13 @@
 		height: 18px;
 		accent-color: rgba(120, 160, 200, 0.9);
 		cursor: pointer;
+	}
+
+	.setting-hint {
+		margin: -2px 0 12px 28px;
+		color: rgba(255, 255, 255, 0.45);
+		font-size: 0.75rem;
+		line-height: 1.4;
 	}
 
 	.position-grid {
