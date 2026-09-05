@@ -39,6 +39,7 @@ beforeEach(() => {
 	invokeMock.mockReset();
 	invokeMock.mockImplementation((cmd: string) => {
 		if (cmd === 'list_presets') return Promise.resolve([]);
+		if (cmd === 'get_autostart') return Promise.resolve(false);
 		return Promise.resolve('Default');
 	});
 	settingsStore.resetToDefaults();
@@ -192,5 +193,48 @@ describe('SettingsModal', () => {
 			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
 		);
 		expect(invokeMock).not.toHaveBeenCalledWith('inspect_preset', expect.anything());
+	});
+
+	it('reflects an enabled autostart when the modal opens', async () => {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') return Promise.resolve([]);
+			if (cmd === 'get_autostart') return Promise.resolve(true);
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		const checkbox = screen.getByLabelText('Launch Odeko at login') as HTMLInputElement;
+		await waitFor(() => expect(checkbox.checked).toBe(true));
+	});
+
+	it('registers autostart when the checkbox is ticked', async () => {
+		await openModal();
+
+		const checkbox = screen.getByLabelText('Launch Odeko at login') as HTMLInputElement;
+		fireEvent.click(checkbox);
+
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('set_autostart', { enabled: true })
+		);
+		await waitFor(() => expect(checkbox.checked).toBe(true));
+	});
+
+
+	it('reverts the checkbox when the backend rejects autostart', async () => {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') return Promise.resolve([]);
+			if (cmd === 'get_autostart') return Promise.resolve(false);
+			if (cmd === 'set_autostart') return Promise.reject(new Error('denied'));
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		const checkbox = screen.getByLabelText('Launch Odeko at login') as HTMLInputElement;
+		fireEvent.click(checkbox);
+
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('set_autostart', { enabled: true })
+		);
+		await waitFor(() => expect(checkbox.checked).toBe(false));
 	});
 });

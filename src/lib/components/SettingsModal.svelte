@@ -35,6 +35,31 @@
 	let presetSuccess = $state('');
 	let confirmDelete = $state(false);
 
+	let autostartEnabled = $state(false);
+
+	async function loadAutostartState() {
+		try {
+			const enabled = await invoke<boolean>('get_autostart');
+			autostartEnabled = enabled === true;
+		} catch (error) {
+			console.error('Failed to read autostart state:', error);
+		}
+	}
+
+	async function handleAutostartToggle(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const enabled = input.checked;
+		try {
+			await invoke('set_autostart', { enabled });
+			autostartEnabled = enabled;
+		} catch (error) {
+			// The DOM already reflects the click; a failed OS write must not
+			// leave the checkbox claiming autostart is on.
+			input.checked = !enabled;
+			console.error('Failed to update autostart:', error);
+		}
+	}
+
 	interface ImportResult {
 		name: string;
 		cleared_network_grants: number;
@@ -76,6 +101,7 @@
 			// last success/error message would reappear on the next open.
 			presetSuccess = '';
 			presetError = '';
+			loadAutostartState();
 			loadPresets();
 		}
 	});
@@ -551,6 +577,19 @@
 										localSettings.backdrop_darkness = val;
 									}}
 								/>
+							</div>
+						</section>
+						<section class="settings-section">
+							<h3>Startup</h3>
+							<div class="setting-row">
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={autostartEnabled}
+										onchange={handleAutostartToggle}
+									/>
+									<span>Launch Odeko at login</span>
+								</label>
 							</div>
 						</section>
 					{:else if activeTab === 'items'}

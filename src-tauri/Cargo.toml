@@ -27,6 +27,7 @@ log = "0.4"
 dirs = "5.0"
 tauri = { version = "2.6.2", features = ["macos-private-api", "protocol-asset"] }
 tauri-plugin-log = "2"
+tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
 thiserror = "2.0.12"

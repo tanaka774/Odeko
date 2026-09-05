@@ -11,6 +11,7 @@ use commands::widget_fetch::widget_fetch;
 use tauri::{Emitter, Manager};
 use tauri::utils::config::Color;
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState, GlobalShortcutExt};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
 use std::sync::Mutex;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -46,7 +47,11 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_clipboard_manager::init());
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ));
 
     // WDIO plugins for the E2E suite (only with the `e2e` feature).
     #[cfg(feature = "e2e")]
@@ -137,6 +142,7 @@ pub fn run() {
             execute_sleep, execute_restart, execute_shutdown,
             list_presets, save_default_preset, delete_preset, rename_preset, export_preset, import_preset,
             update_global_shortcut, update_icon_shortcuts, get_platform, hide_canvas, get_icon_base64,
+            set_autostart, get_autostart,
             register_background_video, set_backdrop_blur, widget_fetch
         ])
         .run(tauri::generate_context!())
@@ -309,6 +315,29 @@ fn get_platform() -> &'static str {
     } else {
         "unknown"
     }
+}
+
+/// Registers (or unregisters) Odeko in the OS autostart list, e.g. the
+/// Windows Run key, a macOS LaunchAgent, or a Linux autostart .desktop file.
+#[tauri::command]
+fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let autolaunch = app.autolaunch();
+    if enabled {
+        autolaunch
+            .enable()
+            .map_err(|e| format!("Failed to enable autostart: {e}"))
+    } else {
+        autolaunch
+            .disable()
+            .map_err(|e| format!("Failed to disable autostart: {e}"))
+    }
+}
+
+#[tauri::command]
+fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|e| format!("Failed to read autostart state: {e}"))
 }
 
 #[tauri::command]
