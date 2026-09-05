@@ -566,7 +566,7 @@
 		const newId = `icon-${Date.now()}`;
 		const newIcon: CanvasIcon = {
 			id: newId,
-			name: 'New Icon',
+			name: '',
 			path: '',
 			icon_type: 'image',
 			x: 150,
@@ -651,6 +651,9 @@
 				}
 			} else if (normalized.appearance?.borderRadius == null && defaultRadius != null) {
 				normalized.appearance = { ...normalized.appearance, borderRadius: defaultRadius };
+			}
+			if (normalized.icon_type === 'image' && normalized.name) {
+				normalized.name = '';
 			}
 			return normalized;
 		});

@@ -367,7 +367,7 @@
 									>{icon.icon_type === 'image' ? '🖼️' : icon.name.charAt(0).toUpperCase()}</span
 								>
 							{/if}
-							{#if localShowName}
+							{#if localShowName && (localCustomName.trim() || icon.name)}
 								<span class="tile-preview-label" style:color={previewAppearance.textColor}
 									>{localCustomName.trim() || icon.name}</span
 								>

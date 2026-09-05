@@ -92,6 +92,42 @@ describe('AppIcon appearance', () => {
 		expect(root().style.getPropertyValue('--appearance-padding')).toBe('0px');
 	});
 
+	it('shows the app name label by default', () => {
+		renderIcon();
+
+		expect(root().querySelector('.icon-label')?.textContent).toBe('Test App');
+	});
+
+	it('prefers the custom name over the app name', () => {
+		renderIcon({ custom_name: 'Custom' });
+
+		expect(root().querySelector('.icon-label')?.textContent).toBe('Custom');
+	});
+
+	it('hides the label when show name is off', () => {
+		renderIcon({ show_name: false });
+
+		expect(root().querySelector('.icon-label')).toBeNull();
+	});
+
+	it('shows no label on image icons without a custom name', () => {
+		renderIcon({ icon_type: 'image', name: '' });
+
+		expect(root().querySelector('.icon-label')).toBeNull();
+	});
+
+	it('shows no label when the icon has no name at all', () => {
+		renderIcon({ name: '' });
+
+		expect(root().querySelector('.icon-label')).toBeNull();
+	});
+
+	it('shows the label on image icons with a custom name', () => {
+		renderIcon({ icon_type: 'image', name: '', custom_name: 'Wallpaper' });
+
+		expect(root().querySelector('.icon-label')?.textContent).toBe('Wallpaper');
+	});
+
 	it('does not restyle an existing icon when the default appearance changes', () => {
 		// The default appearance is a creation-time template, not a live
 		// layer: changing it (or the legacy panel radius) leaves items that

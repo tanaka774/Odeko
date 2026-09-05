@@ -351,7 +351,7 @@
 		{/if}
 	</div>
 
-	{#if icon.show_name ?? true}
+	{#if (icon.show_name ?? true) && (icon.custom_name ?? icon.name).trim()}
 		<span class="icon-label">{icon.custom_name ?? icon.name}</span>
 	{/if}
 

@@ -83,6 +83,37 @@ describe('IconGrid', () => {
 		expect(first.style.top).toBe('100px');
 	});
 
+	it('clears the legacy placeholder name from loaded image icons', async () => {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'load_active_layout') {
+				return Promise.resolve({
+					icons: [
+						{
+							id: 'pic',
+							name: 'New Icon',
+							path: '',
+							icon_type: 'image',
+							x: 10,
+							y: 10,
+							width: 80,
+							height: 80
+						}
+					]
+				});
+			}
+			return Promise.resolve();
+		});
+
+		const { container } = render(IconGrid, {
+			isEditMode: false,
+			onEnterEditMode: () => {},
+			onExitEditMode: () => {}
+		});
+
+		await waitFor(() => expect(iconWrappers(container).length).toBe(1));
+		expect(container.querySelector('.app-icon .icon-label')).toBeNull();
+	});
+
 	it('cancel restores an icon position changed during the edit session', async () => {
 		const { container, component } = render(IconGrid, {
 			isEditMode: true,
