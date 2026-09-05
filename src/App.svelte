@@ -60,7 +60,7 @@
 		}
 		if (matchesKeybind(event, s.keybind_toggle_edit)) {
 			if (isEditMode) {
-				cancelEditMode();
+				await saveAndExit();
 			} else {
 				enterEditMode();
 			}
@@ -287,25 +287,6 @@
 			/>
 		{/if}
 
-		{#if isEditMode}
-			<button onclick={cancelEditMode} class="close-btn" aria-label="Exit edit mode">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="20"
-					height="20"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<line x1="18" y1="6" x2="6" y2="18"></line>
-					<line x1="6" y1="6" x2="18" y2="18"></line>
-				</svg>
-			</button>
-		{/if}
-
 		<div class="canvas-content">
 			<IconGrid
 				bind:this={iconGrid}
@@ -444,25 +425,6 @@
 		overflow: hidden;
 		position: absolute;
 		z-index: 1;
-	}
-
-	.close-btn {
-		position: absolute;
-		top: 10px;
-		left: 10px;
-		z-index: 100;
-		background: rgba(255, 255, 255, 0.1);
-		border: none;
-		border-radius: 8px;
-		padding: 6px;
-		color: rgba(255, 255, 255, 0.7);
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.close-btn:hover {
-		background: rgba(255, 100, 100, 0.3);
-		color: white;
 	}
 
 	.canvas-content {
