@@ -1,5 +1,7 @@
 Another desktop layer with full customization.
 
+<img width="128" height="128" alt="128x128" src="https://github.com/user-attachments/assets/880221bf-6321-4ac1-b345-32d22b4c492e" />
+
 ## What is this
 
 This app is like a floating canvas where you can place icons or widgets on it.  
@@ -28,6 +30,7 @@ You are supposed to change any state of the app in Edit Mode.
 - image icon: you can add one from "Add Image/Link", and set an image or GIF as the thumbnail. Online URLs are supported. Set a URL, and clicking the tile opens it in the browser.
 - app icon: you can add one from "Add App" which shows installed apps on your system. You can set an image for the thumbnail here too.
 - widget: you can add one from "Add Widget", and choose from the prepared ones. If you need more, check [custom HTML](https://github.com/tanaka774/Odeko/tree/main/examples/custom-html-widgets).
+
 And you can change basic styles of these icons like background color, opacity or corner radius. You can use custom css for more customization.   
 
 ### Keybind
