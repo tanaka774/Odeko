@@ -2,12 +2,13 @@ Another desktop layer with full customization.
 
 ## What is this
 
-This app is like a floating canvas where you can place icons or widgets on it.
-When launched, it appears on top of your desktop.
-You can set a custom image, URL link, or app launching path on an icon. Widgets are the ones prepared to expect usual daily usage.
-You can use this app as a canvas on the desktop to put or customize everything you need. And with one shortcut key, you can open it anytime.
+This app is like a floating canvas where you can place icons or widgets on it.  
+When launched, it appears on top of your desktop.  
+You can set a custom image, URL link, or app launching path on an icon. Widgets are the ones prepared to expect usual daily usage.  
+You can use this app as a canvas on the desktop to put or customize everything you need. And with one shortcut key, you can open it anytime.  
 
-<sample image or video>
+[odeko-demo-small.webm](https://github.com/user-attachments/assets/51fe85b2-4242-4d32-a32e-c8a467533c4f)
+
 
 ## Motivation
 
@@ -26,7 +27,7 @@ You are supposed to change any state of the app in Edit Mode.
 
 - image icon: you can add one from "Add Image/Link", and set an image or GIF as the thumbnail. Online URLs are supported. Set a URL, and clicking the tile opens it in the browser.
 - app icon: you can add one from "Add App" which shows installed apps on your system. You can set an image for the thumbnail here too.
-- widget: you can add one from "Add Widget", and choose from the prepared ones. You can apply custom CSS to them. And if you need more, check the custom HTML.
+- widget: you can add one from "Add Widget", and choose from the prepared ones. You can apply custom CSS to them. And if you need more, check [custom HTML](https://github.com/tanaka774/Odeko/tree/main/examples/custom-html-widgets).
 
 ### Keybind
 
@@ -75,4 +76,4 @@ This project is originally forked from [alysonhower/tauri2-svelte5-shadcn](https
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/tanaka774/Odeko/blob/main/LICENSE) file for details.
