@@ -161,7 +161,7 @@ fn configure_canvas_window(app: &tauri::App) {
         // blur region every time the window is hidden — so there we re-apply
         // it on every focus event instead of applying once at setup.
         #[cfg(not(target_os = "linux"))]
-        window_effects::apply(&window);
+        window_effects::apply(&window, "full");
 
         #[cfg(target_os = "linux")]
         {
