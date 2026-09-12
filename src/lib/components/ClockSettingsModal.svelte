@@ -97,6 +97,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="clock"
 	bind:isOpen
 	title="Clock Settings"
 	onClose={handleClose}

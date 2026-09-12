@@ -64,6 +64,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="system"
 	bind:isOpen
 	title="System Monitor Settings"
 	onClose={handleClose}

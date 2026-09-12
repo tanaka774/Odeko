@@ -6,7 +6,7 @@
 		getWidgetMeta
 	} from '$lib/widgets/types';
 	import type { CanvasIcon } from '$lib/icons';
-	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
+	import SettingsModalShell from './settings/SettingsModalShell.svelte';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Cpu from '@lucide/svelte/icons/cpu';
 	import CloudSun from '@lucide/svelte/icons/cloud-sun';
@@ -74,142 +74,64 @@
 	function handleClose() {
 		isOpen = false;
 	}
-
-	const backdrop = createBackdropClickHandler(handleClose);
 </script>
 
-{#if isOpen}
-	<div class="modal-overlay" {...backdrop} role="dialog" tabindex="-1" aria-modal="true">
-		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-			<div class="modal-header">
-				<h2>Add Widget</h2>
-				<button class="close-btn" onclick={handleClose}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
-					</svg>
-				</button>
-			</div>
-
-			<div class="widget-list">
-				{#each WIDGET_REGISTRY as widget (widget.type)}
-					{@const isTerminal = widget.type === 'terminal'}
-					{@const isDisabled = isTerminal && hasTerminal}
-					{@const IconComponent = iconComponents[widget.icon]}
-					<button
-						class="widget-row"
-						class:disabled={isDisabled}
-						onclick={() => !isDisabled && handleSelect(widget.type)}
-						title={isDisabled ? 'Only one terminal widget allowed at a time' : widget.name}
-						disabled={isDisabled}
-					>
-						<span class="widget-icon">
-							{#if IconComponent}
-								<IconComponent size={20} stroke-width={1.5} />
-							{/if}
-						</span>
-						<span class="widget-name">{widget.name}</span>
-						{#if isDisabled}
-							<span class="widget-disabled-badge">Already added</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		</div>
+<SettingsModalShell
+	bind:isOpen
+	modalKey="widget-picker"
+	title="Add Widget"
+	onClose={handleClose}
+	maxWidth="480px"
+	height="auto"
+	footer={null}
+	bodyFlush
+>
+	<div class="widget-list">
+		{#each WIDGET_REGISTRY as widget (widget.type)}
+			{@const isTerminal = widget.type === 'terminal'}
+			{@const isDisabled = isTerminal && hasTerminal}
+			{@const IconComponent = iconComponents[widget.icon]}
+			<button
+				class="widget-row"
+				class:disabled={isDisabled}
+				onclick={() => !isDisabled && handleSelect(widget.type)}
+				title={isDisabled ? 'Only one terminal widget allowed at a time' : widget.name}
+				disabled={isDisabled}
+			>
+				<span class="widget-icon">
+					{#if IconComponent}
+						<IconComponent size={20} stroke-width={1.5} />
+					{/if}
+				</span>
+				<span class="widget-name">{widget.name}</span>
+				{#if isDisabled}
+					<span class="widget-disabled-badge">Already added</span>
+				{/if}
+			</button>
+		{/each}
 	</div>
-{/if}
+</SettingsModalShell>
 
 <style>
-	.modal-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0, 0, 0, 0.7);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		backdrop-filter: blur(4px);
-	}
-
-	.modal-content {
-		background: rgba(30, 30, 40, 0.95);
-		border-radius: 16px;
-		padding: 24px;
-		min-width: 360px;
-		max-width: 480px;
-		max-height: 100%;
-		overflow-y: auto;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-	}
-
-	.modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 16px;
-		padding-bottom: 12px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.modal-header h2 {
-		color: white;
-		margin: 0;
-		font-size: 1.25rem;
-		font-weight: 600;
-	}
-
-	.close-btn {
-		background: none;
-		border: none;
-		border-radius: 4px;
-		width: 32px;
-		height: 32px;
-		color: rgba(255, 255, 255, 0.6);
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.2s ease;
-		padding: 4px;
-	}
-
-	.close-btn:hover {
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
-	}
-
 	.widget-list {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: calc(0.2857 * var(--modal-font-size));
+		padding: calc(0.2857 * var(--modal-font-size));
 	}
 
 	.widget-row {
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 10px 12px;
+		padding: calc(0.7143 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.04);
 		border: none;
 		border-radius: 10px;
 		cursor: pointer;
 		transition: all 0.15s ease;
 		text-align: left;
-		gap: 12px;
+		gap: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.widget-row:hover {
@@ -230,8 +152,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
+		width: calc(2.2857 * var(--modal-font-size));
+		height: calc(2.2857 * var(--modal-font-size));
 		flex-shrink: 0;
 		color: rgba(255, 255, 255, 0.8);
 	}
@@ -239,15 +161,15 @@
 	.widget-name {
 		color: white;
 		font-weight: 500;
-		font-size: 0.9rem;
+		font-size: calc(1.0286 * var(--modal-font-size));
 		flex: 1;
 	}
 
 	.widget-disabled-badge {
 		color: rgba(255, 150, 100, 0.9);
-		font-size: 0.7rem;
+		font-size: calc(0.8 * var(--modal-font-size));
 		font-weight: 600;
-		padding: 2px 8px;
+		padding: calc(0.1429 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
 		background: rgba(255, 150, 100, 0.15);
 		border-radius: 4px;
 		flex-shrink: 0;

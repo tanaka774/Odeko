@@ -121,7 +121,7 @@ describe('SettingsModal', () => {
 		await openModal();
 
 		fireEvent.input(colorInput(), { target: { value: '#ff0000' } });
-		fireEvent.click(screen.getByRole('button', { name: '✕' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
 		expect(invokeMock).not.toHaveBeenCalledWith('save_active_settings', expect.anything());
 		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
@@ -218,7 +218,6 @@ describe('SettingsModal', () => {
 		);
 		await waitFor(() => expect(checkbox.checked).toBe(true));
 	});
-
 
 	it('reverts the checkbox when the backend rejects autostart', async () => {
 		invokeMock.mockImplementation((cmd: string) => {

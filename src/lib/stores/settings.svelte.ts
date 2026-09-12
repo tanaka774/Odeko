@@ -3,6 +3,10 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { backgroundFilePath, isVideoBackground } from '$lib/background';
 import type { CanvasIcon } from '$lib/icons';
 import type { WidgetAppearanceConfig } from '$lib/widgets/types';
+import {
+	sanitizeModalAppearanceStore,
+	type ModalAppearanceStore
+} from '$lib/components/settings/modal-appearance';
 
 export interface KeybindConfig {
 	key: string;
@@ -152,6 +156,11 @@ export interface CanvasSettings {
 	 * stripped on load (per-icon by design; imported presets are untrusted).
 	 */
 	default_appearance?: WidgetAppearanceConfig;
+	/**
+	 * Look of the settings dialogs themselves: a global default plus per-modal
+	 * overrides. Stored sparse — only the fields the user changed.
+	 */
+	modal_appearance?: ModalAppearanceStore;
 }
 
 export interface CanvasLayout {
@@ -186,7 +195,8 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	allow_local_network: false,
 	// Matches the legacy canvas border_radius so icon corners look the same
 	// before settings load; border_radius now styles only the panel/chrome.
-	default_appearance: { borderRadius: 24 }
+	default_appearance: { borderRadius: 24 },
+	modal_appearance: {}
 };
 
 function createSettingsStore() {
@@ -233,6 +243,7 @@ function createSettingsStore() {
 			sanitized.borderRadius = merged.border_radius;
 		}
 		merged.default_appearance = sanitized;
+		merged.modal_appearance = sanitizeModalAppearanceStore(merged.modal_appearance);
 		return merged;
 	}
 

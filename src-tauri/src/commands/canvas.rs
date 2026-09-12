@@ -138,6 +138,11 @@ pub struct CanvasSettings {
     /// by the frontend.
     #[serde(default)]
     pub default_appearance: Option<serde_json::Value>,
+    /// Look of the settings dialogs: a global default plus per-modal
+    /// overrides. Opaque to Rust — round-tripped through preset files and
+    /// interpreted by the frontend.
+    #[serde(default)]
+    pub modal_appearance: Option<serde_json::Value>,
 }
 
 impl Default for CanvasSettings {
@@ -191,6 +196,7 @@ impl Default for CanvasSettings {
             network_grants: Vec::new(),
             allow_local_network: false,
             default_appearance: None,
+            modal_appearance: None,
         }
     }
 }
@@ -267,6 +273,23 @@ fn neutralize_preset(data: &mut PresetData) -> (usize, bool, usize, usize) {
     if let Some(serde_json::Value::Object(obj)) = data.settings.default_appearance.as_mut() {
         obj.remove("customCss");
         obj.remove("customCssEnabled");
+    }
+
+    // Same reasoning for the settings dialogs' own look: modal custom CSS is
+    // authored in-app, never imported.
+    if let Some(serde_json::Value::Object(obj)) = data.settings.modal_appearance.as_mut() {
+        if let Some(serde_json::Value::Object(global)) = obj.get_mut("global") {
+            global.remove("customCss");
+            global.remove("customCssEnabled");
+        }
+        if let Some(serde_json::Value::Object(modals)) = obj.get_mut("modals") {
+            for layer in modals.values_mut() {
+                if let serde_json::Value::Object(fields) = layer {
+                    fields.remove("customCss");
+                    fields.remove("customCssEnabled");
+                }
+            }
+        }
     }
 
     let mut cleared_global_shortcuts = 0;
@@ -1270,6 +1293,10 @@ mod tests {
                 "backgroundColor": "rgba(1, 2, 3, 0.5)",
                 "borderRadius": 7
             })),
+            modal_appearance: Some(serde_json::json!({
+                "global": { "accentColor": "#00ff00" },
+                "modals": { "clock": { "radius": 2, "customCss": ".x {}", "customCssEnabled": true } }
+            })),
         }
     }
 
@@ -1302,7 +1329,24 @@ mod tests {
             assert_eq!(got.keybind_hide_canvas, modified.keybind_hide_canvas);
             assert_eq!(got.keybind_undo, modified.keybind_undo);
             assert_eq!(got.default_appearance, modified.default_appearance);
+            assert_eq!(got.modal_appearance, modified.modal_appearance);
         });
+    }
+
+    #[test]
+    fn import_strips_modal_custom_css_but_keeps_the_look() {
+        let mut data = PresetData {
+            icons: Vec::new(),
+            settings: modified_settings(),
+        };
+
+        neutralize_preset(&mut data);
+
+        let appearance = data.settings.modal_appearance.unwrap();
+        assert_eq!(appearance["global"]["accentColor"], "#00ff00");
+        assert_eq!(appearance["modals"]["clock"]["radius"], 2);
+        assert!(appearance["modals"]["clock"].get("customCss").is_none());
+        assert!(appearance["modals"]["clock"].get("customCssEnabled").is_none());
     }
 
     #[test]

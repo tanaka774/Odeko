@@ -241,6 +241,7 @@
 
 {#if icon}
 	<SettingsModalShell
+		modalKey="icon"
 		bind:isOpen
 		title={modalTitle}
 		onClose={close}
@@ -429,12 +430,12 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		gap: 12px;
+		gap: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.preview-box {
-		width: 120px;
-		height: 120px;
+		width: calc(8.5714 * var(--modal-font-size));
+		height: calc(8.5714 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
 		border: 2px dashed rgba(255, 255, 255, 0.2);
 		border-radius: 12px;
@@ -449,14 +450,14 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-		padding: 8px;
+		padding: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.preview-placeholder {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.8125rem;
+		font-size: calc(0.9286 * var(--modal-font-size));
 		text-align: center;
-		padding: 8px;
+		padding: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.readonly-input {
@@ -470,8 +471,8 @@
 
 	.segmented {
 		display: flex;
-		gap: 3px;
-		padding: 3px;
+		gap: calc(0.2143 * var(--modal-font-size));
+		padding: calc(0.2143 * var(--modal-font-size));
 		background: rgba(0, 0, 0, 0.35);
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		border-radius: 8px;
@@ -479,12 +480,12 @@
 
 	.segment {
 		flex: 1;
-		padding: 6px 0;
+		padding: calc(0.4286 * var(--modal-font-size)) 0;
 		background: transparent;
 		border: none;
 		border-radius: 6px;
 		color: rgba(255, 255, 255, 0.6);
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		cursor: pointer;
 		transition: all 0.2s ease;
 	}
@@ -504,7 +505,7 @@
 	.tile-preview-wrap {
 		display: flex;
 		justify-content: center;
-		padding: 16px;
+		padding: calc(1.1429 * var(--modal-font-size));
 		background: rgba(0, 0, 0, 0.25);
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		border-radius: 12px;
@@ -515,10 +516,10 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 96px;
-		height: 96px;
+		width: calc(6.8571 * var(--modal-font-size));
+		height: calc(6.8571 * var(--modal-font-size));
 		box-sizing: border-box;
-		gap: 4px;
+		gap: calc(0.2857 * var(--modal-font-size));
 		overflow: hidden;
 	}
 
@@ -544,7 +545,7 @@
 	.tile-preview-label {
 		flex-shrink: 0;
 		max-width: 100%;
-		margin-top: 4px;
+		margin-top: calc(0.2857 * var(--modal-font-size));
 		font-size: clamp(0.625em, 2vw, 0.875em);
 		white-space: nowrap;
 		overflow: hidden;
@@ -553,12 +554,12 @@
 	}
 
 	.keybind-error {
-		margin: 4px 0 0 0;
-		padding: 6px 10px;
+		margin: calc(0.2857 * var(--modal-font-size)) 0 0 0;
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 100, 100, 0.4);
 		border-radius: 6px;
 		color: rgba(255, 200, 200, 0.95);
-		font-size: 0.8rem;
+		font-size: calc(0.9143 * var(--modal-font-size));
 	}
 </style>

@@ -10,6 +10,7 @@ dist
 dist-ssr
 coverage
 e2e-tests/node_modules
+e2e-tests/screenshots
 *.local
 .DS_Store
 *.suo

@@ -5,36 +5,37 @@
 .settings-form {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: calc(1.1429 * var(--modal-font-size));
 }
 
 .radio-group {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 }
 
 .radio-label {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	color: rgba(255, 255, 255, 0.8);
+	gap: calc(0.7143 * var(--modal-font-size));
+	color: var(--modal-text, rgba(255, 255, 255, 0.8));
 	cursor: pointer;
-	padding: 8px 12px;
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 	background: rgba(255, 255, 255, 0.05);
-	border-radius: 8px;
+	border-radius: var(--modal-control-radius, 8px);
 	transition: background 0.2s ease;
-	font-size: 0.875rem;
+	font-size: calc(1 * var(--modal-font-size));
 }
 
 .radio-label:hover {
 	background: rgba(255, 255, 255, 0.1);
+	background: color-mix(in srgb, var(--modal-accent, #78a0c8) 20%, transparent);
 }
 
 .radio-label input[type='radio'] {
-	width: 18px;
-	height: 18px;
-	accent-color: rgba(120, 160, 200, 0.9);
+	width: calc(1.2857 * var(--modal-font-size));
+	height: calc(1.2857 * var(--modal-font-size));
+	accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
 	cursor: pointer;
 	flex-shrink: 0;
 }
@@ -42,30 +43,31 @@
 .checkbox-group {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 }
 
 .checkbox-label {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	color: rgba(255, 255, 255, 0.8);
+	gap: calc(0.7143 * var(--modal-font-size));
+	color: var(--modal-text, rgba(255, 255, 255, 0.8));
 	cursor: pointer;
-	padding: 8px 12px;
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 	background: rgba(255, 255, 255, 0.05);
-	border-radius: 8px;
+	border-radius: var(--modal-control-radius, 8px);
 	transition: background 0.2s ease;
-	font-size: 0.875rem;
+	font-size: calc(1 * var(--modal-font-size));
 }
 
 .checkbox-label:hover {
 	background: rgba(255, 255, 255, 0.1);
+	background: color-mix(in srgb, var(--modal-accent, #78a0c8) 20%, transparent);
 }
 
 .checkbox-label input[type='checkbox'] {
-	width: 18px;
-	height: 18px;
-	accent-color: rgba(120, 160, 200, 0.9);
+	width: calc(1.2857 * var(--modal-font-size));
+	height: calc(1.2857 * var(--modal-font-size));
+	accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
 	cursor: pointer;
 	flex-shrink: 0;
 }
@@ -73,12 +75,12 @@
 .color-control {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 }
 
 .color-control input[type='color'] {
-	width: 40px;
-	height: 36px;
+	width: calc(2.8571 * var(--modal-font-size));
+	height: calc(2.5714 * var(--modal-font-size));
 	border: none;
 	border-radius: 6px;
 	cursor: pointer;
@@ -91,27 +93,27 @@
 	flex: 1;
 	width: 100%;
 	box-sizing: border-box;
-	padding: 8px 12px;
-	background: rgba(0, 0, 0, 0.4);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 6px;
-	color: white;
-	font-size: 14px;
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+	border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+	border-radius: var(--modal-control-radius, 6px);
+	color: var(--modal-text, white);
+	font-size: calc(1 * var(--modal-font-size));
 	outline: none;
 }
 
 .color-control input[type='text']:focus {
-	border-color: rgba(120, 160, 200, 0.6);
+	border-color: var(--modal-accent, rgba(120, 160, 200, 0.6));
 }
 
 .select-input {
 	width: 100%;
-	padding: 8px 12px;
-	background: rgba(0, 0, 0, 0.4);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 8px;
-	color: white;
-	font-size: 14px;
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+	border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+	border-radius: var(--modal-control-radius, 8px);
+	color: var(--modal-text, white);
+	font-size: calc(1 * var(--modal-font-size));
 	cursor: pointer;
 	outline: none;
 	appearance: none;
@@ -120,18 +122,18 @@
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: right 12px center;
-	padding-right: 36px;
+	padding-right: calc(2.5714 * var(--modal-font-size));
 	box-sizing: border-box;
 }
 
 .select-input:focus {
-	border-color: rgba(120, 160, 200, 0.6);
-	background: rgba(0, 0, 0, 0.5);
+	border-color: var(--modal-accent, rgba(120, 160, 200, 0.6));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.5));
 }
 
 .select-input:hover {
-	background: rgba(0, 0, 0, 0.5);
-	border-color: rgba(255, 255, 255, 0.3);
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.5));
+	border-color: var(--modal-input-border, rgba(255, 255, 255, 0.3));
 }
 
 .select-input option {
@@ -142,41 +144,41 @@
 .text-input {
 	width: 100%;
 	box-sizing: border-box;
-	padding: 8px 12px;
-	background: rgba(0, 0, 0, 0.4);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 8px;
-	color: white;
-	font-size: 14px;
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+	border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+	border-radius: var(--modal-control-radius, 8px);
+	color: var(--modal-text, white);
+	font-size: calc(1 * var(--modal-font-size));
 	outline: none;
 }
 
 .text-input:focus {
-	border-color: rgba(120, 160, 200, 0.6);
-	background: rgba(0, 0, 0, 0.5);
+	border-color: var(--modal-accent, rgba(120, 160, 200, 0.6));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.5));
 }
 
 .text-input::placeholder {
-	color: rgba(255, 255, 255, 0.4);
+	color: var(--modal-muted, rgba(255, 255, 255, 0.4));
 }
 
 .range-input {
 	width: 100%;
-	accent-color: rgba(120, 160, 200, 0.9);
+	accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
 	cursor: pointer;
 }
 
 .range-labels {
 	display: flex;
 	justify-content: space-between;
-	color: rgba(255, 255, 255, 0.5);
-	font-size: 12px;
+	color: var(--modal-muted, rgba(255, 255, 255, 0.5));
+	font-size: calc(0.8571 * var(--modal-font-size));
 }
 
 .field-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 }
 
 @media (max-width: 480px) {
@@ -187,27 +189,28 @@
 
 .action-buttons {
 	display: flex;
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 	flex-wrap: wrap;
 }
 
 .action-btn {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 14px;
+	gap: calc(0.5714 * var(--modal-font-size));
+	padding: calc(0.5714 * var(--modal-font-size)) calc(1 * var(--modal-font-size));
 	border-radius: 8px;
 	cursor: pointer;
-	font-size: 14px;
+	font-size: calc(1 * var(--modal-font-size));
 	font-weight: 500;
 	transition: all 0.2s ease;
 	background: transparent;
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	color: rgba(255, 255, 255, 0.8);
+	border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+	color: var(--modal-text, rgba(255, 255, 255, 0.8));
 }
 
 .action-btn:hover {
 	background: rgba(255, 255, 255, 0.1);
+	background: color-mix(in srgb, var(--modal-accent, #78a0c8) 22%, transparent);
 }
 
 .action-btn.secondary:hover {
@@ -225,15 +228,15 @@
 .css-input,
 .html-input {
 	width: 100%;
-	min-height: 120px;
+	min-height: calc(8.5714 * var(--modal-font-size));
 	box-sizing: border-box;
-	padding: 10px 12px;
-	background: rgba(0, 0, 0, 0.5);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 8px;
-	color: #d4e0ee;
+	padding: calc(0.7143 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.5));
+	border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+	border-radius: var(--modal-control-radius, 8px);
+	color: var(--modal-text, #d4e0ee);
 	font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
-	font-size: 12px;
+	font-size: calc(0.8571 * var(--modal-font-size));
 	line-height: 1.5;
 	resize: vertical;
 	outline: none;
@@ -243,56 +246,56 @@
 /* HTML wraps lines; the CSS editor does not. Taller too — it is the main
    surface of the Custom HTML widget. */
 .html-input {
-	min-height: 220px;
+	min-height: calc(15.7143 * var(--modal-font-size));
 	white-space: pre-wrap;
 }
 
 .css-input:focus,
 .html-input:focus {
-	border-color: rgba(120, 160, 200, 0.6);
-	background: rgba(0, 0, 0, 0.6);
+	border-color: var(--modal-accent, rgba(120, 160, 200, 0.6));
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.6));
 }
 
 .css-ref {
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	border-radius: 8px;
-	padding: 8px 12px;
+	border: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+	border-radius: var(--modal-control-radius, 8px);
+	padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 	background: rgba(255, 255, 255, 0.03);
 }
 
 .css-ref summary {
 	cursor: pointer;
-	color: rgba(255, 255, 255, 0.75);
-	font-size: 0.85rem;
+	color: var(--modal-text, rgba(255, 255, 255, 0.75));
+	font-size: calc(0.9714 * var(--modal-font-size));
 	font-weight: 500;
 }
 
 .css-ref p {
-	margin: 8px 0 4px;
-	color: rgba(255, 255, 255, 0.55);
-	font-size: 0.78rem;
+	margin: calc(0.5714 * var(--modal-font-size)) 0 calc(0.2857 * var(--modal-font-size));
+	color: var(--modal-muted, rgba(255, 255, 255, 0.55));
+	font-size: calc(0.8914 * var(--modal-font-size));
 }
 
 .css-ref-classes {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: calc(0.2857 * var(--modal-font-size));
 }
 
 .css-ref code {
 	background: rgba(255, 255, 255, 0.08);
 	border-radius: 4px;
-	padding: 1px 6px;
-	font-size: 11px;
-	color: rgba(255, 255, 255, 0.85);
+	padding: calc(0.0714 * var(--modal-font-size)) calc(0.4286 * var(--modal-font-size));
+	font-size: calc(0.7857 * var(--modal-font-size));
+	color: var(--modal-text, rgba(255, 255, 255, 0.85));
 }
 
 .css-ref pre {
-	margin: 8px 0 0;
-	background: rgba(0, 0, 0, 0.4);
-	border-radius: 6px;
-	padding: 10px;
-	font-size: 11px;
+	margin: calc(0.5714 * var(--modal-font-size)) 0 0;
+	background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+	border-radius: var(--modal-control-radius, 6px);
+	padding: calc(0.7143 * var(--modal-font-size));
+	font-size: calc(0.7857 * var(--modal-font-size));
 	line-height: 1.5;
 	overflow-x: auto;
 	color: #9fd0ff;
@@ -306,16 +309,16 @@
 
 /* Collapsible "Advanced: Custom CSS" block (WidgetAppearanceSettings). */
 .advanced-css {
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	border-radius: 8px;
+	border: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+	border-radius: var(--modal-control-radius, 8px);
 	background: rgba(255, 255, 255, 0.03);
 }
 
 .advanced-css summary {
 	cursor: pointer;
-	padding: 10px 12px;
-	color: rgba(255, 255, 255, 0.75);
-	font-size: 0.85rem;
+	padding: calc(0.7143 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	color: var(--modal-text, rgba(255, 255, 255, 0.75));
+	font-size: calc(0.9714 * var(--modal-font-size));
 	font-weight: 500;
 	user-select: none;
 }
@@ -327,8 +330,9 @@
 .advanced-css-body {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	padding: 4px 12px 12px;
+	gap: calc(0.7143 * var(--modal-font-size));
+	padding: calc(0.2857 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size))
+		calc(0.8571 * var(--modal-font-size));
 }
 
 /* The appearance fields are grouped into labeled sub-sections
@@ -336,19 +340,19 @@
 .appearance-fields {
 	display: flex;
 	flex-direction: column;
-	gap: 14px;
+	gap: calc(1 * var(--modal-font-size));
 }
 
 .appearance-group {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: calc(0.7143 * var(--modal-font-size));
 }
 
 .appearance-group-label {
 	margin: 0;
-	color: rgba(255, 255, 255, 0.45);
-	font-size: 0.7rem;
+	color: var(--modal-muted, rgba(255, 255, 255, 0.45));
+	font-size: calc(0.8 * var(--modal-font-size));
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
@@ -362,5 +366,5 @@
 .css-disabled-hint {
 	margin: 0;
 	color: rgba(255, 200, 100, 0.85);
-	font-size: 0.78rem;
+	font-size: calc(0.8914 * var(--modal-font-size));
 }

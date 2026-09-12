@@ -49,6 +49,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="clipboard"
 	bind:isOpen
 	title="Clipboard Settings"
 	onClose={handleClose}

@@ -4,7 +4,13 @@ import path from 'node:path';
 import { $, browser, expect } from '@wdio/globals';
 import { openSettingsModal } from '../helpers';
 
-const AUTOSTART_DIR = path.join(os.homedir(), '.config', 'autostart');
+// The app resolves the XDG autostart dir through dirs::config_dir(), which
+// honors XDG_CONFIG_HOME — mirror that here so the spec works when the suite
+// runs with a redirected config home.
+const AUTOSTART_DIR = path.join(
+	process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), '.config'),
+	'autostart'
+);
 
 /**
  * The XDG autostart entry that points at Odeko, if one exists — the
@@ -34,8 +40,9 @@ function waitForOdekoAutostartEntry(expected: boolean) {
  * settings modal's Appearance tab.
  */
 async function launchAtLoginCheckbox() {
-	const section = await (await $('h3=Startup')).parentElement();
-	return section.$('input[type="checkbox"]');
+	// XPath instead of parentElement(): the WebKitGTK embedded driver cannot
+	// resolve the element returned by wdio's parentElement().
+	return $('//h3[normalize-space(text())="Startup"]/following::input[@type="checkbox"][1]');
 }
 
 /** Click the checkbox through the page (real clicks on checkboxes are

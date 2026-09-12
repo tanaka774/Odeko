@@ -11,7 +11,22 @@
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import { isVideoBackground } from '$lib/background';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
+	import ModalAppearancePanel from './settings/ModalAppearancePanel.svelte';
 	import TabBar from './settings/TabBar.svelte';
+	import { prefixSelectors } from '$lib/widgets/custom-css';
+	import {
+		diffModalAppearance,
+		modalAppearanceStyle,
+		modalCssScope,
+		overlayModalAppearance,
+		DEFAULT_MODAL_APPEARANCE,
+		MODAL_BASE_DEFAULTS,
+		MODAL_KEYS,
+		MODAL_LABELS,
+		type ModalAppearanceConfig,
+		type ModalAppearanceStore,
+		type ModalKey
+	} from './settings/modal-appearance';
 
 	let {
 		isOpen = $bindable(false),
@@ -68,15 +83,90 @@
 		forced_power_confirmation: number;
 	}
 
-	let activeTab = $state<'appearance' | 'items' | 'edit' | 'keys' | 'presets'>('appearance');
+	let activeTab = $state<'appearance' | 'items' | 'modals' | 'edit' | 'keys' | 'presets'>(
+		'appearance'
+	);
 
 	const tabs = [
 		{ key: 'appearance', label: 'Appearance' },
 		{ key: 'items', label: 'Icon Appearance' },
+		{ key: 'modals', label: 'Modals' },
 		{ key: 'edit', label: 'Edit' },
 		{ key: 'keys', label: 'Keys' },
 		{ key: 'presets', label: 'Presets' }
 	];
+
+	const APP_MODAL_KEY: ModalKey = 'app-settings';
+
+	// Modal-appearance drafts, one per target ('global' or a modal key), kept
+	// separate from the staged settings so Cancel discards them like anything
+	// else in this dialog.
+	let modalTarget = $state<'global' | ModalKey>('global');
+	let modalDrafts = $state<Record<string, Partial<ModalAppearanceConfig>>>({});
+	let modalPanelOpen = $state(false);
+
+	function seedModalDrafts(store: ModalAppearanceStore | undefined) {
+		const drafts: Record<string, Partial<ModalAppearanceConfig>> = {
+			global: { ...(store?.global ?? {}) }
+		};
+		for (const key of MODAL_KEYS) {
+			drafts[key] = { ...(store?.modals?.[key] ?? {}) };
+		}
+		return drafts;
+	}
+
+	// The dialog edits its own look live, so the current draft feeds the vars.
+	const appModalAppearance = $derived(
+		overlayModalAppearance(
+			MODAL_BASE_DEFAULTS[APP_MODAL_KEY],
+			modalDrafts.global,
+			modalDrafts[APP_MODAL_KEY]
+		)
+	);
+	const appModalStyle = $derived(modalAppearanceStyle(appModalAppearance));
+
+	// The look of the modal selected in the "Modals" tab (preview + chrome).
+	const previewKey = $derived<ModalKey>(modalTarget === 'global' ? APP_MODAL_KEY : modalTarget);
+	const previewAppearance = $derived(
+		overlayModalAppearance(
+			MODAL_BASE_DEFAULTS[previewKey],
+			modalDrafts.global,
+			modalDrafts[previewKey]
+		)
+	);
+	const previewStyle = $derived(modalAppearanceStyle(previewAppearance));
+
+	function buildModalAppearanceStore(): ModalAppearanceStore {
+		const globalLayer = diffModalAppearance(modalDrafts.global ?? {}, DEFAULT_MODAL_APPEARANCE);
+		const modals: Partial<Record<ModalKey, Partial<ModalAppearanceConfig>>> = {};
+		for (const key of MODAL_KEYS) {
+			const draft = modalDrafts[key];
+			if (!draft) continue;
+			const layer = diffModalAppearance(
+				draft,
+				overlayModalAppearance(MODAL_BASE_DEFAULTS[key], globalLayer)
+			);
+			if (Object.keys(layer).length > 0) modals[key] = layer;
+		}
+		const store: ModalAppearanceStore = {};
+		if (Object.keys(globalLayer).length > 0) store.global = globalLayer;
+		if (Object.keys(modals).length > 0) store.modals = modals;
+		return store;
+	}
+
+	$effect(() => {
+		const css = appModalAppearance.customCss;
+		if (!isOpen || !appModalAppearance.customCssEnabled || !css.trim()) return;
+
+		const styleEl = document.createElement('style');
+		styleEl.dataset.modalCss = APP_MODAL_KEY;
+		styleEl.textContent = prefixSelectors(css, modalCssScope(APP_MODAL_KEY));
+		document.head.appendChild(styleEl);
+
+		return () => {
+			styleEl.remove();
+		};
+	});
 
 	function selectTab(key: string) {
 		activeTab = key as typeof activeTab;
@@ -101,6 +191,9 @@
 			// last success/error message would reappear on the next open.
 			presetSuccess = '';
 			presetError = '';
+			modalDrafts = seedModalDrafts(current.modal_appearance);
+			modalTarget = 'global';
+			modalPanelOpen = false;
 			loadAutostartState();
 			loadPresets();
 		}
@@ -279,6 +372,7 @@
 	}
 
 	async function finishSave() {
+		localSettings.modal_appearance = buildModalAppearanceStore();
 		if (selectedPreset && selectedPreset !== settingsStore.activePreset) {
 			try {
 				if (settingsStore.activePreset) {
@@ -341,447 +435,542 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if isOpen}
-	<div
-		class="modal-overlay"
-		{...backdrop}
-		onkeydown={handleKeydown}
-		role="dialog"
-		tabindex="-1"
-		aria-modal="true"
-	>
-		<div class="modal-anchor">
-			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-				<div class="modal-header">
-					<h2>Canvas Settings</h2>
-					<button class="close-btn" onclick={close}>✕</button>
-				</div>
+	<!-- Scope wrapper: per-modal custom CSS is prefixed with [data-modal="…"],
+	     so the attribute must live on a parent for .modal-overlay itself to be
+	     styleable. It has no styles of its own and the overlay is fixed. -->
+	<div class="modal-scope" data-modal={APP_MODAL_KEY}>
+		<div
+			class="modal-overlay"
+			style={appModalStyle}
+			{...backdrop}
+			onkeydown={handleKeydown}
+			role="dialog"
+			tabindex="-1"
+			aria-modal="true"
+		>
+			<div class="modal-anchor">
+				<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+					<div class="modal-header">
+						<h2 class="modal-title">Canvas Settings</h2>
+						<div class="header-actions">
+							<button
+								class="gear-btn"
+								class:active={modalPanelOpen}
+								onclick={() => (modalPanelOpen = !modalPanelOpen)}
+								aria-label="Modal appearance"
+								title="Modal appearance"
+							>
+								&#9881;
+							</button>
+							<button class="close-btn" onclick={close} aria-label="Close">&#10005;</button>
+						</div>
+					</div>
 
-				<div class="settings-content" bind:this={settingsContentEl}>
-					<TabBar {tabs} {activeTab} onTabChange={selectTab} />
-					{#if activeTab === 'appearance'}
-						<section class="settings-section">
-							<h3>Size</h3>
-							<div class="setting-row">
-								<Label>Width: {localSettings.width_percent}%</Label>
-								<Slider
-									type="single"
-									value={localSettings.width_percent}
-									min={50}
-									max={100}
-									step={1}
-									onValueChange={(val) => {
-										localSettings.width_percent = val;
-									}}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label>Height: {localSettings.height_percent}%</Label>
-								<Slider
-									type="single"
-									value={localSettings.height_percent}
-									min={50}
-									max={100}
-									step={1}
-									onValueChange={(val) => {
-										localSettings.height_percent = val;
-									}}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label>Position</Label>
-								<div class="position-grid">
-									{#each [{ x: 0, y: 0, label: '↖' }, { x: 50, y: 0, label: '↑' }, { x: 100, y: 0, label: '↗' }, { x: 0, y: 50, label: '←' }, { x: 50, y: 50, label: '•' }, { x: 100, y: 50, label: '→' }, { x: 0, y: 100, label: '↙' }, { x: 50, y: 100, label: '↓' }, { x: 100, y: 100, label: '↘' }] as pos (`${pos.x}-${pos.y}`)}
-										<button
-											class="position-btn"
-											class:active={localSettings.position_x === pos.x &&
-												localSettings.position_y === pos.y}
-											onclick={() => {
-												localSettings.position_x = pos.x;
-												localSettings.position_y = pos.y;
+					{#if modalPanelOpen}
+						<div class="settings-content">
+							<ModalAppearancePanel
+								bind:appearance={modalDrafts[APP_MODAL_KEY]}
+								base={MODAL_BASE_DEFAULTS[APP_MODAL_KEY]}
+								title="Canvas Settings Appearance"
+								onReset={() => (modalDrafts[APP_MODAL_KEY] = {})}
+							/>
+						</div>
+					{:else}
+						<div class="settings-content" bind:this={settingsContentEl}>
+							<TabBar {tabs} {activeTab} onTabChange={selectTab} />
+							{#if activeTab === 'appearance'}
+								<section class="settings-section">
+									<h3>Size</h3>
+									<div class="setting-row">
+										<Label>Width: {localSettings.width_percent}%</Label>
+										<Slider
+											type="single"
+											value={localSettings.width_percent}
+											min={50}
+											max={100}
+											step={1}
+											onValueChange={(val) => {
+												localSettings.width_percent = val;
 											}}
-										>
-											{pos.label}
-										</button>
-									{/each}
-								</div>
-							</div>
-						</section>
+										/>
+									</div>
+									<div class="setting-row">
+										<Label>Height: {localSettings.height_percent}%</Label>
+										<Slider
+											type="single"
+											value={localSettings.height_percent}
+											min={50}
+											max={100}
+											step={1}
+											onValueChange={(val) => {
+												localSettings.height_percent = val;
+											}}
+										/>
+									</div>
+									<div class="setting-row">
+										<Label>Position</Label>
+										<div class="position-grid">
+											{#each [{ x: 0, y: 0, label: '↖' }, { x: 50, y: 0, label: '↑' }, { x: 100, y: 0, label: '↗' }, { x: 0, y: 50, label: '←' }, { x: 50, y: 50, label: '•' }, { x: 100, y: 50, label: '→' }, { x: 0, y: 100, label: '↙' }, { x: 50, y: 100, label: '↓' }, { x: 100, y: 100, label: '↘' }] as pos (`${pos.x}-${pos.y}`)}
+												<button
+													class="position-btn"
+													class:active={localSettings.position_x === pos.x &&
+														localSettings.position_y === pos.y}
+													onclick={() => {
+														localSettings.position_x = pos.x;
+														localSettings.position_y = pos.y;
+													}}
+												>
+													{pos.label}
+												</button>
+											{/each}
+										</div>
+									</div>
+								</section>
 
-						<section class="settings-section">
-							<h3>Background</h3>
-							<div class="setting-row">
-								<Label>Color (RGB)</Label>
-								<ColorInput
-									value={localSettings.background_color}
-									onchange={(rgb) => (localSettings.background_color = rgb)}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label>Opacity: {Math.round(localSettings.background_opacity * 100)}%</Label>
-								<Slider
-									type="single"
-									value={localSettings.background_opacity}
-									min={0.0}
-									max={1}
-									step={0.05}
-									onValueChange={(val) => {
-										localSettings.background_opacity = val;
-									}}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label>Background Image / Video</Label>
-								<div class="image-row">
+								<section class="settings-section">
+									<h3>Background</h3>
+									<div class="setting-row">
+										<Label>Color (RGB)</Label>
+										<ColorInput
+											value={localSettings.background_color}
+											onchange={(rgb) => (localSettings.background_color = rgb)}
+										/>
+									</div>
+									<div class="setting-row">
+										<Label>Opacity: {Math.round(localSettings.background_opacity * 100)}%</Label>
+										<Slider
+											type="single"
+											value={localSettings.background_opacity}
+											min={0.0}
+											max={1}
+											step={0.05}
+											onValueChange={(val) => {
+												localSettings.background_opacity = val;
+											}}
+										/>
+									</div>
+									<div class="setting-row">
+										<Label>Background Image / Video</Label>
+										<div class="image-row">
+											{#if localSettings.background_image}
+												<span class="image-path">{localSettings.background_image}</span>
+												<button class="remove-image-btn" onclick={removeBackgroundImage}
+													>Remove</button
+												>
+											{:else}
+												<span class="no-image">No image or video selected</span>
+											{/if}
+											<button class="select-image-btn" onclick={selectBackgroundImage}>
+												Select File
+											</button>
+										</div>
+									</div>
 									{#if localSettings.background_image}
-										<span class="image-path">{localSettings.background_image}</span>
-										<button class="remove-image-btn" onclick={removeBackgroundImage}>Remove</button>
-									{:else}
-										<span class="no-image">No image or video selected</span>
+										<div class="setting-row">
+											<Label>Image Fit</Label>
+											<select
+												value={localSettings.background_size}
+												onchange={(e) => {
+													localSettings.background_size = e.currentTarget.value as
+														| 'cover'
+														| 'contain'
+														| 'stretch';
+												}}
+												class="bg-select"
+											>
+												<option value="cover">Cover - Fill entire area</option>
+												<option value="contain">Contain - Show full image</option>
+												<option value="stretch">Stretch - Distort to fit</option>
+											</select>
+										</div>
+										{#if !isVideoBackground(localSettings.background_image)}
+											<div class="setting-row">
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={localSettings.background_repeat}
+														onchange={(e) => {
+															localSettings.background_repeat = e.currentTarget.checked;
+														}}
+													/>
+													<span>Repeat image if smaller than canvas</span>
+												</label>
+											</div>
+										{/if}
+										<div class="setting-row">
+											<Label>Image Position</Label>
+											<div class="position-grid">
+												{#each ['top', 'center', 'bottom'] as v (v)}
+													{#each ['left', 'center', 'right'] as h (h)}
+														{@const pos =
+															v === 'center' && h === 'center'
+																? 'center'
+																: v === 'center'
+																	? h
+																	: h === 'center'
+																		? v
+																		: `${v} ${h}`}
+														<button
+															class="position-btn"
+															class:active={localSettings.background_position === pos}
+															onclick={() => {
+																localSettings.background_position =
+																	pos as CanvasSettings['background_position'];
+															}}
+														>
+															{#if pos === 'top'}
+																↑
+															{:else if pos === 'bottom'}
+																↓
+															{:else if pos === 'left'}
+																←
+															{:else if pos === 'right'}
+																→
+															{:else}
+																•
+															{/if}
+														</button>
+													{/each}
+												{/each}
+											</div>
+											<div class="position-labels">
+												<span>Selected: {localSettings.background_position}</span>
+											</div>
+										</div>
 									{/if}
-									<button class="select-image-btn" onclick={selectBackgroundImage}>
-										Select File
-									</button>
-								</div>
-							</div>
-							{#if localSettings.background_image}
-								<div class="setting-row">
-									<Label>Image Fit</Label>
-									<select
-										value={localSettings.background_size}
-										onchange={(e) => {
-											localSettings.background_size = e.currentTarget.value as
-												| 'cover'
-												| 'contain'
-												| 'stretch';
-										}}
-										class="bg-select"
-									>
-										<option value="cover">Cover - Fill entire area</option>
-										<option value="contain">Contain - Show full image</option>
-										<option value="stretch">Stretch - Distort to fit</option>
-									</select>
-								</div>
-								{#if !isVideoBackground(localSettings.background_image)}
+								</section>
+
+								<section class="settings-section">
+									<h3>Appearance</h3>
 									<div class="setting-row">
 										<label class="checkbox-label">
 											<input
 												type="checkbox"
-												checked={localSettings.background_repeat}
+												checked={localSettings.backdrop_blur}
 												onchange={(e) => {
-													localSettings.background_repeat = e.currentTarget.checked;
+													localSettings.backdrop_blur = e.currentTarget.checked;
 												}}
 											/>
-											<span>Repeat image if smaller than canvas</span>
+											<span>Backdrop Blur</span>
 										</label>
 									</div>
-								{/if}
-								<div class="setting-row">
-									<Label>Image Position</Label>
-									<div class="position-grid">
-										{#each ['top', 'center', 'bottom'] as v (v)}
-											{#each ['left', 'center', 'right'] as h (h)}
-												{@const pos =
-													v === 'center' && h === 'center'
-														? 'center'
-														: v === 'center'
-															? h
-															: h === 'center'
-																? v
-																: `${v} ${h}`}
-												<button
-													class="position-btn"
-													class:active={localSettings.background_position === pos}
-													onclick={() => {
-														localSettings.background_position =
-															pos as CanvasSettings['background_position'];
-													}}
-												>
-													{#if pos === 'top'}
-														↑
-													{:else if pos === 'bottom'}
-														↓
-													{:else if pos === 'left'}
-														←
-													{:else if pos === 'right'}
-														→
-													{:else}
-														•
-													{/if}
-												</button>
+									<p class="setting-hint">
+										Backdrop blur works only on systems that support native blur effects.
+									</p>
+									{#if localSettings.backdrop_blur}
+										<div class="setting-row">
+											<Label>Blur Strength</Label>
+											<select
+												value={localSettings.blur_strength}
+												onchange={(e) => {
+													localSettings.blur_strength = e.currentTarget.value as 'light' | 'full';
+												}}
+												class="bg-select"
+											>
+												<option value="full">Full - Blur entire screen</option>
+												<option value="light">Light - Blur only behind the canvas</option>
+											</select>
+										</div>
+									{/if}
+									<div class="setting-row">
+										<Label>Panel Corner Radius: {localSettings.border_radius}px</Label>
+										<Slider
+											type="single"
+											value={localSettings.border_radius}
+											min={0}
+											max={20}
+											step={1}
+											onValueChange={(val) => {
+												localSettings.border_radius = val;
+											}}
+										/>
+									</div>
+									<div class="setting-row">
+										<Label
+											>Backdrop Darkness: {Math.round(
+												localSettings.backdrop_darkness * 100
+											)}%</Label
+										>
+										<Slider
+											type="single"
+											value={localSettings.backdrop_darkness}
+											min={0}
+											max={1.0}
+											step={0.05}
+											onValueChange={(val) => {
+												localSettings.backdrop_darkness = val;
+											}}
+										/>
+									</div>
+								</section>
+								<section class="settings-section">
+									<h3>Startup</h3>
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input
+												type="checkbox"
+												checked={autostartEnabled}
+												onchange={handleAutostartToggle}
+											/>
+											<span>Launch Odeko at login</span>
+										</label>
+									</div>
+								</section>
+							{:else if activeTab === 'items'}
+								<section class="settings-section">
+									<h3>Default Icon Appearance</h3>
+									<p class="settings-note">
+										Applied to new icons as their default style. Font settings only affect icons
+										that show text.
+									</p>
+									<WidgetAppearanceSettings
+										title=""
+										hideCustomCss
+										applyToAll
+										bind:appearance={localSettings.default_appearance}
+									/>
+								</section>
+							{:else if activeTab === 'modals'}
+								<section class="settings-section">
+									<h3>Modal Appearance</h3>
+									<p class="settings-note">
+										Style the settings dialogs themselves. "All modals" is the default every dialog
+										starts from; a single dialog can override it. Any dialog also has a gear button
+										in its header to style it in place.
+									</p>
+									<div class="setting-row">
+										<Label>Editing</Label>
+										<select
+											id="modal-target-select"
+											class="bg-select"
+											value={modalTarget}
+											onchange={(e) => (modalTarget = e.currentTarget.value as 'global' | ModalKey)}
+										>
+											<option value="global">All modals (default)</option>
+											{#each MODAL_KEYS as key (key)}
+												<option value={key}>{MODAL_LABELS[key]}</option>
 											{/each}
-										{/each}
+										</select>
 									</div>
-									<div class="position-labels">
-										<span>Selected: {localSettings.background_position}</span>
-									</div>
-								</div>
-							{/if}
-						</section>
 
-						<section class="settings-section">
-							<h3>Appearance</h3>
-							<div class="setting-row">
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										checked={localSettings.backdrop_blur}
-										onchange={(e) => {
-											localSettings.backdrop_blur = e.currentTarget.checked;
-										}}
+									{#if modalTarget !== 'global' && modalTarget !== APP_MODAL_KEY}
+										<div class="modal-preview" style={previewStyle}>
+											<div class="preview-header">
+												<span class="preview-title">{MODAL_LABELS[previewKey]}</span>
+											</div>
+											<div class="preview-body">
+												<div class="preview-row">
+													<span class="preview-label">Label</span>
+													<span class="preview-input">value</span>
+												</div>
+												<div class="preview-row">
+													<span class="preview-label">Label</span>
+													<span class="preview-input">value</span>
+												</div>
+											</div>
+											<div class="preview-footer">
+												<button class="preview-cancel" tabindex="-1">Cancel</button>
+												<button class="preview-save" tabindex="-1">Save</button>
+											</div>
+										</div>
+									{/if}
+
+									<ModalAppearancePanel
+										bind:appearance={modalDrafts[modalTarget]}
+										base={modalTarget === 'global' ? {} : MODAL_BASE_DEFAULTS[modalTarget]}
+										title={modalTarget === 'global'
+											? 'Default for all modals'
+											: MODAL_LABELS[modalTarget]}
+										onReset={() =>
+											(modalDrafts[modalTarget] =
+												modalTarget === 'global' ? {} : { ...(modalDrafts.global ?? {}) })}
 									/>
-									<span>Backdrop Blur</span>
-								</label>
-							</div>
-							<p class="setting-hint">
-								Backdrop blur works only on systems that support native blur effects.
-							</p>
-							{#if localSettings.backdrop_blur}
-								<div class="setting-row">
-									<Label>Blur Strength</Label>
-									<select
-										value={localSettings.blur_strength}
-										onchange={(e) => {
-											localSettings.blur_strength = e.currentTarget.value as 'light' | 'full';
-										}}
-										class="bg-select"
-									>
-										<option value="full">Full - Blur entire screen</option>
-										<option value="light">Light - Blur only behind the canvas</option>
-									</select>
-								</div>
-							{/if}
-							<div class="setting-row">
-								<Label>Panel Corner Radius: {localSettings.border_radius}px</Label>
-								<Slider
-									type="single"
-									value={localSettings.border_radius}
-									min={0}
-									max={20}
-									step={1}
-									onValueChange={(val) => {
-										localSettings.border_radius = val;
-									}}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label
-									>Backdrop Darkness: {Math.round(localSettings.backdrop_darkness * 100)}%</Label
-								>
-								<Slider
-									type="single"
-									value={localSettings.backdrop_darkness}
-									min={0}
-									max={1.0}
-									step={0.05}
-									onValueChange={(val) => {
-										localSettings.backdrop_darkness = val;
-									}}
-								/>
-							</div>
-						</section>
-						<section class="settings-section">
-							<h3>Startup</h3>
-							<div class="setting-row">
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										checked={autostartEnabled}
-										onchange={handleAutostartToggle}
-									/>
-									<span>Launch Odeko at login</span>
-								</label>
-							</div>
-						</section>
-					{:else if activeTab === 'items'}
-						<section class="settings-section">
-							<h3>Default Icon Appearance</h3>
-							<p class="settings-note">
-								Applied to new icons as their default style. Font settings only affect icons that
-								show text.
-							</p>
-							<WidgetAppearanceSettings
-								title=""
-								hideCustomCss
-								applyToAll
-								bind:appearance={localSettings.default_appearance}
-							/>
-						</section>
-					{:else if activeTab === 'edit'}
-						<section class="settings-section">
-							<h3>Edit Mode</h3>
-							<div class="setting-row">
-								<Label>Grid Size: {localSettings.grid_size}px</Label>
-								<Slider
-									type="single"
-									value={localSettings.grid_size}
-									min={10}
-									max={400}
-									step={10}
-									onValueChange={(val) => {
-										localSettings.grid_size = val;
-									}}
-								/>
-							</div>
-							<div class="setting-row">
-								<Label>Grid Line Color</Label>
-								<ColorInput
-									value={localSettings.grid_line_color}
-									onchange={(rgb) => (localSettings.grid_line_color = rgb)}
-								/>
-							</div>
-							<div class="setting-row">
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										checked={localSettings.magnetic_snap}
-										onchange={(e) => {
-											localSettings.magnetic_snap = e.currentTarget.checked;
-										}}
-									/>
-									<span>Magnetic Snap to Grid</span>
-								</label>
-							</div>
-						</section>
-					{:else if activeTab === 'keys'}
-						<section class="settings-section">
-							<h3>Keyboard Shortcuts</h3>
-							<div class="key-shortcuts">
-								<KeybindRecorder
-									bind:value={localSettings.keybind_toggle_canvas}
-									label="Toggle canvas (global shortcut)"
-								/>
-								<KeybindRecorder
-									bind:value={localSettings.keybind_toggle_edit}
-									label="Enter / exit edit mode"
-								/>
-								<KeybindRecorder
-									bind:value={localSettings.keybind_hide_canvas}
-									label="Hide canvas"
-								/>
-								<KeybindRecorder
-									bind:value={localSettings.keybind_undo}
-									label="Undo last change (edit mode)"
-								/>
-							</div>
-							<div class="key-shortcuts" style="margin-top: 24px;">
-								<div class="key-shortcut-item key-static">
-									<div class="key-combo">
-										<span class="key-mouse">🖱️ Right Click</span>
+								</section>
+							{:else if activeTab === 'edit'}
+								<section class="settings-section">
+									<h3>Edit Mode</h3>
+									<div class="setting-row">
+										<Label>Grid Size: {localSettings.grid_size}px</Label>
+										<Slider
+											type="single"
+											value={localSettings.grid_size}
+											min={10}
+											max={400}
+											step={10}
+											onValueChange={(val) => {
+												localSettings.grid_size = val;
+											}}
+										/>
 									</div>
-									<span class="key-desc"
-										>Open menu (Enter Edit Mode / Open Settings on empty space)</span
-									>
-								</div>
-							</div>
-							<div class="key-shortcuts" style="margin-top: 24px;">
-								<p class="key-hint">
-									Per-icon launch keybinds can be set from each icon's own settings (right-click the
-									icon → Open Settings).
-								</p>
-							</div>
-						</section>
-					{:else}
-						<section class="settings-section">
-							<h3>Presets</h3>
-							<div class="setting-row">
-								<Label>Active Preset</Label>
-								<div class="preset-select-row">
-									<select
-										value={selectedPreset}
-										onchange={(e) => {
-											selectedPreset = e.currentTarget.value;
-										}}
-										class="bg-select"
-									>
-										<option value="">-- None --</option>
-										{#each presets as preset (preset)}
-											<option value={preset}>{preset}</option>
-										{/each}
-									</select>
-								</div>
-							</div>
-							{#if selectedPreset}
-								<div class="setting-row">
-									<div class="preset-actions">
-										{#if isRenaming}
+									<div class="setting-row">
+										<Label>Grid Line Color</Label>
+										<ColorInput
+											value={localSettings.grid_line_color}
+											onchange={(rgb) => (localSettings.grid_line_color = rgb)}
+										/>
+									</div>
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input
+												type="checkbox"
+												checked={localSettings.magnetic_snap}
+												onchange={(e) => {
+													localSettings.magnetic_snap = e.currentTarget.checked;
+												}}
+											/>
+											<span>Magnetic Snap to Grid</span>
+										</label>
+									</div>
+								</section>
+							{:else if activeTab === 'keys'}
+								<section class="settings-section">
+									<h3>Keyboard Shortcuts</h3>
+									<div class="key-shortcuts">
+										<KeybindRecorder
+											bind:value={localSettings.keybind_toggle_canvas}
+											label="Toggle canvas (global shortcut)"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_toggle_edit}
+											label="Enter / exit edit mode"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_hide_canvas}
+											label="Hide canvas"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_undo}
+											label="Undo last change (edit mode)"
+										/>
+									</div>
+									<div class="key-shortcuts" style="margin-top: 24px;">
+										<div class="key-shortcut-item key-static">
+											<div class="key-combo">
+												<span class="key-mouse">🖱️ Right Click</span>
+											</div>
+											<span class="key-desc"
+												>Open menu (Enter Edit Mode / Open Settings on empty space)</span
+											>
+										</div>
+									</div>
+									<div class="key-shortcuts" style="margin-top: 24px;">
+										<p class="key-hint">
+											Per-icon launch keybinds can be set from each icon's own settings (right-click
+											the icon → Open Settings).
+										</p>
+									</div>
+								</section>
+							{:else}
+								<section class="settings-section">
+									<h3>Presets</h3>
+									<div class="setting-row">
+										<Label>Active Preset</Label>
+										<div class="preset-select-row">
+											<select
+												value={selectedPreset}
+												onchange={(e) => {
+													selectedPreset = e.currentTarget.value;
+												}}
+												class="bg-select"
+											>
+												<option value="">-- None --</option>
+												{#each presets as preset (preset)}
+													<option value={preset}>{preset}</option>
+												{/each}
+											</select>
+										</div>
+									</div>
+									{#if selectedPreset}
+										<div class="setting-row">
+											<div class="preset-actions">
+												{#if isRenaming}
+													<input
+														type="text"
+														placeholder="New name..."
+														value={renameValue}
+														oninput={(e) => {
+															renameValue = e.currentTarget.value;
+														}}
+														class="preset-input"
+													/>
+													<button class="select-image-btn" onclick={handleRenamePreset}
+														>Confirm</button
+													>
+													<button
+														class="remove-image-btn"
+														onclick={() => {
+															isRenaming = false;
+															renameValue = '';
+														}}>Cancel</button
+													>
+												{:else if confirmDelete}
+													<div class="confirm-row">
+														<span>Delete "{selectedPreset}"?</span>
+														<button class="remove-image-btn" onclick={doDeletePreset}>Delete</button
+														>
+														<button class="preset-action-btn" onclick={cancelDeletePreset}
+															>Cancel</button
+														>
+													</div>
+												{:else}
+													<button
+														class="preset-action-btn"
+														onclick={() => {
+															isRenaming = true;
+															renameValue = selectedPreset;
+														}}>Rename</button
+													>
+													<button class="remove-image-btn" onclick={handleDeletePreset}
+														>Delete</button
+													>
+													<button class="preset-action-btn" onclick={handleExportPreset}
+														>Export</button
+													>
+												{/if}
+											</div>
+										</div>
+									{/if}
+									<div class="setting-row">
+										<Label>Save Current as New Preset</Label>
+										<div class="preset-save-row">
 											<input
 												type="text"
-												placeholder="New name..."
-												value={renameValue}
+												placeholder="Preset name..."
+												value={newPresetName}
 												oninput={(e) => {
-													renameValue = e.currentTarget.value;
+													newPresetName = e.currentTarget.value;
 												}}
 												class="preset-input"
 											/>
-											<button class="select-image-btn" onclick={handleRenamePreset}>Confirm</button>
-											<button
-												class="remove-image-btn"
-												onclick={() => {
-													isRenaming = false;
-													renameValue = '';
-												}}>Cancel</button
+											<button class="select-image-btn" onclick={handleSavePreset}>Save</button>
+											<button class="preset-action-btn" onclick={handleSaveDefaultPreset}
+												>Create Blank</button
 											>
-										{:else if confirmDelete}
-											<div class="confirm-row">
-												<span>Delete "{selectedPreset}"?</span>
-												<button class="remove-image-btn" onclick={doDeletePreset}>Delete</button>
-												<button class="preset-action-btn" onclick={cancelDeletePreset}
-													>Cancel</button
-												>
-											</div>
-										{:else}
-											<button
-												class="preset-action-btn"
-												onclick={() => {
-													isRenaming = true;
-													renameValue = selectedPreset;
-												}}>Rename</button
-											>
-											<button class="remove-image-btn" onclick={handleDeletePreset}>Delete</button>
-											<button class="preset-action-btn" onclick={handleExportPreset}>Export</button>
-										{/if}
+										</div>
 									</div>
-								</div>
+									<div class="setting-row">
+										<div class="preset-actions">
+											<button class="preset-action-btn" onclick={handleImportPreset}
+												>Import Preset...</button
+											>
+										</div>
+									</div>
+									{#if presetError}
+										<div class="preset-message error">{presetError}</div>
+									{/if}
+									{#if presetSuccess}
+										<div class="preset-message success">{presetSuccess}</div>
+									{/if}
+								</section>
 							{/if}
-							<div class="setting-row">
-								<Label>Save Current as New Preset</Label>
-								<div class="preset-save-row">
-									<input
-										type="text"
-										placeholder="Preset name..."
-										value={newPresetName}
-										oninput={(e) => {
-											newPresetName = e.currentTarget.value;
-										}}
-										class="preset-input"
-									/>
-									<button class="select-image-btn" onclick={handleSavePreset}>Save</button>
-									<button class="preset-action-btn" onclick={handleSaveDefaultPreset}
-										>Create Blank</button
-									>
-								</div>
-							</div>
-							<div class="setting-row">
-								<div class="preset-actions">
-									<button class="preset-action-btn" onclick={handleImportPreset}
-										>Import Preset...</button
-									>
-								</div>
-							</div>
-							{#if presetError}
-								<div class="preset-message error">{presetError}</div>
-							{/if}
-							{#if presetSuccess}
-								<div class="preset-message success">{presetSuccess}</div>
-							{/if}
-						</section>
+						</div>
 					{/if}
-				</div>
 
-				<div class="modal-footer">
-					<div class="footer-actions">
-						<button class="cancel-btn" onclick={close}>Cancel</button>
-						<button class="save-btn" onclick={handleSave}>Save Changes</button>
+					<div class="modal-footer">
+						<div class="footer-actions">
+							<button class="cancel-btn" onclick={close}>Cancel</button>
+							<button class="save-btn" onclick={handleSave}>Save Changes</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -796,18 +985,19 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.7);
+		background: var(--modal-overlay-bg, rgba(0, 0, 0, 0.7));
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		z-index: 1000;
-		padding: 10px;
+		padding: calc(0.7143 * var(--modal-font-size));
 		box-sizing: border-box;
+		backdrop-filter: blur(var(--modal-overlay-blur, 4px));
 	}
 
 	.modal-anchor {
-		width: min(750px, 92%);
-		height: min(85%, 640px);
+		width: var(--modal-width, min(750px, 92%));
+		height: var(--modal-height, min(85%, 640px));
 		transform: translate(
 			clamp(calc(375px - 50vw), var(--canvas-dx, 0px), calc(50vw - 375px)),
 			clamp(calc(320px - 50vh), var(--canvas-dy, 0px), calc(50vh - 320px))
@@ -815,119 +1005,231 @@
 	}
 
 	.modal-content {
-		background: rgba(30, 30, 40, 0.95);
-		backdrop-filter: blur(20px);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 16px;
+		background: var(--modal-surface-bg, rgba(30, 30, 40, 0.95));
+		backdrop-filter: blur(var(--modal-surface-blur, 20px));
+		border: var(--modal-border-width, 1px) solid var(--modal-border-color, rgba(255, 255, 255, 0.1));
+		border-radius: var(--modal-radius, 16px);
 		width: 100%;
 		height: 100%;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+		box-shadow: var(--modal-shadow, 0 25px 50px -12px rgba(0, 0, 0, 0.5));
+		color: var(--modal-text, rgba(255, 255, 255, 0.9));
+		font-size: var(--modal-font-size, 14px);
+		font-family: var(--modal-font-family, inherit);
 	}
 
 	.modal-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 10px 16px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		padding: calc(0.7143 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
+		background: var(--modal-header-bg, transparent);
+		border-bottom: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
 	}
 
 	.modal-header h2 {
 		margin: 0;
-		color: white;
-		font-size: 1.25rem;
+		color: var(--modal-title-color, white);
+		font-size: var(--modal-title-size, 1.4286em);
 		font-weight: 600;
 	}
 
 	.close-btn {
 		background: none;
 		border: none;
-		color: rgba(255, 255, 255, 0.6);
-		font-size: 1.25rem;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.6));
+		font-size: calc(1.4286 * var(--modal-font-size));
 		cursor: pointer;
-		padding: 4px 8px;
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
 		border-radius: 4px;
 		transition: all 0.2s ease;
+		line-height: 1;
 	}
 
 	.close-btn:hover {
 		background: rgba(255, 255, 255, 0.1);
-		color: white;
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 30%, transparent);
+		color: var(--modal-title-color, white);
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: calc(0.1429 * var(--modal-font-size));
+	}
+
+	.gear-btn {
+		background: none;
+		border: none;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.6));
+		font-size: calc(1.4286 * var(--modal-font-size));
+		cursor: pointer;
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
+		border-radius: 4px;
+		transition: all 0.2s ease;
+		line-height: 1;
+	}
+
+	.gear-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 30%, transparent);
+		color: var(--modal-title-color, white);
+	}
+
+	.gear-btn.active {
+		color: var(--modal-accent, rgba(120, 160, 200, 0.85));
+	}
+
+	/* Miniature mock of the dialog being edited (Modals tab). */
+	.modal-preview {
+		border: var(--modal-border-width, 1px) solid var(--modal-border-color, rgba(255, 255, 255, 0.1));
+		border-radius: var(--modal-radius, 16px);
+		overflow: hidden;
+		background: var(--modal-surface-bg, rgba(30, 30, 40, 0.95));
+		color: var(--modal-text, rgba(255, 255, 255, 0.9));
+		font-family: var(--modal-font-family, inherit);
+		margin-bottom: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.preview-header {
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+		border-bottom: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+		background: var(--modal-header-bg, transparent);
+	}
+
+	.preview-title {
+		color: var(--modal-title-color, white);
+		font-size: var(--modal-title-size, 1.4286em);
+		font-weight: 600;
+	}
+
+	.preview-body {
+		display: flex;
+		flex-direction: column;
+		gap: calc(0.5714 * var(--modal-font-size));
+		padding: calc(0.7143 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+	}
+
+	.preview-row {
+		display: flex;
+		align-items: center;
+		gap: calc(0.5714 * var(--modal-font-size));
+	}
+
+	.preview-label {
+		flex: 0 0 56px;
+		font-size: calc(0.9143 * var(--modal-font-size));
+	}
+
+	.preview-input {
+		flex: 1;
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		border-radius: var(--modal-control-radius, 8px);
+		background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+		font-size: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.preview-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: calc(0.5714 * var(--modal-font-size));
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
+		border-top: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+		background: var(--modal-footer-bg, rgba(0, 0, 0, 0.2));
+	}
+
+	.preview-cancel,
+	.preview-save {
+		padding: calc(0.3571 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
+		border: none;
+		border-radius: var(--modal-control-radius, 8px);
+		font-size: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.preview-cancel {
+		background: rgba(255, 255, 255, 0.1);
+		background: color-mix(in srgb, var(--modal-text, white) 14%, transparent);
+		color: var(--modal-text, rgba(255, 255, 255, 0.8));
+	}
+
+	.preview-save {
+		background: var(--modal-accent, rgba(120, 160, 200, 0.85));
+		color: var(--modal-accent-fg, white);
 	}
 
 	.settings-content {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		padding: 12px 16px;
+		padding: calc(0.8571 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
 	}
 
 	.settings-section {
-		margin-bottom: 12px;
+		margin-bottom: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.settings-section h3 {
-		margin: 0 0 8px 0;
-		color: rgba(255, 255, 255, 0.8);
-		font-size: 0.875rem;
+		margin: 0 0 calc(0.5714 * var(--modal-font-size)) 0;
+		color: var(--modal-text, rgba(255, 255, 255, 0.8));
+		font-size: calc(1 * var(--modal-font-size));
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
 
 	.setting-row {
-		margin-bottom: 10px;
+		margin-bottom: calc(0.7143 * var(--modal-font-size));
 	}
 
 	.setting-row :global(label) {
 		display: block;
-		color: rgba(255, 255, 255, 0.7);
-		font-size: 0.875rem;
-		margin-bottom: 8px;
+		color: var(--modal-text, rgba(255, 255, 255, 0.7));
+		font-size: calc(1 * var(--modal-font-size));
+		margin-bottom: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.image-row {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: calc(0.8571 * var(--modal-font-size));
 		flex-wrap: wrap;
 	}
 
 	.image-path {
-		color: rgba(255, 255, 255, 0.7);
-		font-size: 0.75rem;
-		max-width: 200px;
+		color: var(--modal-text, rgba(255, 255, 255, 0.7));
+		font-size: calc(0.8571 * var(--modal-font-size));
+		max-width: calc(14.2857 * var(--modal-font-size));
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
 	.no-image {
-		color: rgba(255, 255, 255, 0.4);
-		font-size: 0.875rem;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.4));
+		font-size: calc(1 * var(--modal-font-size));
 		font-style: italic;
 	}
 
 	.select-image-btn,
 	.remove-image-btn {
-		padding: 6px 12px;
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		border-radius: 6px;
 		border: none;
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: calc(1 * var(--modal-font-size));
 		transition: all 0.2s ease;
 	}
 
 	.select-image-btn {
-		background: rgba(120, 160, 200, 0.85);
-		color: white;
+		background: var(--modal-accent, rgba(120, 160, 200, 0.85));
+		color: var(--modal-accent-fg, white);
 	}
 
 	.select-image-btn:hover {
-		background: rgba(120, 160, 200, 1);
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 80%, white);
 	}
 
 	.remove-image-btn {
@@ -943,53 +1245,55 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 10px 16px;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.2);
+		padding: calc(0.7143 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
+		border-top: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+		background: var(--modal-footer-bg, rgba(0, 0, 0, 0.2));
 	}
 
 	.footer-actions {
 		display: flex;
-		gap: 12px;
+		gap: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.cancel-btn,
 	.save-btn {
-		padding: 8px 16px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
 		border-radius: 6px;
 		border: none;
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: calc(1 * var(--modal-font-size));
 		transition: all 0.2s ease;
 	}
 
 	.cancel-btn {
 		background: rgba(255, 255, 255, 0.1);
-		color: rgba(255, 255, 255, 0.7);
+		background: color-mix(in srgb, var(--modal-text, white) 14%, transparent);
+		color: var(--modal-text, rgba(255, 255, 255, 0.7));
 	}
 
 	.cancel-btn:hover {
 		background: rgba(255, 255, 255, 0.2);
-		color: white;
+		background: color-mix(in srgb, var(--modal-text, white) 26%, transparent);
+		color: var(--modal-title-color, white);
 	}
 
 	.save-btn {
-		background: rgba(120, 160, 200, 0.85);
-		color: white;
+		background: var(--modal-accent, rgba(120, 160, 200, 0.85));
+		color: var(--modal-accent-fg, white);
 	}
 
 	.save-btn:hover {
-		background: rgba(120, 160, 200, 1);
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 80%, white);
 	}
 
 	.bg-select {
 		width: 100%;
-		padding: 8px 12px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		border-radius: 6px;
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		background-color: rgba(30, 30, 40, 0.9);
-		color: white;
-		font-size: 0.875rem;
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		background-color: var(--modal-input-bg, rgba(30, 30, 40, 0.9));
+		color: var(--modal-text, white);
+		font-size: calc(1 * var(--modal-font-size));
 		cursor: pointer;
 		outline: none;
 		-webkit-appearance: none;
@@ -999,15 +1303,15 @@
 		background-repeat: no-repeat;
 		background-position: right 12px top 50%;
 		background-size: 12px auto;
-		padding-right: 36px;
+		padding-right: calc(2.5714 * var(--modal-font-size));
 	}
 
 	.bg-select:hover {
-		border-color: rgba(255, 255, 255, 0.3);
+		border-color: var(--modal-input-border, rgba(255, 255, 255, 0.3));
 	}
 
 	.bg-select:focus {
-		border-color: rgba(120, 160, 200, 0.8);
+		border-color: var(--modal-accent, rgba(120, 160, 200, 0.8));
 	}
 
 	.bg-select option {
@@ -1018,117 +1322,121 @@
 	.checkbox-label {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		color: rgba(255, 255, 255, 0.8);
-		font-size: 0.875rem;
+		gap: calc(0.7143 * var(--modal-font-size));
+		color: var(--modal-text, rgba(255, 255, 255, 0.8));
+		font-size: calc(1 * var(--modal-font-size));
 		cursor: pointer;
 	}
 
 	.checkbox-label input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: rgba(120, 160, 200, 0.9);
+		width: calc(1.2857 * var(--modal-font-size));
+		height: calc(1.2857 * var(--modal-font-size));
+		accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
 		cursor: pointer;
 	}
 
 	.setting-hint {
-		margin: -2px 0 12px 28px;
-		color: rgba(255, 255, 255, 0.45);
-		font-size: 0.75rem;
+		margin: -calc(0.1429 * var(--modal-font-size)) 0 calc(0.8571 * var(--modal-font-size))
+			calc(2 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.45));
+		font-size: calc(0.8571 * var(--modal-font-size));
 		line-height: 1.4;
 	}
 
 	.position-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 8px;
-		max-width: 120px;
+		gap: calc(0.5714 * var(--modal-font-size));
+		max-width: calc(8.5714 * var(--modal-font-size));
 		margin: 0 auto;
 	}
 
 	.position-btn {
-		width: 32px;
-		height: 32px;
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		background: rgba(0, 0, 0, 0.3);
-		color: rgba(255, 255, 255, 0.6);
+		width: calc(2.2857 * var(--modal-font-size));
+		height: calc(2.2857 * var(--modal-font-size));
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		background: var(--modal-input-bg, rgba(0, 0, 0, 0.3));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.6));
 		border-radius: 6px;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 1rem;
+		font-size: calc(1.1429 * var(--modal-font-size));
 		transition: all 0.2s ease;
 	}
 
 	.position-btn:hover {
 		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.3);
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 22%, transparent);
+		border-color: var(--modal-input-border, rgba(255, 255, 255, 0.3));
 	}
 
 	.position-btn.active {
 		background: rgba(120, 160, 200, 0.5);
-		border-color: rgba(120, 160, 200, 0.8);
-		color: white;
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 55%, transparent);
+		border-color: var(--modal-accent, rgba(120, 160, 200, 0.8));
+		color: var(--modal-title-color, white);
 	}
 
 	.position-labels {
 		text-align: center;
-		margin-top: 8px;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.75rem;
+		margin-top: calc(0.5714 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
+		font-size: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.preset-select-row,
 	.preset-save-row {
 		display: flex;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 		align-items: center;
 	}
 
 	.preset-input {
 		flex: 1;
-		padding: 8px 12px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		border-radius: 6px;
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		background: rgba(30, 30, 40, 0.9);
-		color: white;
-		font-size: 0.875rem;
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		background: var(--modal-input-bg, rgba(30, 30, 40, 0.9));
+		color: var(--modal-text, white);
+		font-size: calc(1 * var(--modal-font-size));
 		outline: none;
 	}
 
 	.preset-input:focus {
-		border-color: rgba(120, 160, 200, 0.8);
+		border-color: var(--modal-accent, rgba(120, 160, 200, 0.8));
 	}
 
 	.preset-actions {
 		display: flex;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 		flex-wrap: wrap;
 		align-items: center;
 	}
 
 	.preset-action-btn {
-		padding: 6px 12px;
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		border-radius: 6px;
 		border: none;
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: calc(1 * var(--modal-font-size));
 		transition: all 0.2s ease;
 		background: rgba(255, 255, 255, 0.1);
-		color: rgba(255, 255, 255, 0.8);
+		color: var(--modal-text, rgba(255, 255, 255, 0.8));
 	}
 
 	.preset-action-btn:hover {
 		background: rgba(255, 255, 255, 0.2);
-		color: white;
+		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 26%, transparent);
+		color: var(--modal-title-color, white);
 	}
 
 	.preset-message {
-		padding: 8px 12px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		border-radius: 6px;
-		font-size: 0.875rem;
-		margin-top: 4px;
+		font-size: calc(1 * var(--modal-font-size));
+		margin-top: calc(0.2857 * var(--modal-font-size));
 	}
 
 	.preset-message.error {
@@ -1144,7 +1452,7 @@
 	}
 
 	.settings-content::-webkit-scrollbar {
-		width: 8px;
+		width: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.settings-content::-webkit-scrollbar-track {
@@ -1163,60 +1471,60 @@
 	.key-shortcuts {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.key-shortcut-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 8px 12px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 10px;
+		border: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.1));
+		border-radius: var(--modal-control-radius, 10px);
 	}
 
 	.key-combo {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: calc(0.4286 * var(--modal-font-size));
 	}
 
 	.key-combo kbd {
 		font-family: monospace;
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.12);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 6px;
-		padding: 4px 10px;
-		color: rgba(255, 255, 255, 0.9);
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		border-radius: var(--modal-control-radius, 6px);
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
+		color: var(--modal-text, rgba(255, 255, 255, 0.9));
 	}
 
 	.key-mouse {
 		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 6px;
-		padding: 4px 10px;
-		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.85rem;
+		border: 1px solid var(--modal-divider, rgba(255, 255, 255, 0.15));
+		border-radius: var(--modal-control-radius, 6px);
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
+		color: var(--modal-text, rgba(255, 255, 255, 0.9));
+		font-size: calc(0.9714 * var(--modal-font-size));
 	}
 
 	.key-desc {
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.85rem;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
+		font-size: calc(0.9714 * var(--modal-font-size));
 		text-align: right;
 	}
 
 	.key-hint {
-		color: rgba(255, 255, 255, 0.35);
-		font-size: 0.85rem;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.35));
+		font-size: calc(0.9714 * var(--modal-font-size));
 		font-style: italic;
 		margin: 0;
 	}
 
 	.settings-note {
-		color: rgba(255, 255, 255, 0.55);
-		font-size: 0.85rem;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.55));
+		font-size: calc(0.9714 * var(--modal-font-size));
 		line-height: 1.45;
 		margin: 0;
 	}

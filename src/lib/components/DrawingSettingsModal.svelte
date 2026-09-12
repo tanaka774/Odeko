@@ -33,7 +33,13 @@
 	}
 </script>
 
-<SettingsModalShell bind:isOpen title="Drawing Settings" onClose={handleClose} onSave={handleSave}>
+<SettingsModalShell
+	modalKey="drawing"
+	bind:isOpen
+	title="Drawing Settings"
+	onClose={handleClose}
+	onSave={handleSave}
+>
 	<div class="settings-form">
 		<WidgetAppearanceSettings
 			widgetType="drawing"

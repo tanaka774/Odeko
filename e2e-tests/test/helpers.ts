@@ -7,10 +7,24 @@ import { $, browser } from '@wdio/globals';
  * WebDriver's key synthesis on WebKitGTK.
  */
 export async function enterEditMode() {
-	// Remove zombie modal overlays first: Svelte's fade-out outro can hang when
-	// the WebKitGTK window throttles rAF (the e2e window is unfocused), leaving
-	// closed dialogs in the DOM. The app ignores the F2 toggle while any
-	// `[role="dialog"][aria-modal="true"]` exists, so clean them up.
+	// Close dialogs left open by a previous (possibly failed) spec first.
+	// Clicking Cancel goes through the app's own state, so a later open still
+	// works; force-removing the node instead would leave the parent's
+	// `isOpen` flag stuck at true and the dialog would never come back.
+	await browser.execute(() => {
+		document.querySelectorAll('[role="dialog"][aria-modal="true"]').forEach((el) => {
+			const cancel = Array.from(el.querySelectorAll('button')).find(
+				(button) => button.textContent?.trim() === 'Cancel'
+			);
+			cancel?.click();
+		});
+	});
+	await browser.pause(200);
+
+	// Remove any leftover overlays (Svelte's fade-out outro can hang when the
+	// WebKitGTK window throttles rAF: the e2e window is unfocused). The app
+	// ignores the F2 toggle while any `[role="dialog"][aria-modal="true"]`
+	// exists, so clean them up.
 	await browser.execute(() => {
 		document.querySelectorAll('[role="dialog"][aria-modal="true"]').forEach((el) => el.remove());
 	});

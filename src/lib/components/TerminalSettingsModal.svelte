@@ -32,7 +32,13 @@
 	}
 </script>
 
-<SettingsModalShell bind:isOpen title="Terminal Settings" onClose={handleClose} onSave={handleSave}>
+<SettingsModalShell
+	modalKey="terminal"
+	bind:isOpen
+	title="Terminal Settings"
+	onClose={handleClose}
+	onSave={handleSave}
+>
 	<div class="settings-form">
 		<WidgetAppearanceSettings
 			widgetType="terminal"

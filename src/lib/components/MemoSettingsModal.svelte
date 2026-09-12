@@ -45,6 +45,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="memo"
 	bind:isOpen
 	title="Memo Settings"
 	onClose={handleClose}

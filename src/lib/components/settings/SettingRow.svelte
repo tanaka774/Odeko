@@ -18,13 +18,13 @@
 	.setting-row {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.setting-label {
 		display: block;
-		color: rgba(255, 255, 255, 0.9);
+		color: var(--modal-text, rgba(255, 255, 255, 0.9));
 		font-weight: 600;
-		font-size: 0.9rem;
+		font-size: calc(1.0286 * var(--modal-font-size));
 	}
 </style>

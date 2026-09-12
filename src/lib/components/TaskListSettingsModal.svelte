@@ -106,6 +106,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="tasklist"
 	bind:isOpen
 	title="Task List Settings"
 	onClose={handleClose}
@@ -284,12 +285,12 @@
 	.stats-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 12px;
+		gap: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.stat-item {
 		background: rgba(255, 255, 255, 0.05);
-		padding: 16px;
+		padding: calc(1.1429 * var(--modal-font-size));
 		border-radius: 8px;
 		text-align: center;
 	}
@@ -297,30 +298,30 @@
 	.stat-value {
 		display: block;
 		color: white;
-		font-size: 24px;
+		font-size: calc(1.7143 * var(--modal-font-size));
 		font-weight: 700;
-		margin-bottom: 4px;
+		margin-bottom: calc(0.2857 * var(--modal-font-size));
 	}
 
 	.stat-label {
 		display: block;
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 12px;
+		font-size: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.group-editor {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 8px 10px;
-		margin-bottom: 8px;
+		gap: calc(0.7143 * var(--modal-font-size));
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
+		margin-bottom: calc(0.5714 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: 8px;
 	}
 
 	.group-color-input {
-		width: 32px;
-		height: 32px;
+		width: calc(2.2857 * var(--modal-font-size));
+		height: calc(2.2857 * var(--modal-font-size));
 		padding: 0;
 		border: none;
 		border-radius: 6px;
@@ -332,12 +333,12 @@
 	.group-name-input {
 		flex: 1;
 		min-width: 0;
-		padding: 8px 10px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
 		background: rgba(0, 0, 0, 0.3);
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		border-radius: 6px;
 		color: white;
-		font-size: 14px;
+		font-size: calc(1 * var(--modal-font-size));
 		outline: none;
 	}
 
@@ -347,13 +348,13 @@
 
 	.group-task-count {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 12px;
+		font-size: calc(0.8571 * var(--modal-font-size));
 		white-space: nowrap;
 	}
 
 	.group-delete-btn {
-		width: 30px;
-		height: 30px;
+		width: calc(2.1429 * var(--modal-font-size));
+		height: calc(2.1429 * var(--modal-font-size));
 		padding: 0;
 		display: flex;
 		align-items: center;

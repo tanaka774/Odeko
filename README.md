@@ -69,7 +69,7 @@ npm run tauri build
 - [ ] Multi-monitor placement
 - [ ] ai chat widget
 - [ ] unaji mode (background mode)
-- [ ] customization for settings modal
+- [x] customization for settings modal
 - [ ] tray or taskbar
 - [ ] improve bulk style applying to icons
 - [ ] more fancy effects

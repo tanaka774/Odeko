@@ -43,6 +43,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="custom"
 	bind:isOpen
 	title="Custom HTML Settings"
 	onClose={handleClose}
@@ -126,24 +127,24 @@
 <style>
 	.hint {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.85rem;
-		margin: 8px 0 0;
+		font-size: calc(0.9714 * var(--modal-font-size));
+		margin: calc(0.5714 * var(--modal-font-size)) 0 0;
 	}
 
 	.preview-box {
-		margin-top: 12px;
+		margin-top: calc(0.8571 * var(--modal-font-size));
 	}
 
 	.preview-label {
 		display: block;
-		font-size: 0.8rem;
+		font-size: calc(0.9143 * var(--modal-font-size));
 		color: rgba(255, 255, 255, 0.5);
-		margin-bottom: 6px;
+		margin-bottom: calc(0.4286 * var(--modal-font-size));
 	}
 
 	.preview-surface {
 		width: 100%;
-		height: 240px;
+		height: calc(17.1429 * var(--modal-font-size));
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		border-radius: 8px;
 		overflow: hidden;
@@ -154,20 +155,20 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 8px;
-		padding: 6px 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.06);
 		border-radius: 6px;
 	}
 
 	.grant-host {
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		word-break: break-all;
 	}
 
 	.grant-revoke {
 		flex-shrink: 0;
-		padding: 4px 10px;
+		padding: calc(0.2857 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 6px;
 		background: rgba(255, 255, 255, 0.08);
@@ -178,8 +179,8 @@
 	.toggle-row {
 		display: flex;
 		align-items: flex-start;
-		gap: 8px;
-		font-size: 0.85rem;
+		gap: calc(0.5714 * var(--modal-font-size));
+		font-size: calc(0.9714 * var(--modal-font-size));
 		color: rgba(255, 255, 255, 0.7);
 		cursor: pointer;
 	}

@@ -60,6 +60,12 @@
 
 	let activeTab = $state('settings');
 	let recorderValue = $state<KeybindConfig>({ ...EMPTY_KEYBIND });
+
+	const modalKey = $derived(
+		widgetType === 'sleep' || widgetType === 'restart' || widgetType === 'shutdown'
+			? widgetType
+			: undefined
+	);
 	let localKeybindGlobal = $state(false);
 
 	let localConfig = $state<PowerControlWidgetConfig>({
@@ -162,6 +168,7 @@
 
 <SettingsModalShell
 	bind:isOpen
+	{modalKey}
 	title="{widgetName} Settings"
 	onClose={handleClose}
 	onSave={handleSave}
@@ -283,13 +290,13 @@
 <style>
 	.hint {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		margin: 0;
-		margin-top: -6px;
+		margin-top: -calc(0.4286 * var(--modal-font-size));
 	}
 
 	.custom-icon-section {
-		padding: 12px;
+		padding: calc(0.8571 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: 8px;
 	}
@@ -299,28 +306,28 @@
 	}
 
 	.keybind-error {
-		margin: 4px 0 0 0;
-		padding: 6px 10px;
+		margin: calc(0.2857 * var(--modal-font-size)) 0 0 0;
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 100, 100, 0.4);
 		border-radius: 6px;
 		color: rgba(255, 200, 200, 0.95);
-		font-size: 0.8rem;
+		font-size: calc(0.9143 * var(--modal-font-size));
 	}
 
 	.button-row {
 		display: flex;
-		gap: 10px;
+		gap: calc(0.7143 * var(--modal-font-size));
 		align-items: center;
 	}
 
 	.select-btn {
-		padding: 8px 16px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
 		background: rgba(120, 160, 200, 0.85);
 		border: none;
 		border-radius: 6px;
 		color: white;
-		font-size: 14px;
+		font-size: calc(1 * var(--modal-font-size));
 		font-weight: 500;
 		cursor: pointer;
 		transition: background 0.2s ease;
@@ -331,12 +338,12 @@
 	}
 
 	.reset-btn {
-		padding: 8px 16px;
+		padding: calc(0.5714 * var(--modal-font-size)) calc(1.1429 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.1);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 6px;
 		color: rgba(255, 255, 255, 0.8);
-		font-size: 14px;
+		font-size: calc(1 * var(--modal-font-size));
 		cursor: pointer;
 		transition: all 0.2s ease;
 	}
@@ -347,8 +354,8 @@
 
 	.file-path {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 12px;
-		margin: 8px 0 0 0;
+		font-size: calc(0.8571 * var(--modal-font-size));
+		margin: calc(0.5714 * var(--modal-font-size)) 0 0 0;
 		word-break: break-all;
 	}
 </style>

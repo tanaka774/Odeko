@@ -85,6 +85,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="slideshow"
 	bind:isOpen
 	title="Slideshow Settings"
 	onClose={handleClose}
@@ -179,13 +180,13 @@
 	.image-list {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		max-height: 200px;
+		gap: calc(0.5714 * var(--modal-font-size));
+		max-height: calc(14.2857 * var(--modal-font-size));
 		overflow-y: auto;
 	}
 
 	.image-list::-webkit-scrollbar {
-		width: 6px;
+		width: calc(0.4286 * var(--modal-font-size));
 	}
 
 	.image-list::-webkit-scrollbar-track {
@@ -203,23 +204,23 @@
 
 	.image-empty {
 		color: rgba(255, 255, 255, 0.4);
-		font-size: 0.85rem;
-		padding: 12px;
+		font-size: calc(0.9714 * var(--modal-font-size));
+		padding: calc(0.8571 * var(--modal-font-size));
 		text-align: center;
 	}
 
 	.image-item {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 6px 8px;
+		gap: calc(0.7143 * var(--modal-font-size));
+		padding: calc(0.4286 * var(--modal-font-size)) calc(0.5714 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: 8px;
 	}
 
 	.image-thumb {
-		width: 40px;
-		height: 30px;
+		width: calc(2.8571 * var(--modal-font-size));
+		height: calc(2.1429 * var(--modal-font-size));
 		object-fit: cover;
 		border-radius: 4px;
 		flex-shrink: 0;
@@ -228,7 +229,7 @@
 	.image-name {
 		flex: 1;
 		color: rgba(255, 255, 255, 0.7);
-		font-size: 0.8rem;
+		font-size: calc(0.9143 * var(--modal-font-size));
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -239,8 +240,8 @@
 		border: none;
 		color: rgba(255, 100, 100, 0.6);
 		cursor: pointer;
-		font-size: 0.9rem;
-		padding: 2px 6px;
+		font-size: calc(1.0286 * var(--modal-font-size));
+		padding: calc(0.1429 * var(--modal-font-size)) calc(0.4286 * var(--modal-font-size));
 		border-radius: 4px;
 		transition: all 0.2s ease;
 		flex-shrink: 0;
@@ -253,13 +254,13 @@
 
 	.add-images-btn {
 		width: 100%;
-		padding: 10px;
+		padding: calc(0.7143 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.08);
 		border: 1px dashed rgba(255, 255, 255, 0.2);
 		border-radius: 8px;
 		color: rgba(255, 255, 255, 0.7);
 		cursor: pointer;
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		transition: all 0.2s ease;
 	}
 
@@ -272,9 +273,9 @@
 	.checkbox-label {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 		color: rgba(255, 255, 255, 0.8);
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		cursor: pointer;
 	}
 

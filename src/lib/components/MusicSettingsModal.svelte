@@ -52,6 +52,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="music"
 	bind:isOpen
 	title="Music Player Settings"
 	onClose={handleClose}
@@ -118,7 +119,7 @@
 <style>
 	.hint {
 		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.85rem;
+		font-size: calc(0.9714 * var(--modal-font-size));
 		margin: 0;
 	}
 </style>

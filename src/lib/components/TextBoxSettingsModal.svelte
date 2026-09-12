@@ -66,6 +66,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="textbox"
 	bind:isOpen
 	title="Text Box Settings"
 	onClose={handleClose}
@@ -175,17 +176,17 @@
 <style>
 	.align-buttons {
 		display: flex;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.align-btn {
 		flex: 1;
-		padding: 10px;
+		padding: calc(0.7143 * var(--modal-font-size));
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 6px;
 		cursor: pointer;
-		font-size: 1.2rem;
+		font-size: calc(1.3714 * var(--modal-font-size));
 		transition: all 0.2s ease;
 		color: white;
 	}
@@ -202,15 +203,15 @@
 	.edge-checkboxes {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 8px;
+		gap: calc(0.5714 * var(--modal-font-size));
 	}
 
 	.preview-box {
-		padding: 16px;
+		padding: calc(1.1429 * var(--modal-font-size));
 		background: rgba(0, 0, 0, 0.3);
 		border-radius: 8px;
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		min-height: 80px;
+		min-height: calc(5.7143 * var(--modal-font-size));
 		color: white;
 		line-height: 1.5;
 		transition: all 0.2s ease;

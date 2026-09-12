@@ -68,6 +68,7 @@
 </script>
 
 <SettingsModalShell
+	modalKey="weather"
 	bind:isOpen
 	title="Weather Settings"
 	onClose={handleClose}
