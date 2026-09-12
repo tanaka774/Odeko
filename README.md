@@ -62,7 +62,7 @@ npm run tauri build
 
 ## TODO
 
-- [ ] autostart
+- [x] autostart
 - [ ] browser widget
 - [ ] smooth preset change
 - [ ] improve custom html
