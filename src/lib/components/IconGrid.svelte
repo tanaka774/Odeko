@@ -13,7 +13,7 @@
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import { settingsStore, matchesKeybind, type KeybindConfig } from '$lib/stores/settings.svelte';
 	import { createEditSession } from '$lib/edit-session.svelte';
-	import { setBulkAppearanceHandler } from '$lib/bulk-appearance';
+	import { mergeIconAppearance, setBulkAppearanceHandler } from '$lib/bulk-appearance';
 	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 	import type { CanvasIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
@@ -512,18 +512,11 @@
 		editSession.markDirty();
 	}
 
-	// Bulk "apply this look to every icon and widget". Icons carry their
-	// appearance on the icon itself; widgets carry it inside widget_config.
+	// Bulk "apply these appearance properties to every icon and widget"; each
+	// icon keeps the properties the patch leaves out.
 	function handleBulkAppearanceChange(appearance: WidgetAppearanceConfig) {
 		saveToHistory();
-		icons = icons.map((icon) =>
-			icon.icon_type === 'widget'
-				? {
-						...icon,
-						widget_config: Object.assign({}, icon.widget_config, { appearance })
-					}
-				: { ...icon, appearance }
-		);
+		icons = icons.map((icon) => mergeIconAppearance(icon, appearance));
 		if (isEditMode) {
 			editSession.markDirty();
 		} else {

@@ -114,30 +114,79 @@ describe('WidgetAppearanceSettings grouping', () => {
 });
 
 describe('WidgetAppearanceSettings apply to all', () => {
-	it('dispatches the effective look to the bulk handler, minus custom CSS', async () => {
+	function bulkCheckbox(name: RegExp): HTMLInputElement {
+		return screen.getByRole('checkbox', { name }) as HTMLInputElement;
+	}
+
+	function applyButton(name: RegExp = /apply to all/i): HTMLButtonElement {
+		return screen.getByRole('button', { name }) as HTMLButtonElement;
+	}
+
+	it('applies only the checked properties, and no custom CSS keys', async () => {
 		const handler = vi.fn();
 		setBulkAppearanceHandler(handler);
 
 		render(WidgetAppearanceSettings, {
-			appearance: { backgroundColor: '#112233', customCssEnabled: true, customCss: 'x{}' },
+			appearance: { backgroundColor: '#112233', customCss: 'x{}' },
 			defaults: { padding: 4 },
 			applyToAll: true
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /apply to all/i }));
+		await fireEvent.click(bulkCheckbox(/apply background color to all icons/i));
+		await fireEvent.click(applyButton(/apply 1 property to all/i));
 
 		expect(handler).toHaveBeenCalledTimes(1);
-		const payload = handler.mock.calls[0][0];
-		expect(payload.backgroundColor).toBe('#112233');
-		expect(payload.padding).toBe(4);
-		expect(payload.customCss).toBeUndefined();
-		expect(payload.customCssEnabled).toBeUndefined();
+		expect(handler.mock.calls[0][0]).toEqual({ backgroundColor: '#112233' });
+	});
+
+	it('keeps the button disabled until at least one property is checked', async () => {
+		render(WidgetAppearanceSettings, {
+			appearance: {},
+			defaults: { padding: 4 },
+			applyToAll: true
+		});
+
+		const button = applyButton();
+		expect(button.disabled).toBe(true);
+
+		await fireEvent.click(bulkCheckbox(/apply padding to all icons/i));
+
+		expect(button.disabled).toBe(false);
+		expect(button.textContent?.trim()).toBe('Apply 1 property to all');
+	});
+
+	it('counts properties and drops one again when unchecked', async () => {
+		const handler = vi.fn();
+		setBulkAppearanceHandler(handler);
+
+		render(WidgetAppearanceSettings, {
+			appearance: {},
+			defaults: { padding: 4 },
+			applyToAll: true
+		});
+
+		const padding = bulkCheckbox(/apply padding to all icons/i);
+		await fireEvent.click(padding);
+		await fireEvent.click(bulkCheckbox(/apply corner radius to all icons/i));
+
+		expect(applyButton(/apply 2 properties to all/i)).toBeTruthy();
+
+		await fireEvent.click(padding);
+		await fireEvent.click(applyButton(/apply 1 property to all/i));
+
+		expect(handler.mock.calls[0][0]).toEqual({ borderRadius: 12 });
 	});
 
 	it('hides the apply-to-all button by default (bulk apply is opt-in)', () => {
 		render(WidgetAppearanceSettings, { appearance: {} });
 
 		expect(screen.queryByRole('button', { name: /apply to all/i })).toBeNull();
+	});
+
+	it('renders no bulk checkboxes outside the bulk editor', () => {
+		render(WidgetAppearanceSettings, { appearance: {} });
+
+		expect(screen.queryByRole('checkbox', { name: /to all icons/i })).toBeNull();
 	});
 
 	it('hides the custom CSS controls when hideCustomCss is set', () => {

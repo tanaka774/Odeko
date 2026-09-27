@@ -28,8 +28,6 @@
 		hideCustomCss?: boolean;
 		/** Show the bulk "Apply to all" button. */
 		applyToAll?: boolean;
-		/** Button label for the bulk apply action. */
-		applyToAllLabel?: string;
 	}
 
 	let {
@@ -42,8 +40,7 @@
 		hideCustomCss = false,
 		// Off by default: bulk apply is a global action, shown only in the
 		// canvas settings' "Icon Appearance" tab.
-		applyToAll = false,
-		applyToAllLabel = 'Apply to all'
+		applyToAll = false
 	}: Props = $props();
 
 	const borderStyleOptions: { value: WidgetBorderStyle; label: string }[] = [
@@ -70,18 +67,39 @@
 		};
 	}
 
-	function handleApplyToAll() {
-		// Stamp the full effective look onto every icon. Custom CSS keys and
-		// fields this editor hides are excluded: custom CSS is per-icon, and a
-		// hidden field is structural for this icon type.
-		const full = getWidgetAppearance({ appearance }, defaults) as Partial<WidgetAppearanceConfig>;
-		delete full.customCss;
-		delete full.customCssEnabled;
-		for (const field of hideFields) {
-			delete full[field];
-		}
-		applyAppearanceToAllItems(full);
+	// Bulk mode only: the checked properties form the patch the "apply to all"
+	// button pushes, so unchecked ones keep each icon's own value.
+	let bulkFields = $state<Set<WidgetAppearanceField>>(new Set());
+
+	function toggleBulkField(field: WidgetAppearanceField, checked: boolean) {
+		const next = new Set(bulkFields);
+		if (checked) next.add(field);
+		else next.delete(field);
+		bulkFields = next;
 	}
+
+	function bulkSelect(field: WidgetAppearanceField, name: string) {
+		if (!applyToAll) return undefined;
+		return {
+			checked: bulkFields.has(field),
+			label: `Apply ${name} to all icons`,
+			onchange: (checked: boolean) => toggleBulkField(field, checked)
+		};
+	}
+
+	function handleApplyToAll() {
+		const resolved = getWidgetAppearance({ appearance }, defaults);
+		const patch = Object.fromEntries(
+			[...bulkFields].map((field) => [field, resolved[field]])
+		) as WidgetAppearanceConfig;
+		applyAppearanceToAllItems(patch);
+	}
+
+	const applyToAllText = $derived(
+		bulkFields.size === 0
+			? 'Apply to all'
+			: `Apply ${bulkFields.size} ${bulkFields.size === 1 ? 'property' : 'properties'} to all`
+	);
 </script>
 
 <SettingSection {title}>
@@ -155,7 +173,11 @@
 				<p class="appearance-group-label">Fill</p>
 
 				{#if !hideFields.includes('backgroundColor')}
-					<SettingRow label="Background Color" labelFor="widget-background-color">
+					<SettingRow
+						label="Background Color"
+						labelFor="widget-background-color"
+						select={bulkSelect('backgroundColor', 'Background Color')}
+					>
 						<div class="color-control">
 							<input
 								id="widget-background-color"
@@ -179,6 +201,7 @@
 					<SettingRow
 						label="Background Opacity: {Math.round(resolvedAppearance.backgroundOpacity * 100)}%"
 						labelFor="widget-background-opacity"
+						select={bulkSelect('backgroundOpacity', 'Background Opacity')}
 					>
 						<input
 							id="widget-background-opacity"
@@ -204,6 +227,7 @@
 					<SettingRow
 						label="Font Size: {resolvedAppearance.fontSize}px"
 						labelFor="widget-font-size"
+						select={bulkSelect('fontSize', 'Font Size')}
 					>
 						<input
 							id="widget-font-size"
@@ -219,7 +243,11 @@
 				{/if}
 
 				{#if !hideFields.includes('fontFamily')}
-					<SettingRow label="Font Family" labelFor="widget-font-family">
+					<SettingRow
+						label="Font Family"
+						labelFor="widget-font-family"
+						select={bulkSelect('fontFamily', 'Font Family')}
+					>
 						<input
 							id="widget-font-family"
 							class="text-input"
@@ -232,7 +260,11 @@
 				{/if}
 
 				{#if !hideFields.includes('textColor')}
-					<SettingRow label="Text Color" labelFor="widget-text-color">
+					<SettingRow
+						label="Text Color"
+						labelFor="widget-text-color"
+						select={bulkSelect('textColor', 'Text Color')}
+					>
 						<div class="color-control">
 							<input
 								id="widget-text-color"
@@ -257,7 +289,11 @@
 				<p class="appearance-group-label">Border</p>
 
 				{#if !hideFields.includes('borderStyle')}
-					<SettingRow label="Border Style" labelFor="widget-border-style">
+					<SettingRow
+						label="Border Style"
+						labelFor="widget-border-style"
+						select={bulkSelect('borderStyle', 'Border Style')}
+					>
 						<select
 							id="widget-border-style"
 							class="select-input"
@@ -279,6 +315,7 @@
 						<SettingRow
 							label="Border Width: {resolvedAppearance.borderWidth}px"
 							labelFor="widget-border-width"
+							select={bulkSelect('borderWidth', 'Border Width')}
 						>
 							<input
 								id="widget-border-width"
@@ -295,7 +332,11 @@
 					{/if}
 
 					{#if !hideFields.includes('borderColor')}
-						<SettingRow label="Border Color" labelFor="widget-border-color">
+						<SettingRow
+							label="Border Color"
+							labelFor="widget-border-color"
+							select={bulkSelect('borderColor', 'Border Color')}
+						>
 							<div class="color-control">
 								<input
 									id="widget-border-color"
@@ -324,6 +365,7 @@
 					<SettingRow
 						label="Corner Radius: {resolvedAppearance.borderRadius}px"
 						labelFor="widget-border-radius"
+						select={bulkSelect('borderRadius', 'Corner Radius')}
 					>
 						<input
 							id="widget-border-radius"
@@ -340,7 +382,11 @@
 				{/if}
 
 				{#if !hideFields.includes('padding')}
-					<SettingRow label="Padding: {resolvedAppearance.padding}px" labelFor="widget-padding">
+					<SettingRow
+						label="Padding: {resolvedAppearance.padding}px"
+						labelFor="widget-padding"
+						select={bulkSelect('padding', 'Padding')}
+					>
 						<input
 							id="widget-padding"
 							class="range-input"
@@ -363,6 +409,7 @@
 				<SettingRow
 					label="{opacityLabel}: {Math.round(resolvedAppearance.opacity * 100)}%"
 					labelFor="widget-opacity"
+					select={bulkSelect('opacity', opacityLabel)}
 				>
 					<input
 						id="widget-opacity"
@@ -381,8 +428,16 @@
 
 	{#if applyToAll}
 		<div class="apply-to-all-row">
-			<button type="button" class="apply-to-all-btn" onclick={handleApplyToAll}>
-				{applyToAllLabel}
+			<p class="apply-to-all-hint">
+				Checked properties are applied to every icon; unchecked ones keep each icon's own style.
+			</p>
+			<button
+				type="button"
+				class="apply-to-all-btn"
+				disabled={bulkFields.size === 0}
+				onclick={handleApplyToAll}
+			>
+				{applyToAllText}
 			</button>
 		</div>
 	{/if}
@@ -391,7 +446,16 @@
 <style>
 	.apply-to-all-row {
 		display: flex;
-		justify-content: flex-end;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: calc(0.5714 * var(--modal-font-size));
+	}
+
+	.apply-to-all-hint {
+		margin: 0;
+		color: var(--modal-muted, rgba(255, 255, 255, 0.55));
+		font-size: calc(0.8571 * var(--modal-font-size));
+		text-align: right;
 	}
 
 	.apply-to-all-btn {
@@ -407,8 +471,13 @@
 			border-color 0.15s ease;
 	}
 
-	.apply-to-all-btn:hover {
+	.apply-to-all-btn:hover:not(:disabled) {
 		background: rgba(255, 255, 255, 0.14);
 		border-color: rgba(255, 255, 255, 0.3);
+	}
+
+	.apply-to-all-btn:disabled {
+		cursor: default;
+		opacity: 0.45;
 	}
 </style>

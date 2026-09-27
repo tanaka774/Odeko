@@ -718,10 +718,11 @@
 								</section>
 							{:else if activeTab === 'items'}
 								<section class="settings-section">
-									<h3>Default Icon Appearance</h3>
+									<h3>Icon Style Defaults</h3>
 									<p class="settings-note">
-										Applied to new icons as their default style. Font settings only affect icons
-										that show text.
+										New icons start from these values. Check a property to also apply it to every
+										existing icon — unchecked properties keep each icon's own style. Font settings
+										only affect icons that show text.
 									</p>
 									<WidgetAppearanceSettings
 										title=""
