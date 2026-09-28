@@ -4,7 +4,11 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import { TEXT_APPEARANCE_FIELDS, type ClockWidgetConfig } from '$lib/widgets/types';
+	import {
+		TEXT_APPEARANCE_FIELDS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type ClockWidgetConfig
+	} from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -61,12 +65,6 @@
 		{ value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
 		{ value: 'Pacific/Auckland', label: 'Auckland (NZST/NZDT)' }
 	];
-
-	const defaultAppearance = {
-		backgroundColor: 'rgba(0, 0, 0, 0.3)',
-		backgroundOpacity: 0.3,
-		padding: 16
-	};
 
 	function getBackgroundOpacityPercent() {
 		return Math.round((localConfig.analogBackgroundOpacity ?? 0.75) * 100);
@@ -263,7 +261,7 @@
 				widgetType="clock"
 				bind:appearance={localConfig.appearance}
 				defaults={{
-					...defaultAppearance,
+					...WIDGET_TYPE_APPEARANCE_DEFAULTS.clock,
 					padding: localConfig.displayMode === 'analog' ? 10 : 16
 				}}
 				hideFields={localConfig.displayMode === 'analog' ? TEXT_APPEARANCE_FIELDS : []}

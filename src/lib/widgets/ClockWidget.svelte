@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
-	import type { ClockWidgetConfig, WidgetComponentProps } from './types';
+	import {
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type ClockWidgetConfig,
+		type WidgetComponentProps
+	} from './types';
 
 	type Props = WidgetComponentProps<ClockWidgetConfig>;
 
@@ -29,8 +33,7 @@
 	const analogShowSecondHand = $derived(config.analogShowSecondHand ?? true);
 	const appearance = $derived(
 		getWidgetAppearance(config, {
-			backgroundColor: 'rgba(0, 0, 0, 0.3)',
-			backgroundOpacity: 0.3,
+			...WIDGET_TYPE_APPEARANCE_DEFAULTS.clock,
 			borderRadius,
 			padding: displayMode === 'analog' ? 10 : 16
 		})

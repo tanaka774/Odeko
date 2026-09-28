@@ -143,9 +143,12 @@ export const DEFAULT_MODAL_APPEARANCE: Required<ModalAppearanceConfig> = {
 	customCss: ''
 };
 
-/** Call-site defaults layered above DEFAULT_MODAL_APPEARANCE: the canvas
- *  settings dialog is wider than the per-widget ones. */
+/** The only per-modal base overrides. Every modal is
+ *  DEFAULT_MODAL_APPEARANCE sized unless it is listed here, so this table is
+ *  the single source for a dialog's own size. */
 export const MODAL_BASE_DEFAULTS: Partial<Record<ModalKey, Partial<ModalAppearanceConfig>>> = {
+	// The canvas settings dialog is wider than the per-widget ones; the app
+	// picker needs room for its grid.
 	'app-settings': { width: 750 },
 	'app-picker': { width: 900, height: 820 }
 };
@@ -306,27 +309,28 @@ export function overlayModalAppearance(
 	return out;
 }
 
-function mergeLayers(
-	key: ModalKey,
-	stored: ModalAppearanceStore | undefined,
-	base: Partial<ModalAppearanceConfig>
+/** Everything below a modal's own override: its base from the table (the
+ *  hard-coded default when there is no entry) plus the global layer. */
+export function modalBaseLayers(
+	key: ModalKey | undefined,
+	global?: Partial<ModalAppearanceConfig>
+): Required<ModalAppearanceConfig> {
+	return overlayModalAppearance(key ? MODAL_BASE_DEFAULTS[key] : {}, global);
+}
+
+/** Effective appearance of one modal: base table → global default → this
+ *  modal's stored override → the editor's live draft. */
+export function resolveModalAppearance(
+	key: ModalKey | undefined,
+	stored?: ModalAppearanceStore,
+	draft?: Partial<ModalAppearanceConfig>
 ): Required<ModalAppearanceConfig> {
 	const modals = isRecord(stored?.modals) ? stored.modals : {};
 	return overlayModalAppearance(
-		base,
-		stored?.global,
-		(modals as Record<string, Partial<ModalAppearanceConfig> | undefined>)[key]
+		modalBaseLayers(key, stored?.global),
+		key ? (modals as Record<string, Partial<ModalAppearanceConfig> | undefined>)[key] : undefined,
+		draft
 	);
-}
-
-/** Effective appearance of one modal: hard-coded base → call-site base →
- *  global default → this modal's override. */
-export function resolveModalAppearance(
-	key: ModalKey,
-	stored?: ModalAppearanceStore,
-	base: Partial<ModalAppearanceConfig> = MODAL_BASE_DEFAULTS[key] ?? {}
-): Required<ModalAppearanceConfig> {
-	return mergeLayers(key, stored, base);
 }
 
 /** Fields that differ from the layers below, so stored overrides stay sparse

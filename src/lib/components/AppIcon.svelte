@@ -12,6 +12,7 @@
 	import WidgetCss from '$lib/widgets/WidgetCss.svelte';
 	import {
 		getWidgetAppearance,
+		getCanvasIconAppearanceDefaults,
 		getAppearanceBackground,
 		getAppearanceBorder,
 		colorWithOpacity
@@ -91,15 +92,11 @@
 	);
 
 	// Icons share the widget appearance system. Unset fields fall back to the
-	// icon defaults below.
+	// canvas tile defaults for this icon type.
 	const appearance = $derived(
 		getWidgetAppearance(
 			{ appearance: icon.appearance },
-			{
-				backgroundColor: 'rgba(255, 255, 255, 1)',
-				backgroundOpacity: 0.2,
-				padding: icon.icon_type === 'image' ? 0 : 8
-			}
+			getCanvasIconAppearanceDefaults(icon.icon_type)
 		)
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
@@ -449,7 +446,7 @@
 		justify-content: center;
 		background: var(--appearance-background, rgba(255, 255, 255, 0.2));
 		border: var(--appearance-border, none);
-		border-radius: var(--appearance-border-radius, 24px);
+		border-radius: var(--appearance-border-radius, 12px);
 		color: var(--appearance-text-color, #ffffff);
 		font-size: var(--appearance-font-size, 16px);
 		font-family: var(--appearance-font-family, system-ui);

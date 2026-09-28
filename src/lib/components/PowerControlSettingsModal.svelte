@@ -13,6 +13,7 @@
 	} from '$lib/stores/settings.svelte';
 	import {
 		TEXT_APPEARANCE_FIELDS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
 		type PowerControlWidgetConfig,
 		type WidgetType
 	} from '$lib/widgets/types';
@@ -93,11 +94,9 @@
 		}
 	});
 
-	const defaultAppearance = {
-		backgroundColor: 'rgba(0, 0, 0, 0.3)',
-		backgroundOpacity: 0.3,
-		padding: 16
-	};
+	const defaultAppearance = $derived(
+		(widgetType && WIDGET_TYPE_APPEARANCE_DEFAULTS[widgetType]) || {}
+	);
 
 	let keybindError = $derived.by(() => {
 		if (!recorderValue.key) return null;

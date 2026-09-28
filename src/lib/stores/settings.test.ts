@@ -231,16 +231,15 @@ describe('settings store', () => {
 		const mod = await loadFreshModule();
 		await mod.settingsStore.loadSettings();
 
-		// borderRadius is seeded from the legacy canvas border_radius once,
-		// so existing layouts keep their corners.
+		// borderRadius is not seeded: icons without their own radius fall back
+		// to their type's default (12px).
 		expect(mod.settingsStore.settings.default_appearance).toEqual({
 			backgroundColor: '#112233',
-			opacity: 0.8,
-			borderRadius: 24
+			opacity: 0.8
 		});
 	});
 
-	it('loadSettings seeds the corner radius for a non-object default appearance', async () => {
+	it('loadSettings treats a non-object default appearance as empty', async () => {
 		invokeMock.mockResolvedValueOnce({
 			icons: [],
 			active_preset: null,
@@ -250,7 +249,8 @@ describe('settings store', () => {
 		const mod = await loadFreshModule();
 		await mod.settingsStore.loadSettings();
 
-		expect(mod.settingsStore.settings.default_appearance).toEqual({ borderRadius: 40 });
+		expect(mod.settingsStore.settings.default_appearance).toEqual({});
+		expect(mod.settingsStore.settings.border_radius).toBe(40);
 	});
 
 	it('loadSettings clamps font size and drops malformed font fields', async () => {

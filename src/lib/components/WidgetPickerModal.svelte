@@ -81,7 +81,6 @@
 	modalKey="widget-picker"
 	title="Add Widget"
 	onClose={handleClose}
-	maxWidth="480px"
 	height="auto"
 	footer={null}
 	bodyFlush

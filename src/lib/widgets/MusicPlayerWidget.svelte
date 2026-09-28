@@ -7,7 +7,11 @@
 		getAppearanceBorder,
 		getWidgetAppearance
 	} from './appearance';
-	import type { MusicWidgetConfig, WidgetComponentProps } from './types';
+	import {
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type MusicWidgetConfig,
+		type WidgetComponentProps
+	} from './types';
 
 	type Props = WidgetComponentProps<MusicWidgetConfig>;
 
@@ -38,12 +42,7 @@
 	const showProgressBar = $derived(config.showProgressBar ?? true);
 	const themeColor = $derived(config.themeColor ?? '#86efac');
 	const appearance = $derived(
-		getWidgetAppearance(config, {
-			backgroundColor: 'rgba(0, 0, 0, 0.3)',
-			backgroundOpacity: 0.3,
-			borderRadius,
-			padding: 16
-		})
+		getWidgetAppearance(config, { ...WIDGET_TYPE_APPEARANCE_DEFAULTS.music, borderRadius })
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));

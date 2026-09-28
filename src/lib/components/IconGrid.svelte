@@ -623,28 +623,8 @@
 	}
 
 	function normalizeZ(nextIcons: CanvasIcon[]): CanvasIcon[] {
-		// Legacy icons have no corner radius of their own (it used to come
-		// from the canvas-wide border_radius); freeze the current default
-		// radius onto them once so later default changes only affect new icons.
-		const defaultRadius = settingsStore.settings.default_appearance?.borderRadius;
 		return nextIcons.map((icon, index) => {
 			const normalized = { ...icon, z: icon.z ?? index + 1 };
-			if (normalized.icon_type === 'widget') {
-				const widgetConfig = normalized.widget_config as
-					| { appearance?: WidgetAppearanceConfig }
-					| undefined;
-				if (widgetConfig?.appearance?.borderRadius == null) {
-					// The CRT system monitor keeps structural square corners.
-					const radius = normalized.widget_type === 'system' ? 0 : defaultRadius;
-					if (radius != null) {
-						normalized.widget_config = Object.assign({}, widgetConfig ?? {}, {
-							appearance: Object.assign({}, widgetConfig?.appearance, { borderRadius: radius })
-						}) as WidgetConfigType;
-					}
-				}
-			} else if (normalized.appearance?.borderRadius == null && defaultRadius != null) {
-				normalized.appearance = { ...normalized.appearance, borderRadius: defaultRadius };
-			}
 			if (normalized.icon_type === 'image' && normalized.name) {
 				normalized.name = '';
 			}

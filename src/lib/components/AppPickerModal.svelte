@@ -108,7 +108,6 @@
 	modalKey="app-picker"
 	title="Select Application"
 	onClose={close}
-	maxWidth="900px"
 	footer={selectedApp ? appFooter : null}
 	bodyFlush
 >

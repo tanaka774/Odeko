@@ -8,6 +8,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 import {
 	getWidgetAppearance,
+	getCanvasIconAppearanceDefaults,
 	getGlobalDefaultAppearance,
 	colorWithOpacity,
 	getAppearanceBackground,
@@ -102,14 +103,26 @@ describe('getWidgetAppearance', () => {
 		expect(result.padding).toBe(4);
 	});
 
-	it('exposes the default appearance template from the store', () => {
-		expect(getGlobalDefaultAppearance()).toEqual({ borderRadius: 24 });
+	it('starts from an empty default appearance template', () => {
+		expect(getGlobalDefaultAppearance()).toEqual({});
 	});
 
 	it('ignores a non-object default appearance from older/imported files', () => {
 		settingsStore.updateSettings({ default_appearance: null as never });
 		expect(getGlobalDefaultAppearance()).toEqual({});
 		expect(getWidgetAppearance().backgroundColor).toBe('rgba(0, 0, 0, 0.3)');
+	});
+});
+
+describe('getCanvasIconAppearanceDefaults', () => {
+	it('gives image tiles no padding and app tiles label room', () => {
+		expect(getCanvasIconAppearanceDefaults('image').padding).toBe(0);
+		expect(getCanvasIconAppearanceDefaults('app').padding).toBe(8);
+		expect(getCanvasIconAppearanceDefaults('image').backgroundOpacity).toBe(0.2);
+	});
+
+	it('has no canvas tile defaults for widget icons', () => {
+		expect(getCanvasIconAppearanceDefaults('widget')).toEqual({});
 	});
 });
 

@@ -6,10 +6,9 @@
 	import {
 		diffModalAppearance,
 		modalAppearanceStyle,
+		modalBaseLayers,
 		modalCssScope,
-		overlayModalAppearance,
-		DEFAULT_MODAL_APPEARANCE,
-		MODAL_BASE_DEFAULTS,
+		resolveModalAppearance,
 		type ModalAppearanceConfig,
 		type ModalKey
 	} from './modal-appearance';
@@ -22,7 +21,6 @@
 		onClose: () => void;
 		onSave?: () => void;
 		saveLabel?: string;
-		maxWidth?: string;
 		/** The modal's active tab key. Changes reset the body scroll to the top. */
 		tabKey?: string;
 		/** Which modal this is; enables per-modal appearance customization. */
@@ -42,7 +40,6 @@
 		onClose,
 		onSave,
 		saveLabel = 'Save Changes',
-		maxWidth = '480px',
 		tabKey = '',
 		modalKey,
 		height = 'fixed',
@@ -68,11 +65,6 @@
 		if (bodyEl) bodyEl.scrollTop = 0;
 	});
 
-	const baseDefaults = $derived<Partial<ModalAppearanceConfig>>({
-		...(modalKey ? MODAL_BASE_DEFAULTS[modalKey] : {}),
-		width: Number.parseInt(maxWidth, 10) || DEFAULT_MODAL_APPEARANCE.width
-	});
-
 	const storedLayer = $derived(
 		modalKey ? (settingsStore.settings.modal_appearance?.modals?.[modalKey] ?? {}) : {}
 	);
@@ -80,7 +72,7 @@
 
 	// Everything below this modal's own override; also the diff base used to
 	// keep the stored override sparse.
-	const lowerLayers = $derived(overlayModalAppearance(baseDefaults, globalLayer));
+	const lowerLayers = $derived(modalBaseLayers(modalKey, globalLayer));
 
 	let draft = $state<Partial<ModalAppearanceConfig>>({});
 	let appearanceOpen = $state(false);
@@ -95,7 +87,7 @@
 		});
 	});
 
-	const effective = $derived(overlayModalAppearance(baseDefaults, globalLayer, draft));
+	const effective = $derived(resolveModalAppearance(modalKey, { global: globalLayer }, draft));
 	const modalStyle = $derived(modalAppearanceStyle(effective));
 
 	$effect(() => {
@@ -186,7 +178,7 @@
 						<div class="modal-body appearance-body">
 							<ModalAppearancePanel
 								bind:appearance={draft}
-								base={baseDefaults}
+								base={modalBaseLayers(modalKey)}
 								title="{title} Appearance"
 								onReset={() => (draft = {})}
 							/>

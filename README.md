@@ -71,7 +71,7 @@ npm run tauri build
 - [ ] unaji mode (background mode)
 - [x] customization for settings modal
 - [ ] tray or taskbar
-- [ ] improve bulk style applying to icons
+- [x] improve bulk style applying to icons
 - [ ] more fancy effects
 
 ## Notes

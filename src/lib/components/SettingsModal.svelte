@@ -17,10 +17,10 @@
 	import {
 		diffModalAppearance,
 		modalAppearanceStyle,
+		modalBaseLayers,
 		modalCssScope,
-		overlayModalAppearance,
+		resolveModalAppearance,
 		DEFAULT_MODAL_APPEARANCE,
-		MODAL_BASE_DEFAULTS,
 		MODAL_KEYS,
 		MODAL_LABELS,
 		type ModalAppearanceConfig,
@@ -117,9 +117,9 @@
 
 	// The dialog edits its own look live, so the current draft feeds the vars.
 	const appModalAppearance = $derived(
-		overlayModalAppearance(
-			MODAL_BASE_DEFAULTS[APP_MODAL_KEY],
-			modalDrafts.global,
+		resolveModalAppearance(
+			APP_MODAL_KEY,
+			{ global: modalDrafts.global },
 			modalDrafts[APP_MODAL_KEY]
 		)
 	);
@@ -128,11 +128,7 @@
 	// The look of the modal selected in the "Modals" tab (preview + chrome).
 	const previewKey = $derived<ModalKey>(modalTarget === 'global' ? APP_MODAL_KEY : modalTarget);
 	const previewAppearance = $derived(
-		overlayModalAppearance(
-			MODAL_BASE_DEFAULTS[previewKey],
-			modalDrafts.global,
-			modalDrafts[previewKey]
-		)
+		resolveModalAppearance(previewKey, { global: modalDrafts.global }, modalDrafts[previewKey])
 	);
 	const previewStyle = $derived(modalAppearanceStyle(previewAppearance));
 
@@ -142,10 +138,7 @@
 		for (const key of MODAL_KEYS) {
 			const draft = modalDrafts[key];
 			if (!draft) continue;
-			const layer = diffModalAppearance(
-				draft,
-				overlayModalAppearance(MODAL_BASE_DEFAULTS[key], globalLayer)
-			);
+			const layer = diffModalAppearance(draft, modalBaseLayers(key, globalLayer));
 			if (Object.keys(layer).length > 0) modals[key] = layer;
 		}
 		const store: ModalAppearanceStore = {};
@@ -470,7 +463,7 @@
 						<div class="settings-content">
 							<ModalAppearancePanel
 								bind:appearance={modalDrafts[APP_MODAL_KEY]}
-								base={MODAL_BASE_DEFAULTS[APP_MODAL_KEY]}
+								base={modalBaseLayers(APP_MODAL_KEY)}
 								title="Canvas Settings Appearance"
 								onReset={() => (modalDrafts[APP_MODAL_KEY] = {})}
 							/>
@@ -778,7 +771,7 @@
 
 									<ModalAppearancePanel
 										bind:appearance={modalDrafts[modalTarget]}
-										base={modalTarget === 'global' ? {} : MODAL_BASE_DEFAULTS[modalTarget]}
+										base={modalTarget === 'global' ? {} : modalBaseLayers(modalTarget)}
 										title={modalTarget === 'global'
 											? 'Default for all modals'
 											: MODAL_LABELS[modalTarget]}

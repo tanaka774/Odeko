@@ -95,6 +95,10 @@ export function createDefaultWidgetAppearance(
 export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 	Record<WidgetType, Partial<WidgetAppearanceConfig>>
 > = {
+	// The analog clock face needs less padding than the digital readout.
+	clock: {
+		padding: 16
+	},
 	weather: {
 		backgroundColor: 'rgba(30, 41, 59, 0.82)',
 		backgroundOpacity: 0.82,
@@ -112,6 +116,9 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 		backgroundColor: 'rgba(30, 30, 40, 0.95)',
 		backgroundOpacity: 0.95,
 		padding: 0
+	},
+	music: {
+		padding: 16
 	},
 	textbox: {
 		backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -137,6 +144,15 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 	},
 	slideshow: {
 		padding: 0
+	},
+	sleep: {
+		padding: 16
+	},
+	restart: {
+		padding: 16
+	},
+	shutdown: {
+		padding: 16
 	},
 	clipboard: {
 		backgroundColor: 'rgba(30, 30, 40, 0.95)',

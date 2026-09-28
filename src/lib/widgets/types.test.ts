@@ -110,10 +110,14 @@ describe('WIDGET_TYPE_APPEARANCE_DEFAULTS', () => {
 		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.memo?.fontSize).toBe(14);
 	});
 
-	it('leaves types without a special look unset', () => {
-		for (const type of ['clock', 'music', 'sleep', 'restart', 'shutdown', 'custom'] as const) {
-			expect(WIDGET_TYPE_APPEARANCE_DEFAULTS[type]).toBeUndefined();
+	it('keeps the roomier padding of the clock, music and power buttons', () => {
+		for (const type of ['clock', 'music', 'sleep', 'restart', 'shutdown'] as const) {
+			expect(WIDGET_TYPE_APPEARANCE_DEFAULTS[type]?.padding).toBe(16);
 		}
+	});
+
+	it('leaves the custom HTML widget on the base look', () => {
+		expect(WIDGET_TYPE_APPEARANCE_DEFAULTS.custom).toBeUndefined();
 	});
 });
 

@@ -4,6 +4,7 @@ import {
 	MODAL_BASE_DEFAULTS,
 	diffModalAppearance,
 	modalAppearanceStyle,
+	modalBaseLayers,
 	modalCssScope,
 	overlayModalAppearance,
 	resolveModalAppearance,
@@ -30,6 +31,16 @@ describe('resolveModalAppearance', () => {
 		expect(resolveModalAppearance('clock').width).toBe(DEFAULT_MODAL_APPEARANCE.width);
 	});
 
+	it('layers the live draft above the stored override', () => {
+		const resolved = resolveModalAppearance(
+			'clock',
+			{ global: { radius: 4 }, modals: { clock: { radius: 8 } } },
+			{ radius: 2 }
+		);
+
+		expect(resolved.radius).toBe(2);
+	});
+
 	it('clamps numeric values into their range', () => {
 		const resolved = resolveModalAppearance('clock', {
 			modals: { clock: { radius: 999, surfaceOpacity: 4, borderWidth: -3 } }
@@ -45,6 +56,23 @@ describe('resolveModalAppearance', () => {
 			modals: { weather: { accentColor: '#00ff00' } }
 		});
 		expect(resolved.accentColor).toBe(DEFAULT_MODAL_APPEARANCE.accentColor);
+	});
+});
+
+describe('modalBaseLayers', () => {
+	it('takes the per-modal size from the table only', () => {
+		expect(modalBaseLayers('app-picker').width).toBe(900);
+		expect(modalBaseLayers('app-picker').height).toBe(820);
+		expect(modalBaseLayers('app-settings').width).toBe(750);
+		expect(modalBaseLayers('clock').width).toBe(DEFAULT_MODAL_APPEARANCE.width);
+		expect(modalBaseLayers(undefined).width).toBe(DEFAULT_MODAL_APPEARANCE.width);
+	});
+
+	it('lays the global layer over the base table', () => {
+		const layers = modalBaseLayers('app-settings', { radius: 4 });
+
+		expect(layers.radius).toBe(4);
+		expect(layers.width).toBe(MODAL_BASE_DEFAULTS['app-settings']?.width);
 	});
 });
 

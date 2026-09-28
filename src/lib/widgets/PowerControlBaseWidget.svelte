@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PowerControlWidgetConfig } from './types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS, type PowerControlWidgetConfig } from './types';
 	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { isBrowserImageUrl } from '$lib/icon-image';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
@@ -32,10 +32,8 @@
 	const iconPath = $derived(config.iconPath ?? '');
 	const appearance = $derived(
 		getWidgetAppearance(config, {
-			backgroundColor: 'rgba(0, 0, 0, 0.3)',
-			backgroundOpacity: 0.3,
-			borderRadius,
-			padding: 16
+			...WIDGET_TYPE_APPEARANCE_DEFAULTS[actionType],
+			borderRadius
 		})
 	);
 	const widgetBackground = $derived(getAppearanceBackground(appearance));

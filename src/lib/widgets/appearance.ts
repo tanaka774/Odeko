@@ -1,4 +1,5 @@
 import { settingsStore } from '$lib/stores/settings.svelte';
+import type { IconType } from '$lib/icons';
 import { DEFAULT_WIDGET_APPEARANCE, type WidgetAppearanceConfig, type WidgetConfig } from './types';
 
 /**
@@ -31,6 +32,22 @@ export function getWidgetAppearance(
 		...fallback,
 		...config?.appearance
 	};
+}
+
+// Out-of-the-box look of the non-widget canvas tiles: raw images are
+// padding-free, app tiles keep room for the label, and both use a light wash
+// instead of the widget black.
+const CANVAS_ICON_APPEARANCE_DEFAULTS: Record<'image' | 'app', Partial<WidgetAppearanceConfig>> = {
+	image: { backgroundColor: 'rgba(255, 255, 255, 1)', backgroundOpacity: 0.2, padding: 0 },
+	app: { backgroundColor: 'rgba(255, 255, 255, 1)', backgroundOpacity: 0.2, padding: 8 }
+};
+
+/** Type defaults of a canvas tile; widgets resolve through
+ *  WIDGET_TYPE_APPEARANCE_DEFAULTS instead. */
+export function getCanvasIconAppearanceDefaults(
+	iconType: IconType
+): Partial<WidgetAppearanceConfig> {
+	return iconType === 'widget' ? {} : CANVAS_ICON_APPEARANCE_DEFAULTS[iconType];
 }
 
 // Widget colors can arrive via imported presets, so an unrecognized value is

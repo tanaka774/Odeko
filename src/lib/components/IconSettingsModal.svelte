@@ -10,6 +10,7 @@
 	import KeybindRecorder from './KeybindRecorder.svelte';
 	import {
 		getWidgetAppearance,
+		getCanvasIconAppearanceDefaults,
 		getAppearanceBackground,
 		getAppearanceBorder
 	} from '$lib/widgets/appearance';
@@ -147,16 +148,8 @@
 
 	let hasCustomSource = $derived(localFilePath !== '' || localUrlValue.trim() !== '');
 
-	// Mirror of AppIcon.svelte's fallback defaults: no padding for raw images.
-	const appearanceDefaults = $derived(
-		icon
-			? {
-					backgroundColor: 'rgba(255, 255, 255, 1)',
-					backgroundOpacity: 0.2,
-					padding: icon.icon_type === 'image' ? 0 : 8
-				}
-			: {}
-	);
+	// Same defaults AppIcon renders with, so the preview matches the canvas.
+	const appearanceDefaults = $derived(icon ? getCanvasIconAppearanceDefaults(icon.icon_type) : {});
 	const previewAppearance = $derived(
 		getWidgetAppearance({ appearance: localAppearance }, appearanceDefaults)
 	);
@@ -246,7 +239,6 @@
 		title={modalTitle}
 		onClose={close}
 		onSave={handleSave}
-		maxWidth="480px"
 		tabKey={activeTab}
 	>
 		<div class="settings-form">

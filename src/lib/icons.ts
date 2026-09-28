@@ -35,8 +35,8 @@ export interface CanvasIcon {
 	z?: number;
 	/**
 	 * Icon appearance, sharing the widget appearance system. Unset fields fall
-	 * back to the icon defaults resolved in AppIcon.svelte (the canvas-wide
-	 * border_radius acts as the default corner radius).
+	 * back to the type defaults: the canvas tile map for image/app icons, or
+	 * the widget type table.
 	 */
 	appearance?: WidgetAppearanceConfig;
 }

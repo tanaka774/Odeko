@@ -4,7 +4,7 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import type { MusicWidgetConfig } from '$lib/widgets/types';
+	import { WIDGET_TYPE_APPEARANCE_DEFAULTS, type MusicWidgetConfig } from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -34,12 +34,6 @@
 			activeTab = 'settings';
 		}
 	});
-
-	const defaultAppearance = {
-		backgroundColor: 'rgba(0, 0, 0, 0.3)',
-		backgroundOpacity: 0.3,
-		padding: 16
-	};
 
 	function handleSave() {
 		onSave(localConfig);
@@ -110,7 +104,7 @@
 			<WidgetAppearanceSettings
 				widgetType="music"
 				bind:appearance={localConfig.appearance}
-				defaults={defaultAppearance}
+				defaults={WIDGET_TYPE_APPEARANCE_DEFAULTS.music ?? {}}
 			/>
 		{/if}
 	</div>

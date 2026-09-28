@@ -193,9 +193,9 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
 	network_grants: [],
 	allow_local_network: false,
-	// Matches the legacy canvas border_radius so icon corners look the same
-	// before settings load; border_radius now styles only the panel/chrome.
-	default_appearance: { borderRadius: 24 },
+	// Empty until the user changes something: icons then fall back to their
+	// type defaults, which carry the base 12px corner radius.
+	default_appearance: {},
 	modal_appearance: {}
 };
 
@@ -236,11 +236,6 @@ function createSettingsStore() {
 			sanitized.fontFamily = sanitized.fontFamily.trim();
 		} else {
 			delete sanitized.fontFamily;
-		}
-		// Legacy files have no icon corner radius (it used to follow the
-		// canvas-wide border_radius), so seed it from there once.
-		if (sanitized.borderRadius == null) {
-			sanitized.borderRadius = merged.border_radius;
 		}
 		merged.default_appearance = sanitized;
 		merged.modal_appearance = sanitizeModalAppearanceStore(merged.modal_appearance);
