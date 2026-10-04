@@ -477,10 +477,14 @@ fn update_icon_shortcuts(app: tauri::AppHandle, icons: Vec<AppIcon>) -> Result<(
                             log::warn!("Failed to emit power widget shortcut: {}", error);
                         }
                     } else {
-                        launch_icon_sync(&icon);
-                        if let Some(window) = app.get_webview_window("main") {
-                            if window.is_visible().unwrap_or(false) {
-                                let _ = window.hide();
+                        // Only hide on a launch that actually started: hiding
+                        // after a failure would hide the error message too.
+                        let launched = launch_icon_sync(app, &icon);
+                        if launched {
+                            if let Some(window) = app.get_webview_window("main") {
+                                if window.is_visible().unwrap_or(false) {
+                                    let _ = window.hide();
+                                }
                             }
                         }
                     }

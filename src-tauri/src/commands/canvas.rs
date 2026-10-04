@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -468,26 +468,182 @@ pub fn launch_app(path: String, args: Option<String>) -> Result<(), String> {
         .map(|s| expand_tilde(s))
         .collect();
 
-    let result = if cfg!(target_os = "linux") {
-        Command::new(&program).args(&extra_args).spawn()
-    } else {
-        let mut c = Command::new("cmd");
-        c.arg("/C").arg("start").arg("").arg(&program);
-        for a in &extra_args {
-            c.arg(a);
-        }
-        c.spawn()
-    };
+    // Fail before spawning anything when the target clearly is not there.
+    // `cmd /C start` on a missing path does not report failure: it pops a
+    // modal "Windows cannot find ..." dialog and leaves a `cmd.exe` alive,
+    // which is what used to leave the canvas hotkey wedged (see #3).
+    validate_launch_target(&program)?;
+
+    // macOS returned early above; these two are the only remaining platforms
+    // that reach this point.
+    #[cfg(target_os = "linux")]
+    let result = Command::new(&program).args(&extra_args).spawn().map(|_| ());
+    #[cfg(target_os = "windows")]
+    let result = launch_windows(&program, &extra_args);
 
     match result {
-        Ok(_) => {
-            log::info!("Successfully launched: {} (args: {:?})", program, extra_args);
+        Ok(()) => {
+            log::info!(
+                "Successfully launched: {} (args: {:?})",
+                program,
+                extra_args
+            );
             Ok(())
         }
         Err(e) => {
             log::error!("Failed to launch {}: {}", path, e);
             Err(format!("Failed to launch: {}", e))
         }
+    }
+}
+
+/// Launch a path through the Windows shell.
+///
+/// `ShellExecuteW` is used instead of `cmd /C start` because it reports a
+/// real error for a path it cannot open, and it never leaves a `cmd.exe`
+/// process (or its modal error dialog) behind.
+#[cfg(target_os = "windows")]
+fn launch_windows(program: &str, extra_args: &[String]) -> Result<(), std::io::Error> {
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    // ShellExecuteW takes one parameter string, so the arguments are joined
+    // the way the shell expects them.
+    let params: String = extra_args
+        .iter()
+        .map(|a| quote_windows_arg(a))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let verb: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
+    let file: Vec<u16> = program.encode_utf16().chain(std::iter::once(0)).collect();
+    let params_wide: Vec<u16> = params.encode_utf16().chain(std::iter::once(0)).collect();
+
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            PCWSTR::from_raw(verb.as_ptr()),
+            PCWSTR::from_raw(file.as_ptr()),
+            if params.is_empty() {
+                PCWSTR::null()
+            } else {
+                PCWSTR::from_raw(params_wide.as_ptr())
+            },
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    // ShellExecuteW returns a fake HINSTANCE: a value <= 32 is an error code.
+    let code = result.0;
+    if code <= 32 {
+        return Err(std::io::Error::other(format!(
+            "{} (ShellExecuteW code {})",
+            shell_execute_error(code),
+            code
+        )));
+    }
+
+    Ok(())
+}
+
+/// Human-readable text for a `ShellExecuteW` error return value.
+#[cfg(target_os = "windows")]
+fn shell_execute_error(code: isize) -> &'static str {
+    match code {
+        0 => "out of memory or resources",
+        2 => "file not found",
+        3 => "path not found",
+        5 => "access denied",
+        8 => "out of memory",
+        26 => "sharing violation",
+        27 => "file association incomplete or invalid",
+        28 => "DDE transaction timed out",
+        29 => "DDE transaction failed",
+        30 => "DDE transaction busy",
+        31 => "no application is associated with this file",
+        32 => "no application is associated with this file",
+        _ => "the shell could not open the target",
+    }
+}
+
+/// Quote a single argument for `ShellExecuteW`'s parameter string.
+#[cfg(any(target_os = "windows", test))]
+fn quote_windows_arg(arg: &str) -> String {
+    if !arg.is_empty() && !arg.contains([' ', '\t', '"']) {
+        return arg.to_string();
+    }
+    let mut quoted = String::with_capacity(arg.len() + 2);
+    quoted.push('"');
+    let mut backslashes = 0usize;
+    for ch in arg.chars() {
+        match ch {
+            '\\' => {
+                backslashes += 1;
+                quoted.push('\\');
+            }
+            '"' => {
+                // Escape the run of backslashes, then the quote itself.
+                for _ in 0..backslashes {
+                    quoted.push('\\');
+                }
+                backslashes = 0;
+                quoted.push('\\');
+                quoted.push('"');
+            }
+            _ => {
+                backslashes = 0;
+                quoted.push(ch);
+            }
+        }
+    }
+    // Double the trailing backslashes so they do not escape the closing quote.
+    for _ in 0..backslashes {
+        quoted.push('\\');
+    }
+    quoted.push('"');
+    quoted
+}
+
+/// Reject targets that cannot possibly launch, so the caller gets an error
+/// instead of a silent no-op.
+///
+/// Only absolute/rooted paths are checked: bare names (`firefox`, `ms-settings:`)
+/// are resolved by the OS shell and must be passed through untouched.
+fn validate_launch_target(program: &str) -> Result<(), String> {
+    let trimmed = program.trim();
+    if trimmed.is_empty() {
+        return Err("No launch path was set for this icon".to_string());
+    }
+
+    // Shell URIs / protocol handlers are resolved by the OS.
+    if trimmed.contains("://") || trimmed.starts_with("shell:") {
+        return Ok(());
+    }
+
+    let looks_like_path = trimmed.starts_with('/')
+        || trimmed.starts_with('\\')
+        || trimmed.starts_with("~/")
+        || trimmed.contains('\\')
+        || trimmed.contains('/')
+        || trimmed.as_bytes().get(1) == Some(&b':');
+
+    if !looks_like_path {
+        return Ok(());
+    }
+
+    // Strip a surrounding pair of quotes the user may have typed.
+    let unquoted = trimmed
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+        .unwrap_or(trimmed);
+
+    match std::path::Path::new(unquoted).try_exists() {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(format!("Path does not exist: {}", unquoted)),
+        // Surface permission problems rather than treating them as "missing".
+        Err(e) => Err(format!("Cannot access {}: {}", unquoted, e)),
     }
 }
 
@@ -564,16 +720,40 @@ pub fn open_url(url: String) -> Result<(), String> {
     }
 }
 
-pub fn launch_icon_sync(icon: &AppIcon) {
+/// Launch an icon from a global shortcut, reporting failures to the user.
+///
+/// Global-shortcut launches have no `Result` to hand back to the frontend, so
+/// a failure is emitted as a `launch-error` event instead of only being
+/// logged. Without it a broken icon looked like it "did nothing" while the
+/// canvas hid itself (see #3).
+///
+/// Returns `true` when the launch started, so the caller can decide whether to
+/// hide the canvas — hiding it after a failure would swallow the message.
+pub fn launch_icon_sync(app: &tauri::AppHandle, icon: &AppIcon) -> bool {
     if icon.icon_type == IconType::Image {
         if let Some(ref url) = icon.url {
-            let _ = open_url_sync(url);
+            if let Err(e) = open_url_sync(url) {
+                report_launch_error(app, icon, &e);
+                return false;
+            }
         }
-        return;
+        return true;
     }
     if icon.icon_type != IconType::App {
-        return;
+        return true;
     }
+
+    match launch_icon(icon) {
+        Ok(()) => true,
+        Err(e) => {
+            report_launch_error(app, icon, &e);
+            false
+        }
+    }
+}
+
+/// Launch an app icon, returning a user-facing error when it cannot start.
+fn launch_icon(icon: &AppIcon) -> Result<(), String> {
     let program = expand_tilde(&icon.path);
     let extra_args: Vec<String> = icon
         .args
@@ -584,31 +764,62 @@ pub fn launch_icon_sync(icon: &AppIcon) {
         .map(|s| expand_tilde(s))
         .collect();
 
-    if cfg!(target_os = "macos") {
-        let result = if let Some(bundle_path) = find_macos_app_bundle(&program) {
-            let mut cmd = std::process::Command::new("open");
-            cmd.arg(&bundle_path);
-            if !extra_args.is_empty() {
-                cmd.arg("--args").args(&extra_args);
-            }
-            cmd.spawn()
-        } else {
-            std::process::Command::new(&program).args(&extra_args).spawn()
-        };
-        if let Err(e) = result {
-            log::error!("Failed to launch {}: {}", icon.path, e);
+    // Same pre-flight check as `launch_app`: never hand a missing path to a
+    // launcher that fails silently.
+    validate_launch_target(&program)?;
+
+    #[cfg(target_os = "macos")]
+    let result = if let Some(bundle_path) = find_macos_app_bundle(&program) {
+        let mut cmd = Command::new("open");
+        cmd.arg(&bundle_path);
+        if !extra_args.is_empty() {
+            cmd.arg("--args").args(&extra_args);
         }
-    } else if cfg!(target_os = "linux") {
-        let _ = std::process::Command::new(&program).args(&extra_args).spawn();
+        cmd.spawn().map(|_| ())
     } else {
-        let mut c = std::process::Command::new("cmd");
-        c.arg("/C").arg("start").arg("");
-        c.arg(&program);
-        for a in &extra_args {
-            c.arg(a);
+        Command::new(&program).args(&extra_args).spawn().map(|_| ())
+    };
+    #[cfg(target_os = "linux")]
+    let result = Command::new(&program).args(&extra_args).spawn().map(|_| ());
+    #[cfg(target_os = "windows")]
+    let result = launch_windows(&program, &extra_args);
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    let result: Result<(), std::io::Error> = Err(std::io::Error::other(
+        "launching applications is not supported on this platform",
+    ));
+
+    match result {
+        Ok(()) => {
+            log::info!("Successfully launched: {}", program);
+            Ok(())
         }
-        let _ = c.spawn();
+        Err(e) => {
+            log::error!("Failed to launch {}: {}", icon.path, e);
+            Err(format!("{}: {}", program, e))
+        }
     }
+}
+
+/// Tell the canvas that a launch failed, so it can show a message instead of
+/// appearing to do nothing.
+fn report_launch_error(app: &tauri::AppHandle, icon: &AppIcon, error: &str) {
+    let name = icon
+        .custom_name
+        .clone()
+        .filter(|n| !n.trim().is_empty())
+        .unwrap_or_else(|| icon.name.clone());
+
+    log::warn!("Launch failed for '{}': {}", name, error);
+
+    let _ = app.emit(
+        "launch-error",
+        serde_json::json!({
+            "id": icon.id,
+            "name": name,
+            "path": icon.path,
+            "message": error,
+        }),
+    );
 }
 
 fn open_url_sync(url: &str) -> Result<(), String> {
@@ -1672,5 +1883,65 @@ mod tests {
 
             assert!(get_icon_base64("/nonexistent/icon.png".into()).is_err());
         });
+    }
+
+    #[test]
+    fn validate_launch_target_rejects_missing_absolute_paths() {
+        // A missing path used to be handed to `cmd /C start`, which opened a
+        // modal dialog and left the canvas hotkey wedged (issue #3).
+        let missing = std::env::temp_dir()
+            .join("odeko-does-not-exist")
+            .join("nope.exe");
+
+        let err = validate_launch_target(&missing.to_string_lossy()).unwrap_err();
+        assert!(err.contains("does not exist"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn validate_launch_target_accepts_existing_paths() {
+        let dir = std::env::temp_dir();
+        assert!(validate_launch_target(&dir.to_string_lossy()).is_ok());
+    }
+
+    #[test]
+    fn validate_launch_target_rejects_empty_path() {
+        assert!(validate_launch_target("").is_err());
+        assert!(validate_launch_target("   ").is_err());
+    }
+
+    #[test]
+    fn validate_launch_target_passes_through_bare_commands() {
+        // Bare names are resolved by the OS shell (PATH lookup, protocol
+        // handlers), so they must not be rejected as "missing".
+        assert!(validate_launch_target("firefox").is_ok());
+        assert!(validate_launch_target("ms-settings:").is_ok());
+        assert!(validate_launch_target("https://example.com").is_ok());
+        assert!(validate_launch_target("shell:AppsFolder\\Microsoft.WindowsCalculator").is_ok());
+    }
+
+    #[test]
+    fn validate_launch_target_tolerates_surrounding_quotes() {
+        let dir = std::env::temp_dir();
+        let quoted = format!("\"{}\"", dir.to_string_lossy());
+        assert!(validate_launch_target(&quoted).is_ok());
+    }
+
+    #[test]
+    fn quote_windows_arg_only_quotes_when_needed() {
+        assert_eq!(quote_windows_arg("plain"), "plain");
+        assert_eq!(quote_windows_arg("--flag=1"), "--flag=1");
+        assert_eq!(quote_windows_arg("two words"), "\"two words\"");
+        assert_eq!(quote_windows_arg(""), "\"\"");
+    }
+
+    #[test]
+    fn quote_windows_arg_escapes_embedded_quotes() {
+        assert_eq!(quote_windows_arg("say \"hi\""), "\"say \\\"hi\\\"\"");
+    }
+
+    #[test]
+    fn quote_windows_arg_doubles_trailing_backslashes() {
+        // A trailing backslash must not escape the closing quote.
+        assert_eq!(quote_windows_arg("C:\\dir with space\\"), "\"C:\\dir with space\\\\\"");
     }
 }

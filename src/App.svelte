@@ -5,10 +5,12 @@
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import IconGrid from '$lib/components/IconGrid.svelte';
 	import BackgroundVideo from '$lib/components/BackgroundVideo.svelte';
+	import ToastStack from '$lib/components/ToastStack.svelte';
 	import { isVideoBackground } from '$lib/background';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import { settingsStore, matchesKeybind } from '$lib/stores/settings.svelte';
 	import { platformStore } from '$lib/stores/platform.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { launchIcon, isLaunchable } from '$lib/launch';
 	import type { CanvasIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
@@ -125,6 +127,7 @@
 		window.addEventListener('resize', onResize);
 
 		let unlistenPowerShortcut: UnlistenFn | null = null;
+		let unlistenLaunchError: UnlistenFn | null = null;
 		let disposed = false;
 
 		async function setup() {
@@ -143,10 +146,25 @@
 				await executePowerWidgetById(event.payload);
 			});
 
+			// Global-shortcut launches have no Result to await, so the backend
+			// reports failures as an event. Show it instead of leaving the
+			// canvas looking like the hotkey did nothing (#3).
+			const unlistenError = await listen<{
+				name?: string;
+				path?: string;
+				message?: string;
+			}>('launch-error', (event) => {
+				const { name, path, message } = event.payload ?? {};
+				const label = name?.trim() || path || 'This icon';
+				toastStore.show(`Could not launch ${label}`, message || path);
+			});
+
 			if (disposed) {
 				unlisten();
+				unlistenError();
 			} else {
 				unlistenPowerShortcut = unlisten;
+				unlistenLaunchError = unlistenError;
 			}
 		}
 
@@ -156,6 +174,7 @@
 			window.removeEventListener('resize', onResize);
 			disposed = true;
 			unlistenPowerShortcut?.();
+			unlistenLaunchError?.();
 		};
 	});
 
@@ -297,6 +316,8 @@
 				}}
 			/>
 		</div>
+
+		<ToastStack />
 
 		{#if showContextMenu}
 			<div

@@ -5,7 +5,8 @@ vi.mock('@tauri-apps/api/core', () => ({
 	invoke: (...args: unknown[]) => invokeMock(...args)
 }));
 
-import { isLaunchable, launchIcon } from './launch';
+import { isLaunchable, launchIcon, iconDisplayName } from './launch';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { CanvasIcon } from '$lib/icons';
 
 function makeIcon(overrides: Partial<CanvasIcon> = {}): CanvasIcon {
@@ -85,5 +86,41 @@ describe('launchIcon', () => {
 		invokeMock.mockRejectedValueOnce(new Error('boom'));
 
 		await expect(launchIcon(makeIcon({ icon_type: 'app' }))).resolves.toBeUndefined();
+	});
+
+	it('surfaces a failed launch as a toast instead of hiding the canvas', async () => {
+		toastStore.clear();
+		invokeMock.mockRejectedValueOnce('Path does not exist: /usr/bin/gone');
+
+		await launchIcon(makeIcon({ name: 'Ghost', path: '/usr/bin/gone' }));
+
+		// The canvas must stay visible so the message can be read.
+		expect(invokeMock).not.toHaveBeenCalledWith('hide_canvas');
+		expect(toastStore.toasts).toHaveLength(1);
+		expect(toastStore.toasts[0].message).toContain('Ghost');
+		expect(toastStore.toasts[0].detail).toContain('/usr/bin/gone');
+		toastStore.clear();
+	});
+
+	it('still hides the canvas on a successful launch', async () => {
+		toastStore.clear();
+		await launchIcon(makeIcon({ icon_type: 'app' }));
+
+		expect(invokeMock).toHaveBeenCalledWith('hide_canvas');
+		expect(toastStore.toasts).toHaveLength(0);
+	});
+});
+
+describe('iconDisplayName', () => {
+	it('prefers a custom name', () => {
+		expect(iconDisplayName(makeIcon({ name: 'Raw', custom_name: 'Pretty' }))).toBe('Pretty');
+	});
+
+	it('falls back to the plain name', () => {
+		expect(iconDisplayName(makeIcon({ name: 'Plain', custom_name: null }))).toBe('Plain');
+	});
+
+	it('falls back to the path when there is no name', () => {
+		expect(iconDisplayName(makeIcon({ name: '', path: '/usr/bin/x' }))).toBe('/usr/bin/x');
 	});
 });
