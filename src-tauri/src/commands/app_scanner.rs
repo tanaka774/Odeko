@@ -585,6 +585,7 @@ mod platform {
 #[cfg(target_os = "windows")]
 mod platform {
     use super::*;
+    use std::os::windows::ffi::OsStrExt;
 
     pub fn get_application_dirs() -> Vec<PathBuf> {
         let mut dirs = vec![];
@@ -721,29 +722,10 @@ mod platform {
             return Some(png_path.to_string_lossy().to_string());
         }
 
-        // Step 1: Read the icon location from the .lnk binary (fast, no MSI).
-        let (icon_file, icon_index) = read_lnk_icon_location(lnk_path).or_else(|| {
-            // Fallback: if the .lnk has no icon info, use the .lnk itself
-            Some((lnk_path.to_path_buf(), 0))
-        })?;
-
-        // Step 2: Extract the icon from the actual file using ExtractIconExW.
-        let hicon = extract_icon_from_file(&icon_file, icon_index)?;
-
-        // Step 3: Render to RGBA pixels and save as PNG.
-        let Some((w, h, pixels)) = hicon_to_rgba(hicon) else {
-            unsafe {
-                use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
-                let _ = DestroyIcon(hicon);
-            }
-            log::debug!("hicon_to_rgba failed for {:?}", lnk_path);
+        let Some((w, h, pixels)) = icon_pixels_for_link(lnk_path) else {
+            log::debug!("No icon could be resolved for {:?}", lnk_path);
             return None;
         };
-
-        unsafe {
-            use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
-            let _ = DestroyIcon(hicon);
-        }
 
         let img = image::RgbaImage::from_raw(w, h, pixels)?;
         let mut png_bytes = Vec::new();
@@ -756,6 +738,242 @@ mod platform {
         std::fs::write(&png_path, &png_bytes).ok()?;
 
         Some(png_path.to_string_lossy().to_string())
+    }
+
+    /// Resolve the icon a `.lnk` actually shows and return it as RGBA pixels.
+    ///
+    /// The shell is asked first: a shortcut's stored `ICON_LOCATION` is not
+    /// enough on its own. System shortcuts store a bare DLL path with no index
+    /// (`imageres.dll`), while the shell renders a *negative* resource index
+    /// (`imageres.dll,-27` for Control Panel) — reading index 0 yields a blank
+    /// placeholder (issue #1). Shortcuts with no `ICON_LOCATION` flag at all
+    /// (Windows PowerShell) cannot be resolved from the file either, and
+    /// `ExtractIconExW` refuses `.lnk` files outright (issue #2).
+    fn icon_pixels_for_link(lnk_path: &Path) -> Option<(u32, u32, Vec<u8>)> {
+        // Preferred: the same code path Explorer uses. It takes the `.lnk`
+        // itself and returns the icon the user sees, whatever the shortcut
+        // stores internally.
+        if let Some(pixels) = shell_item_image_to_rgba(lnk_path) {
+            return Some(pixels);
+        }
+
+        // Fallback: parse the icon location and extract from the target file.
+        // Still useful when the shell interface is unavailable.
+        if let Some((icon_file, icon_index)) = read_lnk_icon_location(lnk_path) {
+            if let Some(hicon) = extract_icon_from_file(&icon_file, icon_index) {
+                if let Some(pixels) = hicon_to_rgba(hicon) {
+                    destroy_icon(hicon);
+                    return Some(pixels);
+                }
+                destroy_icon(hicon);
+            }
+        }
+
+        // Last resort: let the shell give us the icon for the link file.
+        shell_file_icon_to_rgba(lnk_path)
+    }
+
+    /// `IShellItemImageFactory::GetImage` on the `.lnk` path.
+    ///
+    /// This is the only approach that resolves *both* the negative resource
+    /// index of system shortcuts and links that carry no icon information.
+    fn shell_item_image_to_rgba(lnk_path: &Path) -> Option<(u32, u32, Vec<u8>)> {
+        use windows::core::PCWSTR;
+        use windows::Win32::UI::Shell::{
+            IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK,
+            SIIGBF_ICONONLY, SIIGBF_SCALEUP,
+        };
+
+        if !ensure_com_initialized() {
+            return None;
+        }
+
+        let wide: Vec<u16> = lnk_path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        // Ask for a large icon so the canvas has room to scale down.
+        let size = windows::Win32::Foundation::SIZE { cx: 64, cy: 64 };
+
+        let result = unsafe {
+            let factory: windows::core::Result<IShellItemImageFactory> =
+                SHCreateItemFromParsingName(PCWSTR::from_raw(wide.as_ptr()), None);
+            match factory {
+                Ok(factory) => factory
+                    .GetImage(size, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_SCALEUP)
+                    .map_err(|e| e.code().0),
+                Err(e) => Err(e.code().0),
+            }
+        };
+
+        let hbitmap = match result {
+            Ok(hbitmap) => hbitmap,
+            Err(code) => {
+                log::debug!(
+                    "IShellItemImageFactory failed for {:?}: HRESULT {:#x}",
+                    lnk_path,
+                    code
+                );
+                return None;
+            }
+        };
+
+        let pixels = hbitmap_to_rgba(hbitmap);
+        unsafe {
+            use windows::Win32::Graphics::Gdi::{DeleteObject, HGDIOBJ};
+            let _ = DeleteObject(HGDIOBJ(hbitmap.0));
+        }
+        pixels
+    }
+
+    /// `SHGetFileInfoW` fallback: the shell's icon for the link file.
+    fn shell_file_icon_to_rgba(lnk_path: &Path) -> Option<(u32, u32, Vec<u8>)> {
+        use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+        use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+
+        let wide: Vec<u16> = lnk_path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let mut info: SHFILEINFOW = unsafe { std::mem::zeroed() };
+        let result = unsafe {
+            SHGetFileInfoW(
+                windows::core::PCWSTR::from_raw(wide.as_ptr()),
+                FILE_FLAGS_AND_ATTRIBUTES(0),
+                Some(&mut info),
+                std::mem::size_of::<SHFILEINFOW>() as u32,
+                SHGFI_ICON | SHGFI_LARGEICON,
+            )
+        };
+
+        if result == 0 || info.hIcon.0 == 0 {
+            log::debug!("SHGetFileInfoW returned no icon for {:?}", lnk_path);
+            return None;
+        }
+
+        let pixels = hicon_to_rgba(info.hIcon);
+        destroy_icon(info.hIcon);
+        pixels
+    }
+
+    fn destroy_icon(hicon: windows::Win32::UI::WindowsAndMessaging::HICON) {
+        unsafe {
+            use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
+            let _ = DestroyIcon(hicon);
+        }
+    }
+
+    /// Initialise COM for the current thread, tolerating an already
+    /// initialised apartment (scanning runs on a worker thread, and Tauri may
+    /// have initialised it already).
+    fn ensure_com_initialized() -> bool {
+        use windows::Win32::System::Com::{
+            CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, RPC_E_CHANGED_MODE,
+        };
+
+        let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
+
+        // S_OK / S_FALSE are both fine; an existing MTA is fine too, because
+        // the shell item interfaces work from either apartment.
+        hr.is_ok() || hr == RPC_E_CHANGED_MODE
+    }
+
+    /// Copy a 32-bit top-down HBITMAP into straight RGBA pixels.
+    ///
+    /// `IShellItemImageFactory::GetImage` hands back a premultiplied-alpha
+    /// bitmap; the caller wants plain RGBA, so the colour channels are
+    /// un-premultiplied where the alpha is partial.
+    fn hbitmap_to_rgba(
+        hbitmap: windows::Win32::Graphics::Gdi::HBITMAP,
+    ) -> Option<(u32, u32, Vec<u8>)> {
+        use windows::Win32::Graphics::Gdi::{
+            CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC,
+            BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HDC, HGDIOBJ,
+        };
+
+        unsafe {
+            let mut bmp: BITMAP = std::mem::zeroed();
+            if GetObjectW(
+                HGDIOBJ(hbitmap.0),
+                std::mem::size_of::<BITMAP>() as i32,
+                Some(&raw mut bmp as *mut BITMAP as *mut std::ffi::c_void),
+            ) == 0
+            {
+                return None;
+            }
+
+            let w = bmp.bmWidth as u32;
+            let h = bmp.bmHeight as u32;
+            if w == 0 || h == 0 {
+                return None;
+            }
+
+            let hdc_screen: HDC = GetDC(None);
+            let hdc = CreateCompatibleDC(hdc_screen);
+
+            let mut bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: w as i32,
+                    // Negative height requests a top-down bitmap.
+                    biHeight: -(h as i32),
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: 0, // BI_RGB
+                    ..std::mem::zeroed()
+                },
+                ..std::mem::zeroed()
+            };
+
+            let mut raw = vec![0u8; (w * h * 4) as usize];
+            let scanned = GetDIBits(
+                hdc,
+                hbitmap,
+                0,
+                h,
+                Some(raw.as_mut_ptr() as *mut std::ffi::c_void),
+                &mut bmi,
+                DIB_RGB_COLORS,
+            );
+
+            let _ = DeleteDC(hdc);
+            let _ = ReleaseDC(None, hdc_screen);
+
+            if scanned == 0 {
+                return None;
+            }
+
+            // BGRA -> RGBA, un-premultiplying partial alpha.
+            let mut rgba = vec![0u8; raw.len()];
+            for i in 0..(w * h) as usize {
+                let b = raw[i * 4];
+                let g = raw[i * 4 + 1];
+                let r = raw[i * 4 + 2];
+                let a = raw[i * 4 + 3];
+
+                let (r, g, b) = if a > 0 && a < 255 {
+                    let a16 = a as u16;
+                    (
+                        ((r as u16 * 255) / a16).min(255) as u8,
+                        ((g as u16 * 255) / a16).min(255) as u8,
+                        ((b as u16 * 255) / a16).min(255) as u8,
+                    )
+                } else {
+                    (r, g, b)
+                };
+
+                rgba[i * 4] = r;
+                rgba[i * 4 + 1] = g;
+                rgba[i * 4 + 2] = b;
+                rgba[i * 4 + 3] = a;
+            }
+
+            Some((w, h, rgba))
+        }
     }
 
     fn extract_icon_from_file(
