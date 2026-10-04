@@ -12,6 +12,10 @@ use tauri::{Emitter, Manager};
 use tauri::utils::config::Color;
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState, GlobalShortcutExt};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
+// Only used by the always-on log plugin below; E2E builds replace it with the
+// WDIO plugin's own logger.
+#[cfg(not(feature = "e2e"))]
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use std::sync::Mutex;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -63,13 +67,29 @@ pub fn run() {
         .setup(|app| {
             // The WDIO plugin installs its own logger, so skip the log plugin
             // in E2E builds to avoid registering a second logger.
-            #[cfg(all(debug_assertions, not(feature = "e2e")))]
+            //
+            // This is deliberately *not* gated on `debug_assertions`: a release
+            // build is a GUI-subsystem binary with no console, so a
+            // stdout-only logger writes nowhere at all on Windows, and on
+            // macOS/Linux only when the app happens to be started from a
+            // terminal. Logging to the OS log directory instead means an
+            // installed build can always be diagnosed after the fact.
+            #[cfg(not(feature = "e2e"))]
             {
                 app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
+                    tauri_plugin_log::Builder::new()
                         .level(log::LevelFilter::Info)
-                        // Verbose logs for our own crate (dev builds only).
+                        // Keep our own crate's debug logs in release too — they
+                        // are the ones that explain native failures.
                         .level_for("odeko_lib", log::LevelFilter::Debug)
+                        // Stdout stays useful when launched from a terminal.
+                        .target(Target::new(TargetKind::Stdout))
+                        // Durable log file, kept small: one file, rotated at 5 MB.
+                        .target(Target::new(TargetKind::LogDir {
+                            file_name: Some("odeko".into()),
+                        }))
+                        .rotation_strategy(RotationStrategy::KeepOne)
+                        .max_file_size(5 * 1024 * 1024)
                         .build(),
                 )?;
             }

@@ -74,6 +74,16 @@ npm run tauri build
 - [x] improve bulk style applying to icons
 - [ ] more fancy effects
 
+## Logs
+
+The app always writes a log file, in release builds too, so a problem in an installed build can be diagnosed after the fact. It is capped at 5 MB and rotated to a single file, and stdout is written as well when the app is started from a terminal.
+
+| Platform | Location |
+| -------- | -------- |
+| Windows  | `%LOCALAPPDATA%\com.odeko.app\logs\odeko.log` |
+| macOS    | `~/Library/Logs/com.odeko.app/odeko.log` |
+| Linux    | `~/.local/share/com.odeko.app/logs/odeko.log` |
+
 ## Notes
 
 This project is originally forked from [alysonhower/tauri2-svelte5-shadcn](https://github.com/alysonhower/tauri2-svelte5-shadcn). This is a pretty nice project, you should check this out!
