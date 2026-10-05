@@ -1,0 +1,79 @@
+/*
+ * Shutdown widget - "Red Alert" theme.
+ * Charcoal panel, glowing red frame, a pulsing power glyph and an uppercase
+ * letterspaced label that flares on hover.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this whole file.
+ */
+
+.power-widget {
+	background:
+		radial-gradient(circle at 50% 0%, rgba(255, 61, 61, 0.38), rgba(255, 61, 61, 0) 62%),
+		linear-gradient(165deg, #2b1418, #140a0c 72%);
+	border: 1px solid rgba(255, 82, 82, 0.65);
+	border-radius: 16px;
+	color: #ffd9d9;
+	box-shadow:
+		0 0 22px rgba(255, 61, 61, 0.35),
+		inset 0 0 24px rgba(255, 61, 61, 0.16);
+	transition:
+		background 0.25s ease,
+		border-color 0.25s ease,
+		box-shadow 0.25s ease;
+}
+
+.power-widget:hover {
+	background:
+		radial-gradient(circle at 50% 0%, rgba(255, 96, 96, 0.6), rgba(255, 61, 61, 0) 70%),
+		linear-gradient(165deg, #3f1b20, #1d0d10 72%);
+	border-color: #ff6b6b;
+	box-shadow:
+		0 0 34px rgba(255, 61, 61, 0.6),
+		inset 0 0 30px rgba(255, 61, 61, 0.24);
+	transform: scale(1.03);
+}
+
+.power-widget:active {
+	transform: scale(0.97);
+}
+
+.default-icon {
+	color: #ff5f5f;
+	text-shadow: 0 0 14px rgba(255, 61, 61, 0.85);
+	animation: odeko-red-alert-pulse 2.4s ease-in-out infinite;
+}
+
+.power-widget:hover .default-icon {
+	color: #ff9a9a;
+	text-shadow: 0 0 22px rgba(255, 96, 96, 1);
+}
+
+@keyframes odeko-red-alert-pulse {
+	0%,
+	100% {
+		opacity: 1;
+		filter: drop-shadow(0 0 4px rgba(255, 61, 61, 0.5));
+	}
+	50% {
+		opacity: 0.86;
+		filter: drop-shadow(0 0 16px rgba(255, 96, 96, 0.95));
+	}
+}
+
+.custom-icon {
+	border-radius: 12px;
+	filter: drop-shadow(0 0 10px rgba(255, 61, 61, 0.55));
+}
+
+.label {
+	color: #ff9e9e;
+	font-size: 0.78em;
+	font-weight: 700;
+	letter-spacing: 0.22em;
+	text-shadow: 0 0 10px rgba(255, 61, 61, 0.45);
+	text-transform: uppercase;
+}
+
+.power-widget:hover .label {
+	color: #ffd7d7;
+	text-shadow: 0 0 14px rgba(255, 96, 96, 0.9);
+}

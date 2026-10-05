@@ -7,10 +7,9 @@ Another desktop layer with full customization.
 This app is like a floating canvas where you can place icons or widgets on it.  
 When launched, it appears on top of your desktop.  
 You can set a custom image, URL link, or app launching path on an icon. Widgets are the ones prepared to expect usual daily usage.  
-You can use this app as a canvas on the desktop to put or customize everything you need. And with one shortcut key, you can open it anytime.  
+You can use this app as a canvas on the desktop to put or customize everything you need. And with one shortcut key, you can open it anytime.
 
 [odeko-demo.webm](https://github.com/user-attachments/assets/51fe85b2-4242-4d32-a32e-c8a467533c4f)
-
 
 ## Motivation
 
@@ -31,7 +30,7 @@ You are supposed to change any state of the app in Edit Mode.
 - app icon: you can add one from "Add App" which shows installed apps on your system. You can set an image for the thumbnail here too.
 - widget: you can add one from "Add Widget", and choose from the prepared ones. If you need more, check [custom HTML](https://github.com/tanaka774/Odeko/tree/main/examples/custom-html-widgets).
 
-And you can change basic styles of these icons like background color, opacity or corner radius. You can use custom css for more customization.   
+And you can change basic styles of these icons like background color, opacity or corner radius. You can use custom css for more customization — you can check samples in [custom CSS examples](https://github.com/tanaka774/Odeko/tree/main/examples/custom-css).
 
 ### Keybind
 
@@ -59,7 +58,6 @@ npm run tauri dev
 npm run tauri build
 ```
 
-
 ## TODO
 
 - [x] autostart
@@ -78,10 +76,10 @@ npm run tauri build
 
 The app always writes a log file, in release builds too, so a problem in an installed build can be diagnosed after the fact. It is capped at 5 MB and rotated to a single file, and stdout is written as well when the app is started from a terminal.
 
-| Platform | Location |
-| -------- | -------- |
+| Platform | Location                                      |
+| -------- | --------------------------------------------- |
 | Windows  | `%LOCALAPPDATA%\com.odeko.app\logs\odeko.log` |
-| macOS    | `~/Library/Logs/com.odeko.app/odeko.log` |
+| macOS    | `~/Library/Logs/com.odeko.app/odeko.log`      |
 | Linux    | `~/.local/share/com.odeko.app/logs/odeko.log` |
 
 ## Notes

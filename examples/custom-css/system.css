@@ -1,0 +1,85 @@
+/*
+ * System monitor widget - "CRT Phosphor" theme.
+ * Near-black tube with a scanline overlay, green glowing monospace readouts and
+ * chunky segmented bars. Install: Appearance tab -> Enable Custom CSS -> paste this.
+ */
+
+.system-widget {
+	background:
+		radial-gradient(ellipse at 50% 40%, rgba(57, 255, 20, 0.1), transparent 72%),
+		linear-gradient(180deg, #020806 0%, #010403 100%);
+	border: 1px solid rgba(57, 255, 20, 0.55);
+	border-radius: 8px;
+	color: #86ffb4;
+	font-family: 'Courier New', Consolas, 'SF Mono', monospace;
+	box-shadow:
+		inset 0 0 46px rgba(0, 0, 0, 0.9),
+		0 0 18px rgba(57, 255, 20, 0.22);
+	text-shadow: 0 0 6px rgba(57, 255, 20, 0.45);
+}
+
+/* Heavier scanlines than the stock look, with a slow tube flicker. */
+.system-widget::before {
+	background: repeating-linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0.06) 0px,
+		rgba(0, 0, 0, 0.06) 1px,
+		rgba(0, 0, 0, 0.34) 1px,
+		rgba(0, 0, 0, 0.34) 3px
+	);
+	animation: odeko-system-scanlines 3.5s steps(3) infinite;
+}
+
+@keyframes odeko-system-scanlines {
+	50% {
+		opacity: 0.72;
+	}
+}
+
+.stats-container {
+	color: #86ffb4;
+	font-variant-numeric: tabular-nums;
+}
+
+.stat-row {
+	box-sizing: border-box;
+	border-left: 2px solid rgba(57, 255, 20, 0.35);
+	padding-left: 8px;
+}
+
+.stat-label {
+	color: rgba(134, 255, 180, 0.72);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.stat-value {
+	color: #35ff9b;
+	text-shadow:
+		0 0 6px rgba(53, 255, 155, 0.85),
+		0 0 16px rgba(53, 255, 155, 0.4);
+}
+
+.progress-bar {
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(4, 22, 12, 0.9));
+	border-radius: 3px;
+	box-shadow:
+		inset 0 0 0 1px rgba(57, 255, 20, 0.45),
+		inset 0 0 10px rgba(0, 0, 0, 0.95);
+}
+
+.progress-fill {
+	background:
+		repeating-linear-gradient(
+			to right,
+			rgba(0, 0, 0, 0.35) 0px,
+			rgba(0, 0, 0, 0.35) 2px,
+			transparent 2px,
+			transparent 8px
+		),
+		linear-gradient(90deg, #0bff7a, #8affbe);
+	border-radius: 2px;
+	box-shadow:
+		0 0 10px rgba(53, 255, 155, 0.75),
+		inset 0 0 6px rgba(255, 255, 255, 0.25);
+}

@@ -1,0 +1,88 @@
+/*
+ * Weather widget - "Aurora Glass" theme.
+ * Deep-sky translucent glass under an aurora wash: gradient-lit temperature, a
+ * pill condition badge and rounded forecast chips.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this.
+ */
+
+.weather-widget {
+	background:
+		radial-gradient(circle at 16% 0%, rgba(125, 211, 252, 0.32), transparent 55%),
+		radial-gradient(circle at 88% 8%, rgba(139, 92, 246, 0.3), transparent 55%),
+		linear-gradient(165deg, rgba(30, 58, 138, 0.75), rgba(8, 15, 34, 0.92) 62%);
+	border: 1px solid rgba(148, 233, 255, 0.45);
+	border-radius: 18px;
+	color: #e8f6ff;
+	box-shadow:
+		0 12px 30px rgba(2, 6, 23, 0.55),
+		inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.current-summary {
+	border-bottom: 1px solid rgba(148, 233, 255, 0.16);
+}
+
+.temperature {
+	background: linear-gradient(100deg, #7dd3fc 0%, #a7f3d0 52%, #c4b5fd 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: #dff3ff;
+	-webkit-text-fill-color: transparent;
+	filter: drop-shadow(0 0 14px rgba(125, 211, 252, 0.5));
+	font-size: 2.2em;
+}
+
+.location {
+	color: rgba(224, 242, 254, 0.85);
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.condition-icon {
+	box-sizing: border-box;
+	background: linear-gradient(160deg, rgba(125, 211, 252, 0.35), rgba(45, 212, 191, 0.22));
+	border: 1px solid rgba(186, 230, 253, 0.35);
+	border-radius: 14px;
+	box-shadow: inset 0 0 14px rgba(186, 230, 253, 0.25);
+}
+
+.condition {
+	background: linear-gradient(90deg, rgba(14, 116, 144, 0.55), rgba(76, 29, 149, 0.5));
+	border: 1px solid rgba(186, 230, 253, 0.4);
+	border-radius: 999px;
+	font-size: 0.62em;
+	padding: 3px 7px;
+	text-transform: uppercase;
+}
+
+.forecast-item {
+	background: linear-gradient(180deg, rgba(125, 211, 252, 0.16), rgba(99, 102, 241, 0.14));
+	border: 1px solid rgba(148, 233, 255, 0.25);
+	border-radius: 12px;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.forecast-temp {
+	color: #a7f3d0;
+	text-shadow: 0 0 10px rgba(167, 243, 208, 0.45);
+}
+
+.state-view {
+	color: rgba(224, 242, 254, 0.82);
+	letter-spacing: 0.08em;
+}
+
+.error {
+	color: #fecdd3;
+}
+
+.spin {
+	filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.6));
+	animation: odeko-weather-spin 1.8s linear infinite;
+}
+
+@keyframes odeko-weather-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

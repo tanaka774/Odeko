@@ -728,6 +728,7 @@
 			{#each icons as icon (icon.id)}
 				<div
 					class="icon-wrapper"
+					data-item-id={icon.id}
 					style="left: {icon.x}px; top: {icon.y}px; width: {icon.width}px; height: {icon.height}px; z-index: {interactingIds.has(
 						icon.id
 					)

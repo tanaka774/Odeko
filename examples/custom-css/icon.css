@@ -1,0 +1,81 @@
+/*
+ * Canvas icon tile - "Glossy Tile" theme.
+ * Vivid gradient tile with an inner top highlight, rounded image content, an
+ * uppercase label with shadow, a hover lift and restyled badges.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this whole file.
+ */
+
+.app-icon {
+	background: linear-gradient(160deg, #38bdf8, #6366f1 48%, #a855f7);
+	border: 1px solid rgba(255, 255, 255, 0.45);
+	border-radius: 20px;
+	color: #ffffff;
+	text-shadow: 0 1px 3px rgba(8, 12, 40, 0.6);
+	box-shadow:
+		0 10px 26px rgba(30, 64, 175, 0.45),
+		inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.app-icon::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 44%;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+	border-radius: 19px 19px 50% 50%;
+	pointer-events: none;
+}
+
+.app-icon.image-type::after {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
+}
+
+/* Two selectors on purpose: the app's own hover rule is one class heavier, so
+   the tile gradient needs the extra class to survive the hover state. */
+.app-icon:not(.image-type):hover,
+.app-icon.image-type:hover {
+	background: linear-gradient(160deg, #4fc3ff, #6f6cff 48%, #b96bff);
+	box-shadow: 0 16px 34px rgba(30, 64, 175, 0.6);
+	transform: translateY(-2px);
+}
+
+.icon-content {
+	filter: drop-shadow(0 3px 8px rgba(8, 12, 40, 0.45));
+}
+
+.icon-image {
+	border-radius: 14px;
+	box-shadow: 0 4px 12px rgba(8, 12, 40, 0.4);
+}
+
+.icon-image.gif {
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.icon-placeholder {
+	background: rgba(255, 255, 255, 0.22);
+	border-radius: 14px;
+}
+
+.icon-initial {
+	color: #ffffff;
+	font-weight: 800;
+}
+
+.icon-label {
+	letter-spacing: 0.1em;
+	text-shadow: 0 1px 4px rgba(8, 12, 40, 0.8);
+	text-transform: uppercase;
+}
+
+.url-badge {
+	background: #22d3ee;
+	border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.keybind-badge {
+	background: rgba(12, 16, 38, 0.88);
+	color: #e0e7ff;
+}

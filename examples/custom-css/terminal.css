@@ -1,0 +1,66 @@
+/*
+ * Terminal widget - "Amber Phosphor Frame" theme.
+ * Dark brown backdrop, amber double frame with an outer glow and uppercase
+ * amber loading text. Terminal text is painted by xterm.js on a canvas, so only
+ * the frame can be themed. Install: Appearance tab -> Enable Custom CSS -> paste this.
+ */
+
+.terminal-widget {
+	background:
+		radial-gradient(circle at 50% 0%, rgba(255, 159, 28, 0.14), transparent 60%),
+		linear-gradient(180deg, #1c1105 0%, #0c0703 100%);
+	border: 1px solid #ff9f1c;
+	border-radius: 12px;
+	box-sizing: border-box;
+	color: #ffc46b;
+	padding: 7px;
+	box-shadow:
+		0 0 22px rgba(255, 159, 28, 0.35),
+		inset 0 0 26px rgba(255, 159, 28, 0.12);
+	animation: odeko-terminal-frame-glow 4s ease-in-out infinite;
+}
+
+@keyframes odeko-terminal-frame-glow {
+	50% {
+		box-shadow:
+			0 0 34px rgba(255, 159, 28, 0.5),
+			inset 0 0 30px rgba(255, 159, 28, 0.2);
+	}
+}
+
+/* Inner frame line, drawn inside the amber padding so it never covers text. */
+.terminal-widget::after {
+	content: '';
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	bottom: 3px;
+	left: 3px;
+	border: 1px solid rgba(255, 159, 28, 0.35);
+	border-radius: 9px;
+	pointer-events: none;
+}
+
+.terminal-container {
+	border-radius: 8px;
+}
+
+.loading-overlay {
+	border: 1px solid rgba(255, 159, 28, 0.3);
+}
+
+.loading-text {
+	color: #ffb347;
+	font-family: 'Courier New', Consolas, monospace;
+	font-size: 0.9em;
+	letter-spacing: 0.24em;
+	text-shadow: 0 0 10px rgba(255, 159, 28, 0.75);
+	text-transform: uppercase;
+	animation: odeko-terminal-flicker 1.6s ease-in-out infinite;
+}
+
+@keyframes odeko-terminal-flicker {
+	50% {
+		opacity: 0.7;
+	}
+}

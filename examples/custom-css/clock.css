@@ -1,0 +1,87 @@
+/*
+ * Clock widget - "Synthwave Neon" theme.
+ * Indigo/violet panel, hot-pink frame, cyan glowing digital readout and a neon
+ * analog dial. Install: Appearance tab -> Enable Custom CSS -> paste this.
+ */
+
+.clock-widget {
+	background:
+		repeating-linear-gradient(to bottom, rgba(255, 47, 185, 0.07) 0 1px, transparent 1px 7px),
+		radial-gradient(circle at 50% 118%, rgba(77, 243, 255, 0.3), transparent 62%),
+		linear-gradient(160deg, #1b1035 0%, #2c1160 48%, #0a0616 100%);
+	border: 1px solid #ff2fb9;
+	border-radius: 14px;
+	color: #f4e7ff;
+	box-shadow:
+		0 0 22px rgba(255, 47, 185, 0.5),
+		inset 0 0 26px rgba(124, 58, 237, 0.4);
+	animation: odeko-clock-panel-glow 5s ease-in-out infinite;
+}
+
+@keyframes odeko-clock-panel-glow {
+	50% {
+		box-shadow: 0 0 32px rgba(255, 47, 185, 0.65);
+	}
+}
+
+.time-display {
+	color: #4df3ff;
+	font-family: 'Courier New', Consolas, 'SF Mono', monospace;
+	font-size: min(2.4em, 12cqw);
+	letter-spacing: 0.06em;
+	text-shadow:
+		0 0 6px rgba(77, 243, 255, 0.9),
+		0 0 20px rgba(77, 243, 255, 0.55);
+}
+
+.date-display {
+	color: #ff9de0;
+	font-size: min(0.85em, 5.2cqw);
+	letter-spacing: 0.24em;
+	text-transform: uppercase;
+	text-shadow: 0 0 10px rgba(255, 47, 185, 0.55);
+}
+
+.clock-face {
+	fill: rgba(16, 8, 36, 0.96);
+}
+
+.clock-ring {
+	stroke: #ff2fb9;
+	filter: drop-shadow(0 0 4px rgba(255, 47, 185, 0.85));
+}
+
+.tick,
+.major-tick {
+	stroke: rgba(77, 243, 255, 0.7);
+}
+
+.major-tick {
+	stroke: #4df3ff;
+	filter: drop-shadow(0 0 3px rgba(77, 243, 255, 0.85));
+}
+
+.clock-number {
+	fill: #ffd9f4;
+	font-family: 'Courier New', Consolas, monospace;
+}
+
+.hour-hand {
+	stroke: #ff2fb9;
+	filter: drop-shadow(0 0 5px rgba(255, 47, 185, 0.9));
+}
+
+.minute-hand {
+	stroke: #c084fc;
+	filter: drop-shadow(0 0 5px rgba(192, 132, 252, 0.85));
+}
+
+.second-hand {
+	stroke: #4df3ff;
+	filter: drop-shadow(0 0 6px rgba(77, 243, 255, 0.95));
+}
+
+.center-dot {
+	fill: #4df3ff;
+	filter: drop-shadow(0 0 6px rgba(77, 243, 255, 0.9));
+}

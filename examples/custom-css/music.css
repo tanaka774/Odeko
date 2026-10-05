@@ -1,0 +1,89 @@
+/*
+ * Music Player widget — "Vinyl Lounge" custom CSS theme.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this whole file.
+ * The progress fill and play button carry inline theme-color backgrounds, so
+ * they are re-tinted with hue-rotate instead of a background override.
+ */
+
+.music-widget {
+	background: radial-gradient(circle at 24% 4%, #4a1240 0%, #2a0a2e 52%, #140618 100%);
+	color: #fdf2f8;
+	box-shadow: inset 0 0 0 1px rgba(244, 114, 182, 0.3);
+}
+
+.album-art {
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+	filter: drop-shadow(0 0 12px rgba(217, 70, 239, 0.5));
+	animation: odeko-music-glow 5s ease-in-out infinite;
+}
+
+@keyframes odeko-music-glow {
+	50% {
+		filter: drop-shadow(0 0 20px rgba(244, 114, 182, 0.75));
+	}
+}
+
+.song-title {
+	letter-spacing: 0.01em;
+	text-shadow: 0 1px 10px rgba(217, 70, 239, 0.45);
+}
+
+.song-artist {
+	color: rgba(251, 207, 232, 0.85);
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.progress-bar {
+	background: linear-gradient(90deg, rgba(253, 242, 248, 0.08), rgba(253, 242, 248, 0.22));
+	border-radius: 999px;
+	box-shadow: inset 0 0 0 1px rgba(253, 242, 248, 0.12);
+}
+
+.progress-fill {
+	filter: hue-rotate(180deg) saturate(1.15);
+	border-radius: 999px;
+	box-shadow: 0 0 12px rgba(134, 239, 172, 0.5);
+}
+
+.control-btn {
+	background: rgba(253, 242, 248, 0.1);
+	color: #fdf2f8;
+	box-shadow: inset 0 0 0 1px rgba(251, 207, 232, 0.25);
+}
+
+.control-btn:hover:not(:disabled) {
+	background: rgba(244, 114, 182, 0.32);
+	color: #ffffff;
+	box-shadow: 0 0 16px rgba(244, 114, 182, 0.45);
+}
+
+.play-btn {
+	filter: hue-rotate(180deg) saturate(1.2);
+	box-shadow: 0 0 20px rgba(134, 239, 172, 0.45);
+}
+
+.player-dropdown-btn {
+	background: rgba(253, 242, 248, 0.12);
+	border-color: rgba(251, 207, 232, 0.3);
+	color: #fdf2f8;
+	box-shadow: 0 0 14px rgba(217, 70, 239, 0.3);
+}
+
+.player-dropdown-menu {
+	background: rgba(30, 8, 34, 0.96);
+	border-color: rgba(244, 114, 182, 0.35);
+	border-radius: 14px;
+	box-shadow: 0 12px 30px rgba(8, 2, 12, 0.65);
+}
+
+.player-option {
+	box-shadow: inset 0 -1px 0 rgba(251, 207, 232, 0.12);
+}
+
+.player-option:hover,
+.player-option.selected {
+	background: rgba(244, 114, 182, 0.24);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}

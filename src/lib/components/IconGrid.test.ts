@@ -83,6 +83,25 @@ describe('IconGrid', () => {
 		expect(first.style.top).toBe('100px');
 	});
 
+	it('exposes the custom-CSS scope on the icon wrapper so .app-icon rules can match', async () => {
+		const { container } = render(IconGrid, {
+			isEditMode: false,
+			onEnterEditMode: () => {},
+			onExitEditMode: () => {}
+		});
+
+		await waitFor(() => expect(iconWrappers(container).length).toBe(2));
+
+		const wrapper = iconWrappers(container)[0];
+		const icon = wrapper.querySelector<HTMLElement>('.app-icon');
+		expect(wrapper.getAttribute('data-item-id')).toBe('terminal');
+		expect(icon).not.toBeNull();
+		// WidgetCss prefixes user selectors with `[data-item-id="…"] ` (a
+		// descendant combinator), so the scope element has to be an ancestor of
+		// the styled root — otherwise no `.app-icon` rule could ever apply.
+		expect(icon!.matches('[data-item-id="terminal"] .app-icon')).toBe(true);
+	});
+
 	it('clears the legacy placeholder name from loaded image icons', async () => {
 		invokeMock.mockImplementation((cmd: string) => {
 			if (cmd === 'load_active_layout') {

@@ -122,3 +122,7 @@ Iframes fill the widget (and resize with it); style the frame itself with:
 ```css
 .custom-widget iframe { border-radius: 10px; }
 ```
+
+For a complete ready-to-paste theme per widget — clock, system, weather,
+terminal, tasklist, music, and the rest — see
+[`examples/custom-css/`](../custom-css/README.md).
