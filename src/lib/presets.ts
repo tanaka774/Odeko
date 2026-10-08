@@ -60,10 +60,6 @@ export function listPresets(): Promise<PresetSummary[]> {
 	return invoke<PresetSummary[]>('list_presets');
 }
 
-export function switchPreset(name: string): Promise<void> {
-	return invoke('set_active_preset', { name });
-}
-
 export function saveLayoutToActivePreset(
 	icons: CanvasIcon[],
 	settings: CanvasSettings
