@@ -871,8 +871,9 @@ mod platform {
     /// initialised apartment (scanning runs on a worker thread, and Tauri may
     /// have initialised it already).
     fn ensure_com_initialized() -> bool {
+        use windows::Win32::Foundation::RPC_E_CHANGED_MODE;
         use windows::Win32::System::Com::{
-            CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, RPC_E_CHANGED_MODE,
+            CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
         };
 
         let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
