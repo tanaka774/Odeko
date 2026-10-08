@@ -1,7 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
-use commands::canvas::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
+use commands::canvas::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, read_preset, get_preset_prefs, save_preset_prefs, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
 use commands::media_server::{register_background_video, MediaServerState};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
@@ -26,6 +26,17 @@ struct GlobalShortcutState {
 
 struct IconShortcutState {
     shortcuts: Mutex<HashMap<String, Shortcut>>,
+}
+
+struct PresetSlotShortcutState {
+    shortcuts: Mutex<HashMap<u8, Shortcut>>,
+}
+
+/// A slot keybind the frontend wants registered with the OS.
+#[derive(serde::Deserialize)]
+struct PresetSlotShortcut {
+    index: u8,
+    keybind: KeybindConfig,
 }
 
 /// Runtime state for the native backdrop blur on Linux.
@@ -150,6 +161,9 @@ pub fn run() {
             app.manage(IconShortcutState {
                 shortcuts: Mutex::new(HashMap::new()),
             });
+            app.manage(PresetSlotShortcutState {
+                shortcuts: Mutex::new(HashMap::new()),
+            });
             app.manage(MediaServerState::new());
 
             log::info!("Odeko initialized successfully!");
@@ -165,7 +179,8 @@ pub fn run() {
             get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players,
             execute_sleep, execute_restart, execute_shutdown,
             list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset,
-            update_global_shortcut, update_icon_shortcuts, get_platform, hide_canvas, get_icon_base64,
+            read_preset, get_preset_prefs, save_preset_prefs,
+            update_global_shortcut, update_icon_shortcuts, update_preset_slot_shortcuts, get_platform, hide_canvas, get_icon_base64,
             set_autostart, get_autostart,
             register_background_video, set_backdrop_blur, widget_fetch
         ])
@@ -497,6 +512,61 @@ fn update_icon_shortcuts(app: tauri::AppHandle, icons: Vec<AppIcon>) -> Result<(
             .map_err(|e| format!("Failed to register shortcut for {}: {}", id, e))?;
 
             log::info!("Registered global shortcut for icon: {}", id);
+        }
+    }
+
+    *old_map = new_map;
+
+    Ok(())
+}
+
+/// Register the slot keybinds the user marked "global". Pressing one only
+/// emits an event; the frontend owns the switch so the animation runs.
+#[tauri::command]
+fn update_preset_slot_shortcuts(
+    app: tauri::AppHandle,
+    slots: Vec<PresetSlotShortcut>,
+) -> Result<(), String> {
+    let state = app.state::<PresetSlotShortcutState>();
+    let gs = app.global_shortcut();
+
+    let mut old_map = state
+        .shortcuts
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+
+    let mut new_map: HashMap<u8, Shortcut> = HashMap::new();
+    for slot in &slots {
+        match keybind_to_shortcut(&slot.keybind) {
+            Ok(shortcut) => {
+                new_map.insert(slot.index, shortcut);
+            }
+            Err(e) => {
+                log::warn!("Skipping shortcut for preset slot {}: {}", slot.index, e);
+            }
+        }
+    }
+
+    for (index, old_shortcut) in old_map.iter() {
+        if !new_map.contains_key(index) {
+            let _ = gs.unregister(old_shortcut.clone());
+            log::info!("Unregistered global shortcut for preset slot: {}", index);
+        }
+    }
+
+    for (index, new_shortcut) in &new_map {
+        if old_map.get(index) != Some(new_shortcut) {
+            let slot_index = *index;
+            gs.on_shortcut(new_shortcut.clone(), move |app, _sc, event| {
+                if event.state() == ShortcutState::Pressed {
+                    if let Err(error) = app.emit("preset-slot-shortcut", slot_index) {
+                        log::warn!("Failed to emit preset slot shortcut: {}", error);
+                    }
+                }
+            })
+            .map_err(|e| format!("Failed to register shortcut for slot {}: {}", index, e))?;
+
+            log::info!("Registered global shortcut for preset slot: {}", index);
         }
     }
 

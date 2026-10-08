@@ -17,6 +17,9 @@
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
 	import { safeRgbColor, safeCssUrl } from '$lib/utils';
+	import { listPresets, flushPresetCommit } from '$lib/presets';
+	import { presetPrefs } from '$lib/preset-prefs.svelte';
+	import { presetTransition } from '$lib/preset-transition.svelte';
 
 	let iconGrid: IconGrid;
 
@@ -69,6 +72,33 @@
 			}
 			return;
 		}
+		if (matchesKeybind(event, s.keybind_next_preset)) {
+			event.preventDefault();
+			await cyclePreset(1);
+			return;
+		}
+		if (matchesKeybind(event, s.keybind_prev_preset)) {
+			event.preventDefault();
+			await cyclePreset(-1);
+			return;
+		}
+		if (matchesKeybind(event, s.keybind_last_preset)) {
+			event.preventDefault();
+			await switchToLastPreset();
+			return;
+		}
+
+		// Slots that are not registered with the OS are handled here, while
+		// the canvas has focus.
+		const slotIndex = presetPrefs.slots.findIndex(
+			(slot) =>
+				!slot.global && slot.name && slot.keybind?.key && matchesKeybind(event, slot.keybind)
+		);
+		if (slotIndex !== -1) {
+			event.preventDefault();
+			await activateSlot(slotIndex);
+			return;
+		}
 
 		if (!isEditMode) {
 			const icons = settingsStore.getCurrentIcons();
@@ -94,6 +124,37 @@
 
 	function isPowerWidget(icon: CanvasIcon): boolean {
 		return icon.icon_type === 'widget' && isPowerActionType(icon.widget_type);
+	}
+
+	async function switchToPreset(name: string) {
+		await iconGrid?.applyPresetByName(name);
+	}
+
+	/** Step through the presets in list order, wrapping at both ends. */
+	async function cyclePreset(step: number) {
+		const presets = await listPresets();
+		if (presets.length === 0) return;
+		const current = settingsStore.activePreset;
+		const index = presets.findIndex((preset) => preset.name === current);
+		const next =
+			index === -1
+				? step > 0
+					? 0
+					: presets.length - 1
+				: (index + step + presets.length) % presets.length;
+		await switchToPreset(presets[next].name);
+	}
+
+	async function switchToLastPreset() {
+		const target = presetPrefs.lastPreset;
+		if (!target || target === settingsStore.activePreset) return;
+		await switchToPreset(target);
+	}
+
+	async function activateSlot(index: number) {
+		const name = presetPrefs.slots[index]?.name;
+		if (!name) return;
+		await switchToPreset(name);
 	}
 
 	async function executePowerWidget(icon: CanvasIcon) {
@@ -148,8 +209,17 @@
 		const onResize = () => layoutVersion++;
 		window.addEventListener('resize', onResize);
 
+		// Both preset writes are debounced; quitting right after a switch must
+		// not lose it.
+		const flushPendingPresetWrites = () => {
+			void flushPresetCommit();
+			void presetPrefs.flush();
+		};
+		window.addEventListener('beforeunload', flushPendingPresetWrites);
+
 		let unlistenPowerShortcut: UnlistenFn | null = null;
 		let unlistenLaunchError: UnlistenFn | null = null;
+		let unlistenSlotShortcut: UnlistenFn | null = null;
 		let disposed = false;
 
 		async function setup() {
@@ -158,6 +228,7 @@
 			window.show();
 			window.setFocus();
 			await settingsStore.loadSettings();
+			await presetPrefs.load();
 			invoke('update_global_shortcut', {
 				keybind: settingsStore.settings.keybind_toggle_canvas
 			});
@@ -168,6 +239,10 @@
 
 			const unlisten = await listen<string>('power-widget-shortcut', async (event) => {
 				await executePowerWidgetById(event.payload);
+			});
+
+			const unlistenSlot = await listen<number>('preset-slot-shortcut', async (event) => {
+				await activateSlot(event.payload);
 			});
 
 			// Global-shortcut launches have no Result to await, so the backend
@@ -186,9 +261,11 @@
 			if (disposed) {
 				unlisten();
 				unlistenError();
+				unlistenSlot();
 			} else {
 				unlistenPowerShortcut = unlisten;
 				unlistenLaunchError = unlistenError;
+				unlistenSlotShortcut = unlistenSlot;
 			}
 		}
 
@@ -196,10 +273,23 @@
 
 		return () => {
 			window.removeEventListener('resize', onResize);
+			window.removeEventListener('beforeunload', flushPendingPresetWrites);
 			disposed = true;
 			unlistenPowerShortcut?.();
 			unlistenLaunchError?.();
+			unlistenSlotShortcut?.();
 		};
+	});
+
+	// Slot keybinds marked "global" are registered with the OS, so they fire
+	// even when the canvas does not have focus.
+	$effect(() => {
+		const globalSlots = presetPrefs.slots.flatMap((slot, index) =>
+			slot.global && slot.name && slot.keybind?.key ? [{ index, keybind: slot.keybind }] : []
+		);
+		invoke('update_preset_slot_shortcuts', { slots: globalSlots }).catch((error) =>
+			console.error('Failed to register preset slot shortcuts:', error)
+		);
 	});
 
 	function getBackgroundSize(size: 'cover' | 'contain' | 'stretch'): string {
@@ -259,32 +349,85 @@
 	// Style strings below interpolate settings values that can arrive via
 	// imported presets, so colors and the background URL are scrubbed first
 	// (safeRgbColor/safeCssUrl) to prevent CSS injection.
-	let backgroundIsVideo = $derived(isVideoBackground(settingsStore.settings.background_image));
-	let backgroundRgb = $derived(safeRgbColor(settingsStore.settings.background_color, '20, 20, 30'));
-	let backgroundImageUrl = $derived(safeCssUrl(settingsStore.settings.background_image));
+	//
+	// During a preset switch the panel keeps painting the outgoing background
+	// while an overlay fades the incoming one in; the geometry (size, position,
+	// radius, darkness) tweens towards the target from the start. Both flip to
+	// the store when the switch settles, which shows the same pixels the
+	// overlay was already showing.
+	let displaySettings = $derived(
+		presetTransition.active && presetTransition.from
+			? presetTransition.from.settings
+			: settingsStore.settings
+	);
+	let geometrySettings = $derived(
+		presetTransition.active && presetTransition.to
+			? presetTransition.to.settings
+			: settingsStore.settings
+	);
+	let incomingSettings = $derived(
+		presetTransition.active && presetTransition.to ? presetTransition.to.settings : null
+	);
+
+	let backgroundIsVideo = $derived(isVideoBackground(displaySettings.background_image));
+	let backgroundRgb = $derived(safeRgbColor(displaySettings.background_color, '20, 20, 30'));
+	let backgroundImageUrl = $derived(safeCssUrl(displaySettings.background_image));
+
+	function backgroundLayers(target: typeof displaySettings, rgb: string, url: string | null) {
+		const isVideo = isVideoBackground(target.background_image);
+		return {
+			backgroundColor: target.background_image
+				? 'transparent'
+				: `rgba(${rgb}, ${target.background_opacity})`,
+			backgroundImage:
+				url && !isVideo
+					? `linear-gradient(rgba(${rgb}, ${target.background_opacity}), rgba(${rgb}, ${target.background_opacity})), url("${url}")`
+					: 'none',
+			backgroundSize: target.background_image
+				? `cover, ${getBackgroundSize(target.background_size)}`
+				: 'cover',
+			backgroundRepeat: target.background_image
+				? `no-repeat, ${target.background_repeat ? 'repeat' : 'no-repeat'}`
+				: 'no-repeat',
+			backgroundPosition: target.background_image
+				? `center, ${target.background_position}`
+				: 'center'
+		};
+	}
+
+	// Videos are painted by <BackgroundVideo> with their own twin-element
+	// pipeline, so a switch involving one falls back to a plain swap behind the
+	// icon fade instead of a background crossfade.
+	let incomingBackground = $derived(
+		incomingSettings && !isVideoBackground(incomingSettings.background_image) && !backgroundIsVideo
+			? backgroundLayers(
+					incomingSettings,
+					safeRgbColor(incomingSettings.background_color, '20, 20, 30'),
+					safeCssUrl(incomingSettings.background_image)
+				)
+			: null
+	);
+
+	// Mount the overlay transparent, then flip it on the next frame so the CSS
+	// transition runs over the whole switch.
+	let overlayShown = $state(false);
+	$effect(() => {
+		if (!incomingBackground) {
+			overlayShown = false;
+			return;
+		}
+		overlayShown = false;
+		const frame = requestAnimationFrame(() => {
+			overlayShown = true;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
 
 	let canvasStyles = $derived({
-		width: `${settingsStore.settings.width_percent}%`,
-		height: `${settingsStore.settings.height_percent}%`,
-		// Video backgrounds are painted by <BackgroundVideo>, so the overlay
-		// itself stays transparent and skips the CSS image layers.
-		backgroundColor: settingsStore.settings.background_image
-			? 'transparent'
-			: `rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})`,
-		backgroundImage:
-			backgroundImageUrl && !backgroundIsVideo
-				? `linear-gradient(rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity}), rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})), url("${backgroundImageUrl}")`
-				: 'none',
-		backgroundSize: settingsStore.settings.background_image
-			? `cover, ${getBackgroundSize(settingsStore.settings.background_size)}`
-			: 'cover',
-		backgroundRepeat: settingsStore.settings.background_image
-			? `no-repeat, ${settingsStore.settings.background_repeat ? 'repeat' : 'no-repeat'}`
-			: 'no-repeat',
-		backgroundPosition: settingsStore.settings.background_image
-			? `center, ${settingsStore.settings.background_position}`
-			: 'center',
-		borderRadius: `${settingsStore.settings.border_radius}px`
+		...backgroundLayers(displaySettings, backgroundRgb, backgroundImageUrl),
+		width: `${geometrySettings.width_percent}%`,
+		height: `${geometrySettings.height_percent}%`,
+		borderRadius: `${geometrySettings.border_radius}px`
 	});
 </script>
 
@@ -298,7 +441,7 @@
 	<!-- Backdrop layer: dark overlay behind the canvas. -->
 	<div
 		class="backdrop"
-		style:background="rgba(0, 0, 0, {settingsStore.settings.backdrop_darkness})"
+		style:background="rgba(0, 0, 0, {geometrySettings.backdrop_darkness})"
 	></div>
 
 	<!-- Canvas panel -->
@@ -315,18 +458,32 @@
 		style:background-repeat={canvasStyles.backgroundRepeat}
 		style:background-position={canvasStyles.backgroundPosition}
 		style:border-radius={canvasStyles.borderRadius}
-		style:left="{settingsStore.settings.position_x}%"
-		style:top="{settingsStore.settings.position_y}%"
-		style:transform="translate(-{settingsStore.settings.position_x}%, -{settingsStore.settings
-			.position_y}%)"
+		style:left="{geometrySettings.position_x}%"
+		style:top="{geometrySettings.position_y}%"
+		style:transform="translate(-{geometrySettings.position_x}%, -{geometrySettings.position_y}%)"
+		style:--preset-duration="{presetTransition.outMs + presetTransition.inMs}ms"
 	>
-		{#if backgroundIsVideo && settingsStore.settings.background_image}
+		{#if incomingBackground}
+			<div
+				class="background-incoming"
+				class:shown={overlayShown}
+				class:slide={presetTransition.style === 'slide'}
+				class:zoom={presetTransition.style === 'zoom'}
+				style:background-color={incomingBackground.backgroundColor}
+				style:background-image={incomingBackground.backgroundImage}
+				style:background-size={incomingBackground.backgroundSize}
+				style:background-repeat={incomingBackground.backgroundRepeat}
+				style:background-position={incomingBackground.backgroundPosition}
+			></div>
+		{/if}
+
+		{#if backgroundIsVideo && displaySettings.background_image}
 			<BackgroundVideo
-				src={settingsStore.settings.background_image}
-				fit={settingsStore.settings.background_size}
-				position={settingsStore.settings.background_position}
+				src={displaySettings.background_image}
+				fit={displaySettings.background_size}
+				position={displaySettings.background_position}
 				tintColor={backgroundRgb}
-				tintOpacity={settingsStore.settings.background_opacity}
+				tintOpacity={displaySettings.background_opacity}
 			/>
 		{/if}
 
@@ -461,6 +618,7 @@
 		height: 100%;
 		z-index: 0;
 		pointer-events: none;
+		transition: background var(--preset-duration, 260ms) ease;
 	}
 
 	.canvas-panel {
@@ -470,6 +628,48 @@
 		overflow: hidden;
 		position: absolute;
 		z-index: 1;
+		/* Panel geometry eases towards the incoming preset while its content
+		   crossfades, so a preset that resizes does not snap at the end. */
+		transition:
+			width var(--preset-duration, 260ms) ease,
+			height var(--preset-duration, 260ms) ease,
+			left var(--preset-duration, 260ms) ease,
+			top var(--preset-duration, 260ms) ease,
+			transform var(--preset-duration, 260ms) ease,
+			border-radius var(--preset-duration, 260ms) ease;
+	}
+
+	/* Incoming preset background, crossfaded over the outgoing one. */
+	.background-incoming {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		opacity: 0;
+		transition:
+			opacity var(--preset-duration, 260ms) ease,
+			transform var(--preset-duration, 260ms) ease;
+	}
+	.background-incoming.shown {
+		opacity: 1;
+	}
+	.background-incoming.slide {
+		transform: translateX(2.5%);
+	}
+	.background-incoming.slide.shown {
+		transform: none;
+	}
+	.background-incoming.zoom {
+		transform: scale(1.03);
+	}
+	.background-incoming.zoom.shown {
+		transform: none;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.backdrop,
+		.canvas-panel,
+		.background-incoming {
+			transition: none;
+		}
 	}
 
 	.canvas-content {

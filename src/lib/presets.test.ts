@@ -1,12 +1,29 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+const invokeMock = vi.fn();
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: (...args: unknown[]) => invokeMock(...args)
+}));
+
 import {
+	cancelPresetCommit,
+	flushPresetCommit,
 	formatRelativeTime,
 	importNotes,
+	normalizeSlots,
 	presetMeta,
+	PRESET_SLOT_COUNT,
+	schedulePresetCommit,
 	uniquePresetName,
 	type ImportResult,
 	type PresetSummary
 } from './presets';
+
+afterEach(() => {
+	cancelPresetCommit();
+	invokeMock.mockReset();
+	vi.useRealTimers();
+});
 
 const NOW = 1_700_000_000_000;
 
@@ -89,5 +106,50 @@ describe('importNotes', () => {
 			'disabled 1 global shortcut(s)',
 			're-enabled confirmation on 3 power widget(s)'
 		]);
+	});
+});
+
+describe('normalizeSlots', () => {
+	it('pads to nine slots and keeps what was set', () => {
+		const slots = normalizeSlots([{ name: 'Work', keybind: null, global: true }]);
+		expect(slots).toHaveLength(PRESET_SLOT_COUNT);
+		expect(slots[0]).toEqual({ name: 'Work', keybind: null, global: true });
+		expect(slots[8]).toEqual({ name: null, keybind: null, global: false });
+	});
+
+	it('drops extra slots', () => {
+		const many = Array.from({ length: 20 }, (_, index) => ({
+			name: `Preset ${index}`,
+			keybind: null,
+			global: false
+		}));
+		expect(normalizeSlots(many)).toHaveLength(PRESET_SLOT_COUNT);
+	});
+});
+
+describe('preset commit', () => {
+	it('writes only the last preset of a burst', async () => {
+		vi.useFakeTimers();
+		invokeMock.mockResolvedValue(undefined);
+
+		schedulePresetCommit('A', [], 300);
+		schedulePresetCommit('B', [], 300);
+		schedulePresetCommit('C', [], 300);
+		expect(invokeMock).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(320);
+
+		expect(invokeMock).toHaveBeenCalledTimes(2);
+		expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'C' });
+		expect(invokeMock).toHaveBeenCalledWith('update_icon_shortcuts', { icons: [] });
+	});
+
+	it('flushes a pending write on demand', async () => {
+		invokeMock.mockResolvedValue(undefined);
+		schedulePresetCommit('Now', [], 5000);
+
+		await flushPresetCommit();
+
+		expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Now' });
 	});
 });

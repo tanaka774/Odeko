@@ -20,8 +20,19 @@ export const DEFAULT_KEYBINDS = {
 	toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 	toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
 	hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
-	undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
+	undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false },
+	next_preset: { key: 'ArrowRight', ctrl: true, alt: true, shift: false, meta: false },
+	prev_preset: { key: 'ArrowLeft', ctrl: true, alt: true, shift: false, meta: false },
+	last_preset: { key: 'ArrowUp', ctrl: true, alt: true, shift: false, meta: false }
 } as const;
+
+const KEY_LABELS: Record<string, string> = {
+	ArrowUp: '↑',
+	ArrowDown: '↓',
+	ArrowLeft: '←',
+	ArrowRight: '→',
+	Space: 'Space'
+};
 
 export function keybindToString(kb: KeybindConfig): string {
 	const parts: string[] = [];
@@ -29,7 +40,7 @@ export function keybindToString(kb: KeybindConfig): string {
 	if (kb.alt) parts.push('Alt');
 	if (kb.shift) parts.push('Shift');
 	if (kb.meta) parts.push('Win');
-	const displayKey = kb.key.startsWith('Key') ? kb.key.slice(3) : kb.key;
+	const displayKey = KEY_LABELS[kb.key] ?? (kb.key.startsWith('Key') ? kb.key.slice(3) : kb.key);
 	parts.push(displayKey);
 	return parts.join(' + ');
 }
@@ -67,13 +78,8 @@ export function keybindEquals(a: KeybindConfig, b: KeybindConfig): boolean {
 export interface KeybindConflictCheckOptions {
 	/** Icon id to exclude from the "other icons" check (the icon being edited). */
 	excludeIconId?: string;
-	/** App-level keybinds to check against (from CanvasSettings). */
-	appKeybinds: {
-		toggle_canvas: KeybindConfig;
-		toggle_edit: KeybindConfig;
-		hide_canvas: KeybindConfig;
-		undo: KeybindConfig;
-	};
+	/** App-level keybinds to check against (see appKeybindsFromSettings). */
+	appKeybinds: Partial<Record<AppKeybindName, KeybindConfig>>;
 	/** Other icons' currently-assigned keybinds. */
 	icons: { id: string; name: string; custom_name?: string | null; keybind?: KeybindConfig }[];
 }
@@ -82,8 +88,28 @@ export const APP_KEYBIND_LABELS = {
 	toggle_canvas: 'Toggle Canvas',
 	toggle_edit: 'Toggle Edit',
 	hide_canvas: 'Hide Canvas',
-	undo: 'Undo'
+	undo: 'Undo',
+	next_preset: 'Next Preset',
+	prev_preset: 'Previous Preset',
+	last_preset: 'Back to Previous Preset'
 } as const;
+
+export type AppKeybindName = keyof typeof APP_KEYBIND_LABELS;
+
+/** Every app-level keybind, so a new one is picked up by conflict checks. */
+export function appKeybindsFromSettings(
+	settings: CanvasSettings
+): Record<AppKeybindName, KeybindConfig> {
+	return {
+		toggle_canvas: settings.keybind_toggle_canvas,
+		toggle_edit: settings.keybind_toggle_edit,
+		hide_canvas: settings.keybind_hide_canvas,
+		undo: settings.keybind_undo,
+		next_preset: settings.keybind_next_preset,
+		prev_preset: settings.keybind_prev_preset,
+		last_preset: settings.keybind_last_preset
+	};
+}
 
 export function findKeybindConflict(
 	kb: KeybindConfig,
@@ -91,9 +117,9 @@ export function findKeybindConflict(
 ): string | null {
 	if (!kb.key) return null;
 	const { appKeybinds, excludeIconId, icons } = opts;
-	for (const name of Object.keys(appKeybinds) as (keyof typeof appKeybinds)[]) {
+	for (const name of Object.keys(appKeybinds) as AppKeybindName[]) {
 		const entry = appKeybinds[name];
-		if (entry.key && keybindEquals(entry, kb)) {
+		if (entry?.key && keybindEquals(entry, kb)) {
 			return `Conflicts with app keybind: ${APP_KEYBIND_LABELS[name]}`;
 		}
 	}
@@ -161,6 +187,9 @@ export interface CanvasSettings {
 	 * overrides. Stored sparse — only the fields the user changed.
 	 */
 	modal_appearance?: ModalAppearanceStore;
+	keybind_next_preset: KeybindConfig;
+	keybind_prev_preset: KeybindConfig;
+	keybind_last_preset: KeybindConfig;
 }
 
 export interface CanvasLayout {
@@ -191,6 +220,9 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	keybind_toggle_edit: { ...DEFAULT_KEYBINDS.toggle_edit },
 	keybind_hide_canvas: { ...DEFAULT_KEYBINDS.hide_canvas },
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
+	keybind_next_preset: { ...DEFAULT_KEYBINDS.next_preset },
+	keybind_prev_preset: { ...DEFAULT_KEYBINDS.prev_preset },
+	keybind_last_preset: { ...DEFAULT_KEYBINDS.last_preset },
 	network_grants: [],
 	allow_local_network: false,
 	// Empty until the user changes something: icons then fall back to their
@@ -215,6 +247,12 @@ function createSettingsStore() {
 		if (!merged.keybind_hide_canvas.key)
 			merged.keybind_hide_canvas = { ...DEFAULT_KEYBINDS.hide_canvas };
 		if (!merged.keybind_undo.key) merged.keybind_undo = { ...DEFAULT_KEYBINDS.undo };
+		if (!merged.keybind_next_preset?.key)
+			merged.keybind_next_preset = { ...DEFAULT_KEYBINDS.next_preset };
+		if (!merged.keybind_prev_preset?.key)
+			merged.keybind_prev_preset = { ...DEFAULT_KEYBINDS.prev_preset };
+		if (!merged.keybind_last_preset?.key)
+			merged.keybind_last_preset = { ...DEFAULT_KEYBINDS.last_preset };
 
 		// The default appearance must stay a plain object (Rust round-trips it
 		// as JSON, so it may arrive as null from older files). Custom CSS keys
@@ -300,12 +338,29 @@ function createSettingsStore() {
 		// canvas panel's position for the "light" strength).
 	}
 
-	function applyLayout(layout: CanvasLayout) {
-		if (layout.settings) {
-			settings = convertBackgroundImage(applyDefaults(layout.settings));
-		}
-		activePreset = layout.active_preset ?? null;
+	/**
+	 * Normalize a layout that is not being applied yet, so the transition can
+	 * render the incoming preset with the same background URLs and defaults
+	 * the committed store would have.
+	 */
+	function prepareLayout(layout: CanvasLayout): CanvasLayout {
+		return {
+			icons: layout.icons ?? [],
+			settings: layout.settings
+				? convertBackgroundImage(applyDefaults(layout.settings))
+				: { ...DEFAULT_SETTINGS },
+			active_preset: layout.active_preset ?? null
+		};
+	}
+
+	function applyPrepared(prepared: CanvasLayout) {
+		settings = prepared.settings;
+		activePreset = prepared.active_preset ?? null;
 		isLoaded = true;
+	}
+
+	function applyLayout(layout: CanvasLayout) {
+		applyPrepared(prepareLayout(layout));
 	}
 
 	function updateSettings(newSettings: Partial<CanvasSettings>) {
@@ -342,6 +397,8 @@ function createSettingsStore() {
 		loadSettings,
 		saveSettings,
 		applyLayout,
+		prepareLayout,
+		applyPrepared,
 		updateSettings,
 		resetToDefaults,
 		setActivePreset,

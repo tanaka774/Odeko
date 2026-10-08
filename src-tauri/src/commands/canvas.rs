@@ -127,6 +127,12 @@ pub struct CanvasSettings {
     pub keybind_hide_canvas: KeybindConfig,
     #[serde(default)]
     pub keybind_undo: KeybindConfig,
+    #[serde(default)]
+    pub keybind_next_preset: KeybindConfig,
+    #[serde(default)]
+    pub keybind_prev_preset: KeybindConfig,
+    #[serde(default)]
+    pub keybind_last_preset: KeybindConfig,
     /// App-wide allowed hostnames for Custom HTML widgets (see widget_fetch).
     #[serde(default)]
     pub network_grants: Vec<String>,
@@ -190,6 +196,27 @@ impl Default for CanvasSettings {
                 key: "KeyZ".to_string(),
                 ctrl: true,
                 alt: false,
+                shift: false,
+                meta: false,
+            },
+            keybind_next_preset: KeybindConfig {
+                key: "ArrowRight".to_string(),
+                ctrl: true,
+                alt: true,
+                shift: false,
+                meta: false,
+            },
+            keybind_prev_preset: KeybindConfig {
+                key: "ArrowLeft".to_string(),
+                ctrl: true,
+                alt: true,
+                shift: false,
+                meta: false,
+            },
+            keybind_last_preset: KeybindConfig {
+                key: "ArrowUp".to_string(),
+                ctrl: true,
+                alt: true,
                 shift: false,
                 meta: false,
             },
@@ -378,10 +405,103 @@ fn sanitize_preset_name(name: &str) -> String {
     }
 }
 
+/// How the canvas animates when the active preset changes. Kept global (in
+/// config.json, not in a preset) so switching presets cannot change it.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PresetTransition {
+    #[serde(default = "default_transition_style")]
+    pub style: String,
+    #[serde(default = "default_transition_duration")]
+    pub duration_ms: u32,
+    #[serde(default = "default_transition_stagger")]
+    pub stagger_ms: u32,
+}
+
+fn default_transition_style() -> String {
+    "fade".to_string()
+}
+
+fn default_transition_duration() -> u32 {
+    260
+}
+
+fn default_transition_stagger() -> u32 {
+    24
+}
+
+impl Default for PresetTransition {
+    fn default() -> Self {
+        Self {
+            style: default_transition_style(),
+            duration_ms: default_transition_duration(),
+            stagger_ms: default_transition_stagger(),
+        }
+    }
+}
+
+/// One of the nine preset slots. A slot may point at a preset that no longer
+/// exists; the UI shows it as missing rather than dropping the assignment.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct PresetSlot {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub keybind: Option<KeybindConfig>,
+    /// Register the keybind with the OS instead of only while the canvas is
+    /// focused (see `update_preset_slot_shortcuts`).
+    #[serde(default)]
+    pub global: bool,
+}
+
+pub const PRESET_SLOT_COUNT: usize = 9;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PresetPrefs {
+    pub slots: Vec<PresetSlot>,
+    pub transition: PresetTransition,
+    /// The preset that was active before the current one, for "back".
+    pub last_preset: Option<String>,
+}
+
+/// Pad or trim to exactly `PRESET_SLOT_COUNT` entries and drop names that
+/// could not be file stems.
+fn normalize_slots(slots: Vec<PresetSlot>) -> Vec<PresetSlot> {
+    let mut slots = slots;
+    slots.truncate(PRESET_SLOT_COUNT);
+    while slots.len() < PRESET_SLOT_COUNT {
+        slots.push(PresetSlot::default());
+    }
+    for slot in &mut slots {
+        if let Some(name) = &slot.name {
+            if validate_preset_name(name).is_err() {
+                slot.name = None;
+            }
+        }
+    }
+    slots
+}
+
+fn sanitize_transition(transition: PresetTransition) -> PresetTransition {
+    PresetTransition {
+        style: match transition.style.as_str() {
+            "fade" | "slide" | "zoom" | "none" => transition.style,
+            _ => default_transition_style(),
+        },
+        duration_ms: transition.duration_ms.clamp(0, 2000),
+        stagger_ms: transition.stagger_ms.clamp(0, 200),
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct AppConfig {
     #[serde(default)]
     active_preset: Option<String>,
+    #[serde(default)]
+    preset_slots: Vec<PresetSlot>,
+    #[serde(default)]
+    preset_transition: PresetTransition,
+    #[serde(default)]
+    last_preset: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -962,7 +1082,8 @@ pub fn save_active_settings(settings: CanvasSettings) -> Result<String, String> 
 }
 
 /// Set which preset is currently active. Just writes config.json — does not
-/// touch preset files.
+/// touch preset files. Read-modify-write: the config also holds the preset
+/// slots and the transition settings.
 #[tauri::command]
 pub fn set_active_preset(name: String) -> Result<(), String> {
     validate_preset_name(&name)?;
@@ -970,11 +1091,54 @@ pub fn set_active_preset(name: String) -> Result<(), String> {
     if !preset_path.exists() {
         return Err(format!("Preset '{}' not found", name));
     }
-    let config = AppConfig {
-        active_preset: Some(name.clone()),
-    };
-    write_config(&config)?;
+    let mut config = read_config();
+    if config.active_preset.as_deref() != Some(name.as_str()) {
+        // "last_preset" is owned by the frontend (it knows what the canvas is
+        // actually showing while switches are still being debounced).
+        config.active_preset = Some(name.clone());
+        write_config(&config)?;
+    }
     log::info!("Set active preset to: {}", name);
+    Ok(())
+}
+
+/// Read one preset without making it active: the transition needs the target
+/// layout before anything is committed.
+#[tauri::command]
+pub fn read_preset(name: String) -> Result<CanvasLayout, String> {
+    validate_preset_name(&name)?;
+    let preset_path = get_presets_dir().join(format!("{}.json", name));
+    if !preset_path.exists() {
+        return Err(format!("Preset '{}' not found", name));
+    }
+    let content = std::fs::read_to_string(&preset_path)
+        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
+    let data: PresetData = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+    Ok(CanvasLayout {
+        icons: data.icons,
+        settings: data.settings,
+        active_preset: Some(name),
+    })
+}
+
+#[tauri::command]
+pub fn get_preset_prefs() -> Result<PresetPrefs, String> {
+    let config = read_config();
+    Ok(PresetPrefs {
+        slots: normalize_slots(config.preset_slots),
+        transition: sanitize_transition(config.preset_transition),
+        last_preset: config.last_preset,
+    })
+}
+
+#[tauri::command]
+pub fn save_preset_prefs(prefs: PresetPrefs) -> Result<(), String> {
+    let mut config = read_config();
+    config.preset_slots = normalize_slots(prefs.slots);
+    config.preset_transition = sanitize_transition(prefs.transition);
+    write_config(&config)?;
+    log::info!("Saved preset preferences");
     Ok(())
 }
 
@@ -1072,8 +1236,17 @@ pub fn delete_preset(name: String) -> Result<(), String> {
     let mut config = read_config();
     if config.active_preset.as_deref() == Some(&name) {
         config.active_preset = None;
-        write_config(&config)?;
     }
+    if config.last_preset.as_deref() == Some(&name) {
+        config.last_preset = None;
+    }
+    // A slot that points at a deleted preset would be a dead keybind.
+    for slot in &mut config.preset_slots {
+        if slot.name.as_deref() == Some(&name) {
+            slot.name = None;
+        }
+    }
+    write_config(&config)?;
     Ok(())
 }
 
@@ -1094,9 +1267,17 @@ pub fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to rename preset: {}", e))?;
     let mut config = read_config();
     if config.active_preset.as_deref() == Some(&old_name) {
-        config.active_preset = Some(new_name);
-        write_config(&config)?;
+        config.active_preset = Some(new_name.clone());
     }
+    if config.last_preset.as_deref() == Some(&old_name) {
+        config.last_preset = Some(new_name.clone());
+    }
+    for slot in &mut config.preset_slots {
+        if slot.name.as_deref() == Some(&old_name) {
+            slot.name = Some(new_name.clone());
+        }
+    }
+    write_config(&config)?;
     Ok(())
 }
 
@@ -1557,6 +1738,27 @@ mod tests {
                 shift: false,
                 meta: true,
             },
+            keybind_next_preset: KeybindConfig {
+                key: "ArrowRight".into(),
+                ctrl: false,
+                alt: false,
+                shift: true,
+                meta: false,
+            },
+            keybind_prev_preset: KeybindConfig {
+                key: "ArrowLeft".into(),
+                ctrl: false,
+                alt: false,
+                shift: true,
+                meta: false,
+            },
+            keybind_last_preset: KeybindConfig {
+                key: "ArrowUp".into(),
+                ctrl: false,
+                alt: false,
+                shift: true,
+                meta: false,
+            },
             network_grants: vec!["api.example.com".to_string()],
             allow_local_network: true,
             default_appearance: Some(serde_json::json!({
@@ -1598,6 +1800,9 @@ mod tests {
             assert_eq!(got.keybind_toggle_edit, modified.keybind_toggle_edit);
             assert_eq!(got.keybind_hide_canvas, modified.keybind_hide_canvas);
             assert_eq!(got.keybind_undo, modified.keybind_undo);
+            assert_eq!(got.keybind_next_preset, modified.keybind_next_preset);
+            assert_eq!(got.keybind_prev_preset, modified.keybind_prev_preset);
+            assert_eq!(got.keybind_last_preset, modified.keybind_last_preset);
             assert_eq!(got.default_appearance, modified.default_appearance);
             assert_eq!(got.modal_appearance, modified.modal_appearance);
         });
@@ -1660,6 +1865,7 @@ mod tests {
         with_fake_config_dir(|| {
             write_config(&AppConfig {
                 active_preset: Some("Ghost".into()),
+                ..Default::default()
             })
             .unwrap();
 
@@ -1779,6 +1985,124 @@ mod tests {
 
             let layout = load_active_layout().unwrap();
             assert_eq!(layout.active_preset.as_deref(), Some("C"));
+        });
+    }
+
+    #[test]
+    fn set_active_preset_preserves_slots_and_transition() {
+        with_fake_config_dir(|| {
+            save_preset_as("A".into(), vec![], CanvasSettings::default()).unwrap();
+            save_preset_as("B".into(), vec![], CanvasSettings::default()).unwrap();
+
+            save_preset_prefs(PresetPrefs {
+                slots: vec![PresetSlot {
+                    name: Some("A".into()),
+                    keybind: None,
+                    global: false,
+                }],
+                transition: PresetTransition {
+                    style: "zoom".into(),
+                    duration_ms: 500,
+                    stagger_ms: 10,
+                },
+                last_preset: None,
+            })
+            .unwrap();
+
+            set_active_preset("A".into()).unwrap();
+            set_active_preset("B".into()).unwrap();
+
+            let prefs = get_preset_prefs().unwrap();
+            assert_eq!(prefs.transition.style, "zoom");
+            assert_eq!(prefs.transition.duration_ms, 500);
+            assert_eq!(prefs.slots[0].name.as_deref(), Some("A"));
+            // Switching must not clobber what the frontend stored here.
+            assert_eq!(prefs.last_preset, None);
+            assert_eq!(load_active_layout().unwrap().active_preset.as_deref(), Some("B"));
+        });
+    }
+
+    #[test]
+    fn read_preset_returns_a_layout_without_activating_it() {
+        with_fake_config_dir(|| {
+            save_preset_as("A".into(), vec![test_icon()], CanvasSettings::default()).unwrap();
+            save_preset_as("B".into(), vec![], CanvasSettings::default()).unwrap();
+            set_active_preset("A".into()).unwrap();
+
+            let layout = read_preset("B".into()).unwrap();
+            assert!(layout.icons.is_empty());
+            assert_eq!(layout.active_preset.as_deref(), Some("B"));
+
+            assert!(read_preset("Missing".into()).is_err());
+            assert_eq!(load_active_layout().unwrap().active_preset.as_deref(), Some("A"));
+        });
+    }
+
+    #[test]
+    fn delete_and_rename_keep_slots_in_sync() {
+        with_fake_config_dir(|| {
+            save_preset_as("A".into(), vec![], CanvasSettings::default()).unwrap();
+            save_preset_as("B".into(), vec![], CanvasSettings::default()).unwrap();
+            save_preset_prefs(PresetPrefs {
+                slots: vec![
+                    PresetSlot {
+                        name: Some("A".into()),
+                        keybind: None,
+                        global: true,
+                    },
+                    PresetSlot {
+                        name: Some("B".into()),
+                        keybind: None,
+                        global: false,
+                    },
+                ],
+                transition: PresetTransition::default(),
+                last_preset: None,
+            })
+            .unwrap();
+
+            rename_preset("A".into(), "C".into()).unwrap();
+            let prefs = get_preset_prefs().unwrap();
+            assert_eq!(prefs.slots[0].name.as_deref(), Some("C"));
+            assert!(prefs.slots[0].global);
+
+            delete_preset("B".into()).unwrap();
+            assert_eq!(get_preset_prefs().unwrap().slots[1].name, None);
+        });
+    }
+
+    #[test]
+    fn save_preset_prefs_pads_clamps_and_drops_bad_names() {
+        with_fake_config_dir(|| {
+            save_preset_prefs(PresetPrefs {
+                slots: vec![
+                    PresetSlot {
+                        name: Some("../evil".into()),
+                        keybind: None,
+                        global: false,
+                    },
+                    PresetSlot {
+                        name: Some("A".into()),
+                        keybind: None,
+                        global: false,
+                    },
+                ],
+                transition: PresetTransition {
+                    style: "explode".into(),
+                    duration_ms: 99_999,
+                    stagger_ms: 99_999,
+                },
+                last_preset: None,
+            })
+            .unwrap();
+
+            let prefs = get_preset_prefs().unwrap();
+            assert_eq!(prefs.slots.len(), PRESET_SLOT_COUNT);
+            assert_eq!(prefs.slots[0].name, None);
+            assert_eq!(prefs.slots[1].name.as_deref(), Some("A"));
+            assert_eq!(prefs.transition.style, "fade");
+            assert_eq!(prefs.transition.duration_ms, 2000);
+            assert_eq!(prefs.transition.stagger_ms, 200);
         });
     }
 

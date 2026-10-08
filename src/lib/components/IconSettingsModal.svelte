@@ -18,6 +18,7 @@
 	import { TEXT_APPEARANCE_FIELDS, type WidgetAppearanceConfig } from '$lib/widgets/types';
 	import {
 		settingsStore,
+		appKeybindsFromSettings,
 		findKeybindConflict,
 		type KeybindConfig
 	} from '$lib/stores/settings.svelte';
@@ -166,12 +167,7 @@
 		const s = settingsStore.settings;
 		return findKeybindConflict(kb, {
 			excludeIconId: icon?.id,
-			appKeybinds: {
-				toggle_canvas: s.keybind_toggle_canvas,
-				toggle_edit: s.keybind_toggle_edit,
-				hide_canvas: s.keybind_hide_canvas,
-				undo: s.keybind_undo
-			},
+			appKeybinds: appKeybindsFromSettings(s),
 			icons: settingsStore.getCurrentIcons()
 		});
 	});

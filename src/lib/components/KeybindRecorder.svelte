@@ -13,12 +13,17 @@
 		} satisfies KeybindConfig),
 		label,
 		disabled = false,
-		onRemove
+		/** Drops the box and the label, for one-line rows. */
+		compact = false,
+		onRemove,
+		onchange
 	} = $props<{
 		value: KeybindConfig;
 		label: string;
 		disabled?: boolean;
+		compact?: boolean;
 		onRemove?: () => void;
+		onchange?: (keybind: KeybindConfig) => void;
 	}>();
 
 	let isRecording = $state(false);
@@ -44,14 +49,17 @@
 		if (modifierOnly) return;
 
 		value = eventToKeybind(event);
+		onchange?.(value);
 		isRecording = false;
 	}
 
 	let displayText = $derived(keybindToString(value));
 </script>
 
-<div class="keybind-recorder">
-	<div class="keybind-label">{label}</div>
+<div class="keybind-recorder" class:compact>
+	{#if !compact}
+		<div class="keybind-label">{label}</div>
+	{/if}
 	<div class="keybind-controls">
 		<div class="key-bindings" class:recording={isRecording}>
 			{#if isRecording}
@@ -90,6 +98,14 @@
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 10px;
+	}
+
+	.keybind-recorder.compact {
+		padding: 0;
+		background: none;
+		border: none;
+		border-radius: 0;
+		gap: 0;
 	}
 
 	.keybind-label {

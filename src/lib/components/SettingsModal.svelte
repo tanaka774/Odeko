@@ -37,7 +37,8 @@
 	} = $props<{
 		isOpen: boolean;
 		onSave?: () => void;
-		onApplyPreset?: () => void;
+		/** Switch preset by name; `null` means reload whatever is on disk. */
+		onApplyPreset?: (name: string | null) => Promise<void> | void;
 		hasUnsavedIcons?: () => boolean;
 	}>();
 
@@ -184,8 +185,8 @@
 
 	// A preset switch replaces the live settings, so the staged copy has to be
 	// re-seeded and the canvas reloaded from the preset that just became active.
-	async function handlePresetSwitched() {
-		await onApplyPreset?.();
+	async function handlePresetSwitched(name: string | null) {
+		await onApplyPreset?.(name);
 		const current = $state.snapshot(untrack(() => settingsStore.settings));
 		localSettings = current;
 		originalSettings = current;
@@ -659,6 +660,18 @@
 										<KeybindRecorder
 											bind:value={localSettings.keybind_undo}
 											label="Undo last change (edit mode)"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_next_preset}
+											label="Next preset"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_prev_preset}
+											label="Previous preset"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_last_preset}
+											label="Back to the previous preset"
 										/>
 									</div>
 									<div class="key-shortcuts" style="margin-top: 24px;">

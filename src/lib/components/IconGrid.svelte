@@ -17,6 +17,10 @@
 	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 	import type { CanvasIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
+	import { readPreset, schedulePresetCommit } from '$lib/presets';
+	import { presetPrefs } from '$lib/preset-prefs.svelte';
+	import { presetTransition, staggerDelay, type PresetLayers } from '$lib/preset-transition.svelte';
+	import { toastStore, errorMessage } from '$lib/stores/toast.svelte';
 
 	interface Props {
 		isEditMode: boolean;
@@ -152,6 +156,69 @@
 		}
 		if (isEditMode) {
 			editSession.enter(icons);
+		}
+	}
+
+	/**
+	 * Switch presets through the transition. The canvas updates in the middle
+	 * of the animation (while it is faded out) and the disk write is debounced,
+	 * so holding the cycle key does not hammer config.json.
+	 */
+	export async function applyPresetByName(
+		name: string,
+		options: { animate?: boolean } = {}
+	): Promise<void> {
+		const { animate = true } = options;
+		try {
+			const layout = await readPreset(name);
+			const prepared = settingsStore.prepareLayout(
+				layout as Parameters<typeof settingsStore.prepareLayout>[0]
+			);
+			const target: PresetLayers = {
+				icons: normalizeZ((prepared.icons ?? []) as CanvasIcon[]),
+				settings: prepared.settings
+			};
+			// Interrupting a switch animates from what is on screen, not from
+			// the preset the store still holds.
+			const start: PresetLayers = presetTransition.pending ?? {
+				icons: $state.snapshot(icons) as CanvasIcon[],
+				settings: $state.snapshot(settingsStore.settings)
+			};
+
+			const previous = settingsStore.activePreset;
+			const timing = animate
+				? presetPrefs.transition
+				: { ...presetPrefs.transition, style: 'none' as const };
+
+			await presetTransition.run(
+				start,
+				target,
+				() => {
+					settingsStore.applyPrepared(prepared);
+					icons = target.icons;
+					if (isEditMode) editSession.enter(icons);
+				},
+				timing
+			);
+
+			if (previous && previous !== name) presetPrefs.setLastPreset(previous);
+			// A newer switch may have taken over while this one animated; that
+			// one owns the commit, so this one must not overwrite it.
+			if (settingsStore.activePreset !== name) return;
+			schedulePresetCommit(name, icons);
+		} catch (error) {
+			console.error('Failed to apply preset:', error);
+			toastStore.show(`Could not switch to "${name}"`, errorMessage(error));
+		}
+	}
+
+	/** The Settings dialog switches presets through here. */
+	async function handlePresetSwitch(name: string | null) {
+		if (name) {
+			await applyPresetByName(name);
+		} else {
+			// The active preset was deleted: fall back to whatever is on disk.
+			await reloadAll();
 		}
 	}
 
@@ -717,26 +784,29 @@
 	<div
 		class="icon-grid"
 		class:edit-mode={isEditMode}
+		class:preset-out={presetTransition.phase === 'out'}
+		class:preset-in={presetTransition.phase === 'in'}
+		class:preset-slide={presetTransition.style === 'slide'}
+		class:preset-zoom={presetTransition.style === 'zoom'}
 		bind:this={gridEl}
 		role="application"
 		aria-label="Icon grid"
 		onpointerdown={handleGridPointerDown}
 		onpointermove={handleGridPointerMove}
 		onpointerup={handleGridPointerUp}
-		style="--grid-size: {gridSize}px; --grid-line-color: {gridLineColor};"
+		style="--grid-size: {gridSize}px; --grid-line-color: {gridLineColor}; --preset-out-duration: {presetTransition.outMs}ms; --preset-in-duration: {presetTransition.inMs}ms;"
 	>
 		{#if isLoading}
 			<div class="loading">Loading apps...</div>
 		{:else}
-			{#each icons as icon (icon.id)}
+			{#each icons as icon, index (icon.id)}
 				<div
 					class="icon-wrapper"
 					data-item-id={icon.id}
-					style="left: {icon.x}px; top: {icon.y}px; width: {icon.width}px; height: {icon.height}px; z-index: {interactingIds.has(
-						icon.id
-					)
-						? 999
-						: (icon.z ?? 0)};"
+					style="left: {icon.x}px; top: {icon.y}px; width: {icon.width}px; height: {icon.height}px; --preset-delay: {staggerDelay(
+						index,
+						presetTransition.staggerMs
+					)}ms; z-index: {interactingIds.has(icon.id) ? 999 : (icon.z ?? 0)};"
 				>
 					{#if icon.icon_type === 'widget'}
 						<DraggableWidget
@@ -817,7 +887,7 @@
 		/>
 		<SettingsModal
 			bind:isOpen={showSettings}
-			onApplyPreset={reloadAll}
+			onApplyPreset={handlePresetSwitch}
 			hasUnsavedIcons={() => editSession.isDirty}
 		/>
 		<IconSettingsModal
@@ -867,6 +937,71 @@
 	}
 	.icon-wrapper {
 		position: absolute;
+	}
+
+	/* Preset switch: the outgoing icons fade out first, then the incoming set
+	   animates in per icon (the swap happens in between, while faded out). */
+	.icon-grid.preset-out {
+		opacity: 0;
+		transition: opacity var(--preset-out-duration, 100ms) ease-in;
+	}
+	.icon-grid.preset-slide.preset-out {
+		transform: translateX(-2.5%);
+		transition:
+			opacity var(--preset-out-duration, 100ms) ease-in,
+			transform var(--preset-out-duration, 100ms) ease-in;
+	}
+	.icon-grid.preset-zoom.preset-out {
+		transform: scale(0.98);
+		transition:
+			opacity var(--preset-out-duration, 100ms) ease-in,
+			transform var(--preset-out-duration, 100ms) ease-in;
+	}
+	.icon-grid.preset-in .icon-wrapper {
+		animation: preset-icon-fade var(--preset-in-duration, 160ms) cubic-bezier(0.22, 0.61, 0.36, 1)
+			var(--preset-delay, 0ms) both;
+	}
+	.icon-grid.preset-in.preset-slide .icon-wrapper {
+		animation-name: preset-icon-slide;
+	}
+	.icon-grid.preset-in.preset-zoom .icon-wrapper {
+		animation-name: preset-icon-zoom;
+	}
+	@keyframes preset-icon-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+	@keyframes preset-icon-slide {
+		from {
+			opacity: 0;
+			transform: translateX(28px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	@keyframes preset-icon-zoom {
+		from {
+			opacity: 0;
+			transform: scale(0.96);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.icon-grid.preset-out {
+			transition: none;
+		}
+		.icon-grid.preset-in .icon-wrapper {
+			animation: none;
+		}
 	}
 	.loading {
 		position: absolute;

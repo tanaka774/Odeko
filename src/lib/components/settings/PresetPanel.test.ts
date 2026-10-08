@@ -33,11 +33,13 @@ function preset(
 }
 
 function renderPanel(props: Record<string, unknown> = {}) {
-	return render(PresetPanel, {
+	const onSwitched = vi.fn();
+	const utils = render(PresetPanel, {
 		settings: { ...settingsStore.settings },
-		onSwitched: vi.fn(),
+		onSwitched,
 		...props
 	});
+	return { ...utils, onSwitched };
 }
 
 async function openRowMenu(name: string) {
@@ -85,12 +87,11 @@ describe('PresetPanel', () => {
 				return Promise.resolve([preset('Work', { is_active: true }), preset('Gaming')]);
 			return Promise.resolve('Work');
 		});
-		renderPanel();
+		const { onSwitched } = renderPanel();
 
 		fireEvent.click(await screen.findByRole('button', { name: /^Gaming\b/ }));
 
-		await waitFor(() => expect(settingsStore.activePreset).toBe('Gaming'));
-		expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Gaming' });
+		await waitFor(() => expect(onSwitched).toHaveBeenCalledWith('Gaming'));
 	});
 
 	it('asks before switching with unsaved changes', async () => {
@@ -98,21 +99,19 @@ describe('PresetPanel', () => {
 			if (cmd === 'list_presets') return Promise.resolve([preset('Gaming')]);
 			return Promise.resolve('Work');
 		});
-		renderPanel({ dirty: true });
+		const { onSwitched } = renderPanel({ dirty: true });
 
 		fireEvent.click(await screen.findByRole('button', { name: /^Gaming\b/ }));
 
 		expect(await screen.findByText('Switch to "Gaming" with unsaved changes?')).toBeTruthy();
-		expect(invokeMock).not.toHaveBeenCalledWith('set_active_preset', { name: 'Gaming' });
+		expect(onSwitched).not.toHaveBeenCalled();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Save & switch' }));
 
 		await waitFor(() =>
 			expect(invokeMock).toHaveBeenCalledWith('save_active_layout', expect.anything())
 		);
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Gaming' })
-		);
+		await waitFor(() => expect(onSwitched).toHaveBeenCalledWith('Gaming'));
 	});
 
 	it('switches without saving when the user discards', async () => {
@@ -120,14 +119,12 @@ describe('PresetPanel', () => {
 			if (cmd === 'list_presets') return Promise.resolve([preset('Gaming')]);
 			return Promise.resolve('Work');
 		});
-		renderPanel({ iconsDirty: true });
+		const { onSwitched } = renderPanel({ iconsDirty: true });
 
 		fireEvent.click(await screen.findByRole('button', { name: /^Gaming\b/ }));
 		fireEvent.click(await screen.findByRole('button', { name: 'Discard & switch' }));
 
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Gaming' })
-		);
+		await waitFor(() => expect(onSwitched).toHaveBeenCalledWith('Gaming'));
 		expect(invokeMock).not.toHaveBeenCalledWith('save_active_layout', expect.anything());
 	});
 
@@ -193,7 +190,7 @@ describe('PresetPanel', () => {
 	});
 
 	it('creates a blank preset from the draft row and switches to it', async () => {
-		renderPanel();
+		const { onSwitched } = renderPanel();
 
 		fireEvent.click(await screen.findByRole('button', { name: 'New blank' }));
 		const input = (await screen.findByLabelText('New preset name')) as HTMLInputElement;
@@ -205,9 +202,7 @@ describe('PresetPanel', () => {
 		await waitFor(() =>
 			expect(invokeMock).toHaveBeenCalledWith('save_default_preset', { name: 'Fresh' })
 		);
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Fresh' })
-		);
+		await waitFor(() => expect(onSwitched).toHaveBeenCalledWith('Fresh'));
 		expect(await screen.findByText('Created blank preset "Fresh".')).toBeTruthy();
 	});
 
@@ -217,7 +212,7 @@ describe('PresetPanel', () => {
 			return Promise.resolve('Work');
 		});
 		settingsStore.setActivePreset('Work');
-		renderPanel();
+		const { onSwitched } = renderPanel();
 
 		fireEvent.click(await screen.findByRole('button', { name: 'Save as new' }));
 		const input = (await screen.findByLabelText('New preset name')) as HTMLInputElement;
@@ -231,9 +226,7 @@ describe('PresetPanel', () => {
 				expect.objectContaining({ name: 'Copy of Work' })
 			)
 		);
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Copy of Work' })
-		);
+		await waitFor(() => expect(onSwitched).toHaveBeenCalledWith('Copy of Work'));
 	});
 
 	it('says so when there is nothing to list', async () => {

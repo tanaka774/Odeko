@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { open, save } from '@tauri-apps/plugin-dialog';
 	import { settingsStore, type CanvasSettings } from '$lib/stores/settings.svelte';
+	import KeybindRecorder from '$lib/components/KeybindRecorder.svelte';
+	import { presetPrefs } from '$lib/preset-prefs.svelte';
 	import {
 		createBlankPreset,
 		deletePreset,
@@ -14,9 +16,11 @@
 		renamePreset,
 		saveLayoutToActivePreset,
 		savePresetAs,
-		switchPreset,
 		uniquePresetName,
-		type PresetSummary
+		PRESET_SLOT_COUNT,
+		TRANSITION_STYLES,
+		type PresetSummary,
+		type PresetTransitionStyle
 	} from '$lib/presets';
 
 	let {
@@ -28,7 +32,8 @@
 		settings: CanvasSettings;
 		dirty?: boolean;
 		iconsDirty?: boolean;
-		onSwitched?: () => void | Promise<void>;
+		/** Switch preset by name; `null` reloads whatever is on disk. */
+		onSwitched?: (name: string | null) => void | Promise<void>;
 	}>();
 
 	let presets = $state<PresetSummary[]>([]);
@@ -96,9 +101,9 @@
 		if (saveFirst && (settingsStore.activePreset || dirty || iconsDirty)) {
 			await saveLayoutToActivePreset(settingsStore.getCurrentIcons(), settings);
 		}
-		await switchPreset(name);
-		settingsStore.setActivePreset(name);
-		await onSwitched?.();
+		// The canvas owns the switch so it can animate it; it also updates the
+		// active preset in the store.
+		await onSwitched?.(name);
 		await load();
 	}
 
@@ -162,7 +167,7 @@
 			menuFor = null;
 			if (activePreset === name) {
 				settingsStore.setActivePreset(null);
-				await onSwitched?.();
+				await onSwitched?.(null);
 			}
 			await load();
 			status = { kind: 'note', text: `Deleted "${name}".` };
@@ -252,6 +257,28 @@
 						: `Saved current layout as "${name}".`
 			};
 		});
+	}
+
+	const slotRows = $derived(
+		Array.from({ length: PRESET_SLOT_COUNT }, (_, index) => ({
+			index,
+			slot: presetPrefs.slots[index] ?? { name: null, keybind: null, global: false }
+		}))
+	);
+
+	const emptyKeybind = { key: '', ctrl: false, alt: false, shift: false, meta: false };
+
+	function fillSlots() {
+		presets.forEach((preset, index) => {
+			if (index < PRESET_SLOT_COUNT) presetPrefs.assignSlot(index, preset.name);
+		});
+		status = { kind: 'note', text: 'Filled the slots in list order.' };
+	}
+
+	async function activateSlot(index: number) {
+		const name = presetPrefs.slots[index]?.name;
+		if (!name) return;
+		await run(() => switchTo(name, true));
 	}
 
 	function handleNameKeydown(event: KeyboardEvent, commit: () => void) {
@@ -390,6 +417,101 @@
 	{:else if visible.length === 0}
 		<p class="empty">No preset matches "{filter}".</p>
 	{/if}
+
+	<div class="panel-section">
+		<div class="section-head">
+			<h4>Switching animation</h4>
+		</div>
+		<div class="transition-row">
+			<select
+				class="field"
+				aria-label="Animation style"
+				value={presetPrefs.transition.style}
+				onchange={(event) =>
+					presetPrefs.setTransition({
+						style: event.currentTarget.value as PresetTransitionStyle
+					})}
+			>
+				{#each TRANSITION_STYLES as option (option.value)}
+					<option value={option.value}>{option.label}</option>
+				{/each}
+			</select>
+			<label class="slider-field">
+				Duration
+				<input
+					type="range"
+					min="80"
+					max="600"
+					step="20"
+					value={presetPrefs.transition.duration_ms}
+					oninput={(event) =>
+						presetPrefs.setTransition({ duration_ms: Number(event.currentTarget.value) })}
+				/>
+				<span class="value">{presetPrefs.transition.duration_ms}ms</span>
+			</label>
+			<label class="slider-field">
+				Stagger
+				<input
+					type="range"
+					min="0"
+					max="80"
+					step="4"
+					value={presetPrefs.transition.stagger_ms}
+					oninput={(event) =>
+						presetPrefs.setTransition({ stagger_ms: Number(event.currentTarget.value) })}
+				/>
+				<span class="value">{presetPrefs.transition.stagger_ms}ms</span>
+			</label>
+		</div>
+	</div>
+
+	<div class="panel-section">
+		<div class="section-head">
+			<h4>Slots</h4>
+			<button class="btn quiet" onclick={fillSlots}>Fill from list</button>
+		</div>
+		<div class="slot-list">
+			{#each slotRows as row (row.index)}
+				<div class="slot-row">
+					<span class="slot-number">{row.index + 1}</span>
+					<select
+						class="field"
+						aria-label={`Preset for slot ${row.index + 1}`}
+						value={row.slot.name ?? ''}
+						onchange={(event) =>
+							presetPrefs.assignSlot(row.index, event.currentTarget.value || null)}
+					>
+						<option value="">Not set</option>
+						{#each presets as preset (preset.name)}
+							<option value={preset.name}>{preset.name}</option>
+						{/each}
+					</select>
+					<KeybindRecorder
+						compact
+						label={`Slot ${row.index + 1}`}
+						value={row.slot.keybind ?? emptyKeybind}
+						onchange={(keybind) =>
+							presetPrefs.setSlotKeybind(row.index, keybind.key ? keybind : null)}
+						onRemove={() => presetPrefs.setSlotKeybind(row.index, null)}
+					/>
+					<label class="slot-global">
+						<input
+							type="checkbox"
+							checked={row.slot.global}
+							onchange={(event) =>
+								presetPrefs.setSlotGlobal(row.index, event.currentTarget.checked)}
+						/>
+						Global
+					</label>
+					<button
+						class="btn quiet"
+						disabled={!row.slot.name || busy}
+						onclick={() => activateSlot(row.index)}>Switch</button
+					>
+				</div>
+			{/each}
+		</div>
+	</div>
 </section>
 
 <style>
@@ -627,5 +749,99 @@
 		margin: 0;
 		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
 		font-size: calc(0.9286 * var(--modal-font-size));
+	}
+
+	.panel-section {
+		display: flex;
+		flex-direction: column;
+		gap: calc(0.4286 * var(--modal-font-size));
+		margin-top: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.section-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: calc(0.5714 * var(--modal-font-size));
+	}
+
+	.panel-section h4 {
+		margin: 0;
+		color: var(--modal-text, rgba(255, 255, 255, 0.8));
+		font-size: calc(0.9286 * var(--modal-font-size));
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.transition-row {
+		display: flex;
+		align-items: center;
+		gap: calc(0.5714 * var(--modal-font-size));
+		flex-wrap: wrap;
+	}
+
+	.field {
+		padding: calc(0.2143 * var(--modal-font-size)) calc(0.4286 * var(--modal-font-size));
+		border-radius: 5px;
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		background: var(--modal-input-bg, rgba(30, 30, 40, 0.9));
+		color: var(--modal-text, white);
+		font-size: calc(0.9286 * var(--modal-font-size));
+	}
+
+	.slider-field {
+		display: flex;
+		align-items: center;
+		gap: calc(0.2857 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.6));
+		font-size: calc(0.9286 * var(--modal-font-size));
+	}
+
+	.slider-field input {
+		width: calc(7.1429 * var(--modal-font-size));
+		accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
+	}
+
+	.slider-field .value {
+		color: var(--modal-text, rgba(255, 255, 255, 0.85));
+		min-width: calc(2.8571 * var(--modal-font-size));
+	}
+
+	.slot-list {
+		display: flex;
+		flex-direction: column;
+		gap: calc(0.2857 * var(--modal-font-size));
+	}
+
+	.slot-row {
+		display: flex;
+		align-items: center;
+		gap: calc(0.4286 * var(--modal-font-size));
+	}
+
+	.slot-number {
+		width: calc(0.8571 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
+		font-size: calc(0.9286 * var(--modal-font-size));
+		text-align: right;
+	}
+
+	.slot-row .field {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.slot-global {
+		display: flex;
+		align-items: center;
+		gap: calc(0.2143 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.6));
+		font-size: calc(0.9286 * var(--modal-font-size));
+		white-space: nowrap;
+	}
+
+	.slot-global input {
+		accent-color: var(--modal-accent, rgba(120, 160, 200, 0.9));
 	}
 </style>

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { CanvasIcon } from '$lib/icons';
-import type { CanvasSettings } from '$lib/stores/settings.svelte';
+import type { CanvasLayout, CanvasSettings, KeybindConfig } from '$lib/stores/settings.svelte';
 
 export interface PresetSummary {
 	name: string;
@@ -10,6 +10,43 @@ export interface PresetSummary {
 	updated_at: number;
 	is_active: boolean;
 }
+
+export type PresetTransitionStyle = 'fade' | 'slide' | 'zoom' | 'none';
+
+/** How the canvas animates between presets. Global, not per preset. */
+export interface PresetTransition {
+	style: PresetTransitionStyle;
+	duration_ms: number;
+	stagger_ms: number;
+}
+
+export interface PresetSlot {
+	name: string | null;
+	keybind: KeybindConfig | null;
+	/** Register with the OS instead of only while the canvas has focus. */
+	global: boolean;
+}
+
+export interface PresetPrefs {
+	slots: PresetSlot[];
+	transition: PresetTransition;
+	last_preset: string | null;
+}
+
+export const PRESET_SLOT_COUNT = 9;
+
+export const DEFAULT_PRESET_TRANSITION: PresetTransition = {
+	style: 'fade',
+	duration_ms: 260,
+	stagger_ms: 24
+};
+
+export const TRANSITION_STYLES: { value: PresetTransitionStyle; label: string }[] = [
+	{ value: 'fade', label: 'Fade' },
+	{ value: 'slide', label: 'Slide' },
+	{ value: 'zoom', label: 'Zoom' },
+	{ value: 'none', label: 'None' }
+];
 
 export interface ImportResult {
 	name: string;
@@ -64,6 +101,68 @@ export function exportPreset(name: string, path: string): Promise<void> {
 
 export function importPreset(path: string): Promise<ImportResult> {
 	return invoke<ImportResult>('import_preset', { path });
+}
+
+/** Read a preset without making it active (the transition needs it first). */
+export function readPreset(name: string): Promise<CanvasLayout> {
+	return invoke<CanvasLayout>('read_preset', { name });
+}
+
+export function getPresetPrefs(): Promise<PresetPrefs> {
+	return invoke<PresetPrefs>('get_preset_prefs');
+}
+
+export function savePresetPrefs(prefs: PresetPrefs): Promise<void> {
+	return invoke('save_preset_prefs', { prefs });
+}
+
+export function normalizeSlots(slots: PresetSlot[] | undefined): PresetSlot[] {
+	const next = (slots ?? []).slice(0, PRESET_SLOT_COUNT).map((slot) => ({
+		name: slot?.name ?? null,
+		keybind: slot?.keybind ?? null,
+		global: slot?.global ?? false
+	}));
+	while (next.length < PRESET_SLOT_COUNT) {
+		next.push({ name: null, keybind: null, global: false });
+	}
+	return next;
+}
+
+// Cycling with the arrow keys fires a switch per keypress. The canvas updates
+// immediately; only the last one is worth writing to disk and re-registering
+// OS shortcuts for.
+const COMMIT_DELAY_MS = 350;
+let commitTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingCommit: { name: string; icons: CanvasIcon[] } | null = null;
+
+export function schedulePresetCommit(name: string, icons: CanvasIcon[], delay = COMMIT_DELAY_MS) {
+	pendingCommit = { name, icons };
+	if (commitTimer) clearTimeout(commitTimer);
+	commitTimer = setTimeout(() => {
+		void flushPresetCommit();
+	}, delay);
+}
+
+export async function flushPresetCommit(): Promise<void> {
+	if (commitTimer) {
+		clearTimeout(commitTimer);
+		commitTimer = null;
+	}
+	const pending = pendingCommit;
+	pendingCommit = null;
+	if (!pending) return;
+	try {
+		await invoke('set_active_preset', { name: pending.name });
+		await invoke('update_icon_shortcuts', { icons: pending.icons });
+	} catch (error) {
+		console.error('Failed to persist the active preset:', error);
+	}
+}
+
+export function cancelPresetCommit() {
+	if (commitTimer) clearTimeout(commitTimer);
+	commitTimer = null;
+	pendingCommit = null;
 }
 
 const MINUTE = 60;

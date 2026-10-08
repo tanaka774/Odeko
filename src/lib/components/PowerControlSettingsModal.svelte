@@ -8,6 +8,7 @@
 	import KeybindRecorder from './KeybindRecorder.svelte';
 	import {
 		settingsStore,
+		appKeybindsFromSettings,
 		findKeybindConflict,
 		type KeybindConfig
 	} from '$lib/stores/settings.svelte';
@@ -103,12 +104,7 @@
 		const s = settingsStore.settings;
 		return findKeybindConflict(recorderValue, {
 			excludeIconId: widgetId,
-			appKeybinds: {
-				toggle_canvas: s.keybind_toggle_canvas,
-				toggle_edit: s.keybind_toggle_edit,
-				hide_canvas: s.keybind_hide_canvas,
-				undo: s.keybind_undo
-			},
+			appKeybinds: appKeybindsFromSettings(s),
 			icons: settingsStore.getCurrentIcons() as IconForConflictCheck[]
 		});
 	});

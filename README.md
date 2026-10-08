@@ -44,6 +44,9 @@ And you can change basic styles of these icons like background color, opacity or
 ### Presets
 
 - You can save the layout as a preset, and import or export it as a JSON file.
+- Switching presets animates: fade, slide or zoom, with adjustable duration and per-icon stagger in the Presets tab.
+- `Ctrl + Alt + Left` / `Ctrl + Alt + Right` step through the presets, and `Ctrl + Alt + Up` goes back to the one you came from.
+- Nine slots can be assigned to presets, each with its own keybind. A slot marked "Global" is registered with the OS, so it works even when the canvas does not have focus.
 
 ## Development
 
@@ -62,7 +65,7 @@ npm run tauri build
 
 - [x] autostart
 - [ ] browser widget
-- [ ] smooth preset change
+- [x] smooth preset change
 - [ ] improve custom html
 - [ ] Multi-monitor placement
 - [ ] ai chat widget

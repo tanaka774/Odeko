@@ -17,8 +17,8 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 import SettingsModal from './SettingsModal.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 
-async function openModal() {
-	const utils = render(SettingsModal, { isOpen: true });
+async function openModal(props: Record<string, unknown> = {}) {
+	const utils = render(SettingsModal, { isOpen: true, ...props });
 	await screen.findByRole('dialog');
 	return utils;
 }
@@ -176,7 +176,8 @@ describe('SettingsModal', () => {
 		).toBeTruthy();
 	});
 
-	it('applies a clicked preset instantly without a review step', async () => {
+	it('hands a clicked preset to the canvas without a review step', async () => {
+		const onApplyPreset = vi.fn();
 		invokeMock.mockImplementation((cmd: string) => {
 			if (cmd === 'list_presets') {
 				return Promise.resolve([
@@ -185,16 +186,14 @@ describe('SettingsModal', () => {
 			}
 			return Promise.resolve('Default');
 		});
-		await openModal();
+		await openModal({ onApplyPreset });
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
 		fireEvent.click(await screen.findByRole('button', { name: /^Shared\b/ }));
 
 		// No review overlay blocks the switch, whatever the preset contains.
 		expect(screen.queryByRole('alertdialog')).toBeNull();
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
-		);
+		await waitFor(() => expect(onApplyPreset).toHaveBeenCalledWith('Shared'));
 		expect(invokeMock).not.toHaveBeenCalledWith('inspect_preset', expect.anything());
 	});
 
@@ -210,15 +209,14 @@ describe('SettingsModal', () => {
 			}
 			return Promise.resolve('Default');
 		});
-		await openModal();
+		const onApplyPreset = vi.fn();
+		await openModal({ onApplyPreset });
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
 		fireEvent.click(await screen.findByRole('button', { name: /^Shared\b/ }));
 
 		expect(screen.queryByText(/unsaved changes/)).toBeNull();
-		await waitFor(() =>
-			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
-		);
+		await waitFor(() => expect(onApplyPreset).toHaveBeenCalledWith('Shared'));
 	});
 
 	it('reflects an enabled autostart when the modal opens', async () => {

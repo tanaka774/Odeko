@@ -153,3 +153,74 @@ describe('App edit-mode keybind', () => {
 		expect(invokeMock).not.toHaveBeenCalledWith('save_active_layout', expect.anything());
 	});
 });
+
+describe('App preset keybinds', () => {
+	const instant = { style: 'none', duration_ms: 0, stagger_ms: 0 };
+
+	function press(code: string) {
+		window.dispatchEvent(
+			new KeyboardEvent('keydown', {
+				code,
+				key: code,
+				ctrlKey: true,
+				altKey: true,
+				bubbles: true,
+				cancelable: true
+			})
+		);
+	}
+
+	function mockPresets(slots: unknown[] = [], activePreset: string | null = null) {
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'load_active_layout') {
+				return Promise.resolve({ ...layout, active_preset: activePreset });
+			}
+			if (cmd === 'get_platform') return Promise.resolve('linux');
+			if (cmd === 'get_preset_prefs') {
+				return Promise.resolve({ slots, transition: instant, last_preset: null });
+			}
+			if (cmd === 'list_presets') {
+				return Promise.resolve([
+					{ name: 'Work', icon_count: 2, updated_at: 1_700_000_000, is_active: true },
+					{ name: 'Gaming', icon_count: 1, updated_at: 1_700_000_000, is_active: false }
+				]);
+			}
+			if (cmd === 'read_preset') {
+				return Promise.resolve({
+					icons: [layout.icons[0]],
+					settings: null,
+					active_preset: 'Gaming'
+				});
+			}
+			return Promise.resolve();
+		});
+	}
+
+	it('cycles to the next preset with the keybind', async () => {
+		mockPresets([], 'Work');
+		const { container } = render(App);
+
+		await waitFor(() => expect(iconWrappers(container).length).toBe(2));
+		press('ArrowRight');
+
+		await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('read_preset', { name: 'Gaming' }));
+		await waitFor(() => expect(iconWrappers(container).length).toBe(1));
+	});
+
+	it('switches to the preset assigned to an app-level slot keybind', async () => {
+		mockPresets([
+			{
+				name: 'Gaming',
+				keybind: { key: 'Digit1', ctrl: true, alt: true, shift: false, meta: false },
+				global: false
+			}
+		]);
+		const { container } = render(App);
+
+		await waitFor(() => expect(iconWrappers(container).length).toBe(2));
+		press('Digit1');
+
+		await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('read_preset', { name: 'Gaming' }));
+		await waitFor(() => expect(iconWrappers(container).length).toBe(1));
+	});
+});
