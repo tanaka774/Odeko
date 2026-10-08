@@ -38,7 +38,7 @@ export const PRESET_SLOT_COUNT = 9;
 export const DEFAULT_PRESET_TRANSITION: PresetTransition = {
 	style: 'fade',
 	duration_ms: 260,
-	stagger_ms: 24
+	stagger_ms: 12
 };
 
 export const TRANSITION_STYLES: { value: PresetTransitionStyle; label: string }[] = [

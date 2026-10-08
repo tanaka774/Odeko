@@ -33,7 +33,7 @@ describe('staggerDelay', () => {
 });
 
 describe('presetTransition', () => {
-	it('swaps in the middle of the run and settles at the end', async () => {
+	it('swaps after the fade-out and settles after the fade-in', async () => {
 		const target = layers(3);
 		const commit = vi.fn();
 		const run = presetTransition.run(layers(1), target, commit, {
@@ -48,18 +48,51 @@ describe('presetTransition', () => {
 		expect(presetTransition.pending).toEqual(target);
 		expect(commit).not.toHaveBeenCalled();
 
-		// 35% of 200ms is the outgoing half.
-		await vi.advanceTimersByTimeAsync(70);
+		// The outgoing ripple: 60ms per icon plus a 5ms-per-icon delay.
+		await vi.advanceTimersByTimeAsync(200);
 		expect(commit).toHaveBeenCalledTimes(1);
 		expect(presetTransition.phase).toBe('in');
 
-		await vi.advanceTimersByTimeAsync(200);
+		await vi.advanceTimersByTimeAsync(400);
 		await run;
 
 		expect(presetTransition.phase).toBe('idle');
 		expect(presetTransition.from).toBeNull();
 		expect(presetTransition.to).toBeNull();
 		expect(presetTransition.pending).toBeNull();
+	});
+
+	it('keeps the per-icon fade shorter than its phase', () => {
+		presetTransition.run(layers(1), layers(2), vi.fn(), {
+			style: 'fade',
+			duration_ms: 400,
+			stagger_ms: 20
+		});
+
+		// 30% and 45% of the run, so the first incoming icon is fully visible
+		// long before the last one has started.
+		expect(presetTransition.outMs).toBe(120);
+		expect(presetTransition.inMs).toBe(180);
+		expect(presetTransition.outStaggerMs).toBe(10);
+		expect(presetTransition.staggerMs).toBe(20);
+		// The background crossfade spans the whole run, tails included: two
+		// icons means one delay step in each direction.
+		expect(presetTransition.totalMs).toBe(120 + 10 + 180 + 20);
+	});
+
+	it('spans the crossfade over both ripples', () => {
+		presetTransition.run(layers(1), layers(5), vi.fn(), {
+			style: 'fade',
+			duration_ms: 260,
+			stagger_ms: 12
+		});
+
+		const outTail = 4 * presetTransition.outStaggerMs;
+		const inTail = 4 * presetTransition.staggerMs;
+		expect(presetTransition.totalMs).toBe(
+			presetTransition.outMs + outTail + presetTransition.inMs + inTail
+		);
+		expect(presetTransition.totalMs).toBeGreaterThan(260);
 	});
 
 	it('commits immediately when the style is none', async () => {
@@ -116,8 +149,9 @@ describe('presetTransition', () => {
 			stagger_ms: 20
 		});
 		// A superseded hop drops to the 120ms cap and skips the stagger.
-		expect(presetTransition.outMs + presetTransition.inMs).toBe(120);
 		expect(presetTransition.staggerMs).toBe(0);
+		expect(presetTransition.outStaggerMs).toBe(0);
+		expect(presetTransition.outMs + presetTransition.inMs).toBeLessThan(200);
 
 		await vi.advanceTimersByTimeAsync(600);
 		await Promise.all([first, second]);

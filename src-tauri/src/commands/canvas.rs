@@ -426,7 +426,7 @@ fn default_transition_duration() -> u32 {
 }
 
 fn default_transition_stagger() -> u32 {
-    24
+    12
 }
 
 impl Default for PresetTransition {

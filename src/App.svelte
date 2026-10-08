@@ -351,20 +351,15 @@
 	// (safeRgbColor/safeCssUrl) to prevent CSS injection.
 	//
 	// During a preset switch the panel keeps painting the outgoing background
-	// while an overlay fades the incoming one in; the geometry (size, position,
-	// radius, darkness) tweens towards the target from the start. Both flip to
-	// the store when the switch settles, which shows the same pixels the
-	// overlay was already showing.
+	// while an overlay fades the incoming one in. Geometry follows the store,
+	// which changes at the swap: that way the resize animation runs while the
+	// main thread is free, instead of being eaten by the widget mount.
 	let displaySettings = $derived(
 		presetTransition.active && presetTransition.from
 			? presetTransition.from.settings
 			: settingsStore.settings
 	);
-	let geometrySettings = $derived(
-		presetTransition.active && presetTransition.to
-			? presetTransition.to.settings
-			: settingsStore.settings
-	);
+	let geometrySettings = $derived(settingsStore.settings);
 	let incomingSettings = $derived(
 		presetTransition.active && presetTransition.to ? presetTransition.to.settings : null
 	);
@@ -461,7 +456,7 @@
 		style:left="{geometrySettings.position_x}%"
 		style:top="{geometrySettings.position_y}%"
 		style:transform="translate(-{geometrySettings.position_x}%, -{geometrySettings.position_y}%)"
-		style:--preset-duration="{presetTransition.outMs + presetTransition.inMs}ms"
+		style:--preset-duration="{presetTransition.totalMs}ms"
 	>
 		{#if incomingBackground}
 			<div
@@ -618,7 +613,7 @@
 		height: 100%;
 		z-index: 0;
 		pointer-events: none;
-		transition: background var(--preset-duration, 260ms) ease;
+		transition: background 260ms ease;
 	}
 
 	.canvas-panel {
@@ -628,15 +623,17 @@
 		overflow: hidden;
 		position: absolute;
 		z-index: 1;
-		/* Panel geometry eases towards the incoming preset while its content
-		   crossfades, so a preset that resizes does not snap at the end. */
+		/* Panel geometry eases towards the incoming preset from the swap, so a
+		   preset that resizes does not snap. Layout properties cannot run on
+		   the compositor, so this deliberately starts when the main thread is
+		   free again (see preset-transition). */
 		transition:
-			width var(--preset-duration, 260ms) ease,
-			height var(--preset-duration, 260ms) ease,
-			left var(--preset-duration, 260ms) ease,
-			top var(--preset-duration, 260ms) ease,
-			transform var(--preset-duration, 260ms) ease,
-			border-radius var(--preset-duration, 260ms) ease;
+			width 260ms ease,
+			height 260ms ease,
+			left 260ms ease,
+			top 260ms ease,
+			transform 260ms ease,
+			border-radius 260ms ease;
 	}
 
 	/* Incoming preset background, crossfaded over the outgoing one. */
@@ -645,6 +642,7 @@
 		inset: 0;
 		pointer-events: none;
 		opacity: 0;
+		will-change: opacity;
 		transition:
 			opacity var(--preset-duration, 260ms) ease,
 			transform var(--preset-duration, 260ms) ease;

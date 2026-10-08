@@ -19,7 +19,12 @@
 	import { safeRgbColor } from '$lib/utils';
 	import { readPreset, schedulePresetCommit } from '$lib/presets';
 	import { presetPrefs } from '$lib/preset-prefs.svelte';
-	import { presetTransition, staggerDelay, type PresetLayers } from '$lib/preset-transition.svelte';
+	import {
+		presetTransition,
+		preloadBackgroundImage,
+		staggerDelay,
+		type PresetLayers
+	} from '$lib/preset-transition.svelte';
 	import { toastStore, errorMessage } from '$lib/stores/toast.svelte';
 
 	interface Props {
@@ -186,6 +191,10 @@
 			};
 
 			const previous = settingsStore.activePreset;
+
+			// Decoding the incoming background mid-animation is what turns the
+			// crossfade into a stutter, so get it out of the way first.
+			if (animate) await preloadBackgroundImage(target.settings);
 			const timing = animate
 				? presetPrefs.transition
 				: { ...presetPrefs.transition, style: 'none' as const };
@@ -806,6 +815,9 @@
 					style="left: {icon.x}px; top: {icon.y}px; width: {icon.width}px; height: {icon.height}px; --preset-delay: {staggerDelay(
 						index,
 						presetTransition.staggerMs
+					)}ms; --preset-delay-out: {staggerDelay(
+						index,
+						presetTransition.outStaggerMs
 					)}ms; z-index: {interactingIds.has(icon.id) ? 999 : (icon.z ?? 0)};"
 				>
 					{#if icon.icon_type === 'widget'}
@@ -939,35 +951,60 @@
 		position: absolute;
 	}
 
-	/* Preset switch: the outgoing icons fade out first, then the incoming set
-	   animates in per icon (the swap happens in between, while faded out). */
-	.icon-grid.preset-out {
-		opacity: 0;
-		transition: opacity var(--preset-out-duration, 100ms) ease-in;
+	/* Preset switch. Both directions ripple per icon, and both animate opacity
+	   (and transform) so the compositor keeps them running while the incoming
+	   preset's widgets mount and block the main thread. */
+	.icon-grid.preset-out .icon-wrapper {
+		animation: preset-icon-fade-out var(--preset-out-duration, 90ms) ease-in
+			var(--preset-delay-out, 0ms) both;
+		will-change: opacity;
 	}
-	.icon-grid.preset-slide.preset-out {
-		transform: translateX(-2.5%);
-		transition:
-			opacity var(--preset-out-duration, 100ms) ease-in,
-			transform var(--preset-out-duration, 100ms) ease-in;
+	.icon-grid.preset-slide.preset-out .icon-wrapper {
+		animation-name: preset-icon-slide-out;
 	}
-	.icon-grid.preset-zoom.preset-out {
-		transform: scale(0.98);
-		transition:
-			opacity var(--preset-out-duration, 100ms) ease-in,
-			transform var(--preset-out-duration, 100ms) ease-in;
+	.icon-grid.preset-zoom.preset-out .icon-wrapper {
+		animation-name: preset-icon-zoom-out;
 	}
 	.icon-grid.preset-in .icon-wrapper {
-		animation: preset-icon-fade var(--preset-in-duration, 160ms) cubic-bezier(0.22, 0.61, 0.36, 1)
-			var(--preset-delay, 0ms) both;
+		animation: preset-icon-fade-in var(--preset-in-duration, 130ms)
+			cubic-bezier(0.22, 0.61, 0.36, 1) var(--preset-delay, 0ms) both;
+		will-change: opacity, transform;
 	}
 	.icon-grid.preset-in.preset-slide .icon-wrapper {
-		animation-name: preset-icon-slide;
+		animation-name: preset-icon-slide-in;
 	}
 	.icon-grid.preset-in.preset-zoom .icon-wrapper {
-		animation-name: preset-icon-zoom;
+		animation-name: preset-icon-zoom-in;
 	}
-	@keyframes preset-icon-fade {
+	@keyframes preset-icon-fade-out {
+		from {
+			opacity: 1;
+		}
+		to {
+			opacity: 0;
+		}
+	}
+	@keyframes preset-icon-slide-out {
+		from {
+			opacity: 1;
+			transform: none;
+		}
+		to {
+			opacity: 0;
+			transform: translateX(-24px);
+		}
+	}
+	@keyframes preset-icon-zoom-out {
+		from {
+			opacity: 1;
+			transform: none;
+		}
+		to {
+			opacity: 0;
+			transform: scale(0.96);
+		}
+	}
+	@keyframes preset-icon-fade-in {
 		from {
 			opacity: 0;
 		}
@@ -975,7 +1012,7 @@
 			opacity: 1;
 		}
 	}
-	@keyframes preset-icon-slide {
+	@keyframes preset-icon-slide-in {
 		from {
 			opacity: 0;
 			transform: translateX(28px);
@@ -985,10 +1022,10 @@
 			transform: none;
 		}
 	}
-	@keyframes preset-icon-zoom {
+	@keyframes preset-icon-zoom-in {
 		from {
 			opacity: 0;
-			transform: scale(0.96);
+			transform: scale(1.04);
 		}
 		to {
 			opacity: 1;
@@ -996,9 +1033,7 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.icon-grid.preset-out {
-			transition: none;
-		}
+		.icon-grid.preset-out .icon-wrapper,
 		.icon-grid.preset-in .icon-wrapper {
 			animation: none;
 		}
