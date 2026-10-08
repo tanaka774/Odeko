@@ -225,6 +225,16 @@ struct PresetData {
     settings: CanvasSettings,
 }
 
+#[derive(Debug, Serialize)]
+pub struct PresetSummary {
+    pub name: String,
+    /// `None` when the file exists but cannot be parsed as a preset.
+    pub icon_count: Option<usize>,
+    /// Last modification time, in seconds since the Unix epoch.
+    pub updated_at: u64,
+    pub is_active: bool,
+}
+
 /// Max size of an importable preset file (widget HTML can be large, but a
 /// preset is a config file, not a media store).
 const MAX_PRESET_SIZE_BYTES: u64 = 10 * 1024 * 1024;
@@ -992,7 +1002,8 @@ pub fn save_preset_as(
 }
 
 #[tauri::command]
-pub fn list_presets() -> Result<Vec<String>, String> {
+pub fn list_presets() -> Result<Vec<PresetSummary>, String> {
+    let active = read_config().active_preset;
     let presets_dir = get_presets_dir();
     if !presets_dir.exists() {
         return Ok(vec![]);
@@ -1000,15 +1011,53 @@ pub fn list_presets() -> Result<Vec<String>, String> {
     let mut presets = vec![];
     if let Ok(entries) = std::fs::read_dir(&presets_dir) {
         for entry in entries.flatten() {
-            if let Some(name) = entry.file_name().to_str() {
-                if name.ends_with(".json") {
-                    presets.push(name.trim_end_matches(".json").to_string());
-                }
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
             }
+            let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let updated_at = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let icon_count = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|content| serde_json::from_str::<PresetData>(&content).ok())
+                .map(|data| data.icons.len());
+            presets.push(PresetSummary {
+                is_active: active.as_deref() == Some(name),
+                name: name.to_string(),
+                icon_count,
+                updated_at,
+            });
         }
     }
-    presets.sort();
+    presets.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(presets)
+}
+
+/// Copy a preset file under a new name. The active preset is left alone.
+#[tauri::command]
+pub fn duplicate_preset(name: String, new_name: String) -> Result<(), String> {
+    validate_preset_name(&name)?;
+    validate_preset_name(&new_name)?;
+    let presets_dir = get_presets_dir();
+    let source = presets_dir.join(format!("{}.json", name));
+    let dest = presets_dir.join(format!("{}.json", new_name));
+    if !source.exists() {
+        return Err(format!("Preset '{}' not found", name));
+    }
+    if dest.exists() {
+        return Err(format!("Preset '{}' already exists", new_name));
+    }
+    std::fs::copy(&source, &dest).map_err(|e| format!("Failed to duplicate preset: {}", e))?;
+    log::info!("Duplicated preset '{}' as '{}'", name, new_name);
+    Ok(())
 }
 
 #[tauri::command]
@@ -1429,6 +1478,14 @@ mod tests {
         result
     }
 
+    fn preset_names() -> Vec<String> {
+        list_presets()
+            .unwrap()
+            .into_iter()
+            .map(|preset| preset.name)
+            .collect()
+    }
+
     fn test_icon() -> AppIcon {
         AppIcon {
             id: "test".into(),
@@ -1632,12 +1689,65 @@ mod tests {
             save_preset_as("Alpha".into(), vec![], CanvasSettings::default()).unwrap();
             save_preset_as("Beta".into(), vec![], CanvasSettings::default()).unwrap();
 
-            assert_eq!(list_presets().unwrap(), vec!["Alpha", "Beta"]);
+            assert_eq!(preset_names(), vec!["Alpha", "Beta"]);
 
             delete_preset("Alpha".into()).unwrap();
-            assert_eq!(list_presets().unwrap(), vec!["Beta"]);
+            assert_eq!(preset_names(), vec!["Beta"]);
 
             assert!(delete_preset("Missing".into()).is_err());
+        });
+    }
+
+    #[test]
+    fn list_presets_reports_metadata_and_active_state() {
+        with_fake_config_dir(|| {
+            save_preset_as("Alpha".into(), vec![test_icon()], CanvasSettings::default()).unwrap();
+            save_preset_as("Beta".into(), vec![], CanvasSettings::default()).unwrap();
+            set_active_preset("Beta".into()).unwrap();
+
+            let presets = list_presets().unwrap();
+            let alpha = presets.iter().find(|p| p.name == "Alpha").unwrap();
+            assert_eq!(alpha.icon_count, Some(1));
+            assert!(!alpha.is_active);
+            assert!(alpha.updated_at > 0);
+
+            let beta = presets.iter().find(|p| p.name == "Beta").unwrap();
+            assert_eq!(beta.icon_count, Some(0));
+            assert!(beta.is_active);
+        });
+    }
+
+    #[test]
+    fn list_presets_marks_unreadable_files() {
+        with_fake_config_dir(|| {
+            let dir = get_presets_dir();
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("Broken.json"), "{ not a preset").unwrap();
+
+            let presets = list_presets().unwrap();
+            assert_eq!(presets.len(), 1);
+            assert_eq!(presets[0].name, "Broken");
+            assert_eq!(presets[0].icon_count, None);
+        });
+    }
+
+    #[test]
+    fn duplicate_preset_copies_contents_and_leaves_active_alone() {
+        with_fake_config_dir(|| {
+            save_preset_as("Alpha".into(), vec![test_icon()], CanvasSettings::default()).unwrap();
+            set_active_preset("Alpha".into()).unwrap();
+
+            assert!(duplicate_preset("Missing".into(), "Copy".into()).is_err());
+
+            duplicate_preset("Alpha".into(), "Copy".into()).unwrap();
+            assert!(duplicate_preset("Alpha".into(), "Copy".into()).is_err());
+
+            assert_eq!(read_config().active_preset.as_deref(), Some("Alpha"));
+            assert_eq!(preset_names(), vec!["Alpha", "Copy"]);
+
+            let content = std::fs::read_to_string(get_presets_dir().join("Copy.json")).unwrap();
+            let data: PresetData = serde_json::from_str(&content).unwrap();
+            assert_eq!(data.icons.len(), 1);
         });
     }
 
@@ -1691,7 +1801,7 @@ mod tests {
             assert!(!result.cleared_local_network);
             assert_eq!(result.cleared_global_shortcuts, 0);
             assert_eq!(result.forced_power_confirmation, 0);
-            assert!(list_presets().unwrap().contains(&result.name));
+            assert!(preset_names().contains(&result.name));
 
             let _ = std::fs::remove_file(&dest);
         });
@@ -1844,7 +1954,7 @@ mod tests {
             assert!(set_active_preset("a/b".into()).is_err());
             assert!(delete_preset("../evil".into()).is_err());
 
-            assert_eq!(list_presets().unwrap(), vec!["ok"]);
+            assert_eq!(preset_names(), vec!["ok"]);
         });
     }
 

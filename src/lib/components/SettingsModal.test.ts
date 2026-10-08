@@ -127,24 +127,25 @@ describe('SettingsModal', () => {
 		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
 	});
 
-	it('does not show a stale preset success message after reopening', async () => {
+	it('does not show a stale preset message after reopening', async () => {
 		const utils = await openModal();
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
-		await screen.findByText('Active Preset');
-		fireEvent.input(screen.getByPlaceholderText('Preset name...'), {
+		await screen.findByRole('button', { name: 'New blank' });
+		fireEvent.click(screen.getByRole('button', { name: 'New blank' }));
+		fireEvent.input(await screen.findByLabelText('New preset name'), {
 			target: { value: 'new' }
 		});
-		fireEvent.click(screen.getByRole('button', { name: 'Create Blank' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-		expect(await screen.findByText('Created default preset "new"')).toBeTruthy();
+		expect(await screen.findByText('Created blank preset "new".')).toBeTruthy();
 		expect(invokeMock).toHaveBeenCalledWith('save_default_preset', { name: 'new' });
 
 		utils.rerender({ isOpen: false });
 		utils.rerender({ isOpen: true });
 		await screen.findByRole('dialog');
 
-		expect(screen.queryByText('Created default preset "new"')).toBeNull();
+		expect(screen.queryByText('Created blank preset "new".')).toBeNull();
 	});
 
 	it('reports what an import neutralized for safety', async () => {
@@ -165,8 +166,8 @@ describe('SettingsModal', () => {
 		await openModal();
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
-		await screen.findByText('Active Preset');
-		fireEvent.click(screen.getByRole('button', { name: 'Import Preset...' }));
+		await screen.findByRole('button', { name: 'Import' });
+		fireEvent.click(screen.getByRole('button', { name: 'Import' }));
 
 		expect(
 			await screen.findByText(
@@ -175,17 +176,19 @@ describe('SettingsModal', () => {
 		).toBeTruthy();
 	});
 
-	it('applies a selected preset instantly without a review step', async () => {
+	it('applies a clicked preset instantly without a review step', async () => {
 		invokeMock.mockImplementation((cmd: string) => {
-			if (cmd === 'list_presets') return Promise.resolve(['Shared']);
+			if (cmd === 'list_presets') {
+				return Promise.resolve([
+					{ name: 'Shared', icon_count: 3, updated_at: 1_700_000_000, is_active: false }
+				]);
+			}
 			return Promise.resolve('Default');
 		});
 		await openModal();
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
-		await screen.findByText('Active Preset');
-		fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Shared' } });
-		clickSave();
+		fireEvent.click(await screen.findByRole('button', { name: /^Shared\b/ }));
 
 		// No review overlay blocks the switch, whatever the preset contains.
 		expect(screen.queryByRole('alertdialog')).toBeNull();
@@ -193,6 +196,29 @@ describe('SettingsModal', () => {
 			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
 		);
 		expect(invokeMock).not.toHaveBeenCalledWith('inspect_preset', expect.anything());
+	});
+
+	it('does not mistake an untouched modal appearance for unsaved changes', async () => {
+		settingsStore.updateSettings({
+			modal_appearance: { global: { accentColor: '#00ff00' }, modals: { clock: { radius: 2 } } }
+		});
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'list_presets') {
+				return Promise.resolve([
+					{ name: 'Shared', icon_count: 3, updated_at: 1_700_000_000, is_active: false }
+				]);
+			}
+			return Promise.resolve('Default');
+		});
+		await openModal();
+
+		fireEvent.click(screen.getByRole('tab', { name: 'Presets' }));
+		fireEvent.click(await screen.findByRole('button', { name: /^Shared\b/ }));
+
+		expect(screen.queryByText(/unsaved changes/)).toBeNull();
+		await waitFor(() =>
+			expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Shared' })
+		);
 	});
 
 	it('reflects an enabled autostart when the modal opens', async () => {

@@ -144,6 +144,9 @@
 			// migration stamps the preset's default corner radius.
 			settingsStore.applyLayout(layout as Parameters<typeof settingsStore.applyLayout>[0]);
 			icons = normalizeZ(layout.icons || []);
+			// Global shortcuts belong to the icons of the preset that just
+			// became active, so the previous preset's registrations must go.
+			await refreshIconShortcuts(icons);
 		} catch (error) {
 			console.error('Failed to reload layout:', error);
 		}
@@ -812,7 +815,11 @@
 			onSelect={addWidget}
 			hasTerminal={hasTerminalWidget}
 		/>
-		<SettingsModal bind:isOpen={showSettings} onApplyPreset={reloadAll} />
+		<SettingsModal
+			bind:isOpen={showSettings}
+			onApplyPreset={reloadAll}
+			hasUnsavedIcons={() => editSession.isDirty}
+		/>
 		<IconSettingsModal
 			bind:isOpen={showIconSettings}
 			icon={selectedIcon}

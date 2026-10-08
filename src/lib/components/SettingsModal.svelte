@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { settingsStore, type CanvasSettings } from '$lib/stores/settings.svelte';
-	import { open, save } from '@tauri-apps/plugin-dialog';
+	import { open } from '@tauri-apps/plugin-dialog';
 	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { invoke } from '@tauri-apps/api/core';
 	import Slider from '$lib/components/ui/slider/slider.svelte';
@@ -12,6 +12,7 @@
 	import { isVideoBackground } from '$lib/background';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import ModalAppearancePanel from './settings/ModalAppearancePanel.svelte';
+	import PresetPanel from './settings/PresetPanel.svelte';
 	import TabBar from './settings/TabBar.svelte';
 	import { prefixSelectors } from '$lib/widgets/custom-css';
 	import {
@@ -31,24 +32,17 @@
 	let {
 		isOpen = $bindable(false),
 		onSave,
-		onApplyPreset
+		onApplyPreset,
+		hasUnsavedIcons
 	} = $props<{
 		isOpen: boolean;
 		onSave?: () => void;
 		onApplyPreset?: () => void;
+		hasUnsavedIcons?: () => boolean;
 	}>();
 
 	let localSettings = $state<CanvasSettings>({ ...settingsStore.settings });
 	let originalSettings = $state<CanvasSettings | null>(null);
-
-	let presets = $state<string[]>([]);
-	let selectedPreset = $state<string>('');
-	let newPresetName = $state('');
-	let isRenaming = $state(false);
-	let renameValue = $state('');
-	let presetError = $state('');
-	let presetSuccess = $state('');
-	let confirmDelete = $state(false);
 
 	let autostartEnabled = $state(false);
 
@@ -73,14 +67,6 @@
 			input.checked = !enabled;
 			console.error('Failed to update autostart:', error);
 		}
-	}
-
-	interface ImportResult {
-		name: string;
-		cleared_network_grants: number;
-		cleared_local_network: boolean;
-		cleared_global_shortcuts: number;
-		forced_power_confirmation: number;
 	}
 
 	let activeTab = $state<'appearance' | 'items' | 'modals' | 'edit' | 'keys' | 'presets'>(
@@ -179,176 +165,12 @@
 			const current = $state.snapshot(untrack(() => settingsStore.settings));
 			localSettings = current;
 			originalSettings = current;
-			selectedPreset = untrack(() => settingsStore.activePreset) ?? '';
-			// The instance stays mounted between opens; without this reset the
-			// last success/error message would reappear on the next open.
-			presetSuccess = '';
-			presetError = '';
 			modalDrafts = seedModalDrafts(current.modal_appearance);
 			modalTarget = 'global';
 			modalPanelOpen = false;
 			loadAutostartState();
-			loadPresets();
 		}
 	});
-
-	async function loadPresets() {
-		try {
-			presets = await invoke<string[]>('list_presets');
-		} catch (error) {
-			console.error('Failed to load presets:', error);
-			presets = [];
-		}
-	}
-
-	async function handleSavePreset() {
-		presetError = '';
-		presetSuccess = '';
-		if (!newPresetName.trim()) {
-			presetError = 'Please enter a preset name';
-			return;
-		}
-		try {
-			await invoke('save_preset_as', {
-				name: newPresetName.trim(),
-				icons: settingsStore.getCurrentIcons(),
-				settings: localSettings
-			});
-			presetSuccess = `Saved preset "${newPresetName.trim()}"`;
-			newPresetName = '';
-			await loadPresets();
-		} catch (error) {
-			presetError = String(error);
-		}
-	}
-
-	async function handleSaveDefaultPreset() {
-		presetError = '';
-		presetSuccess = '';
-		if (!newPresetName.trim()) {
-			presetError = 'Please enter a preset name';
-			return;
-		}
-		try {
-			await invoke('save_default_preset', { name: newPresetName.trim() });
-			presetSuccess = `Created default preset "${newPresetName.trim()}"`;
-			newPresetName = '';
-			await loadPresets();
-		} catch (error) {
-			presetError = String(error);
-		}
-	}
-
-	async function handleDeletePreset() {
-		presetError = '';
-		presetSuccess = '';
-		if (!selectedPreset) {
-			presetError = 'Select a preset to delete';
-			return;
-		}
-		confirmDelete = true;
-	}
-
-	async function doDeletePreset() {
-		try {
-			await invoke('delete_preset', { name: selectedPreset });
-			presetSuccess = `Deleted preset "${selectedPreset}"`;
-			selectedPreset = '';
-			settingsStore.setActivePreset(null);
-			await loadPresets();
-		} catch (error) {
-			presetError = String(error);
-		} finally {
-			confirmDelete = false;
-		}
-	}
-
-	function cancelDeletePreset() {
-		confirmDelete = false;
-	}
-
-	async function handleRenamePreset() {
-		presetError = '';
-		presetSuccess = '';
-		if (!selectedPreset) {
-			presetError = 'Select a preset to rename';
-			return;
-		}
-		if (!renameValue.trim()) {
-			presetError = 'Enter a new name';
-			return;
-		}
-		try {
-			await invoke('rename_preset', { oldName: selectedPreset, newName: renameValue.trim() });
-			presetSuccess = `Renamed to "${renameValue.trim()}"`;
-			selectedPreset = renameValue.trim();
-			renameValue = '';
-			isRenaming = false;
-			await loadPresets();
-		} catch (error) {
-			presetError = String(error);
-		}
-	}
-
-	async function handleExportPreset() {
-		presetError = '';
-		presetSuccess = '';
-		if (!selectedPreset) {
-			presetError = 'Select a preset to export';
-			return;
-		}
-		try {
-			const filePath = await save({
-				defaultPath: `${selectedPreset}.json`,
-				filters: [{ name: 'JSON', extensions: ['json'] }]
-			});
-			if (filePath && typeof filePath === 'string') {
-				await invoke('export_preset', { name: selectedPreset, path: filePath });
-				presetSuccess = `Exported "${selectedPreset}"`;
-			}
-		} catch (error) {
-			presetError = String(error);
-		}
-	}
-
-	async function handleImportPreset() {
-		presetError = '';
-		presetSuccess = '';
-		try {
-			const filePath = await open({
-				multiple: false,
-				filters: [{ name: 'JSON', extensions: ['json'] }]
-			});
-			if (filePath && typeof filePath === 'string') {
-				const imported = await invoke<ImportResult>('import_preset', { path: filePath });
-				// Imported files are untrusted: the backend strips ambient
-				// authority (network grants, local network, global shortcuts,
-				// unconfirmed power actions). Surface what was reset so a
-				// preset's behavior never surprises the user silently.
-				const notes: string[] = [];
-				if (imported.cleared_network_grants > 0) {
-					notes.push(`cleared ${imported.cleared_network_grants} network grant(s)`);
-				}
-				if (imported.cleared_local_network) {
-					notes.push('disabled local network access');
-				}
-				if (imported.cleared_global_shortcuts > 0) {
-					notes.push(`disabled ${imported.cleared_global_shortcuts} global shortcut(s)`);
-				}
-				if (imported.forced_power_confirmation > 0) {
-					notes.push(
-						`re-enabled confirmation on ${imported.forced_power_confirmation} power widget(s)`
-					);
-				}
-				presetSuccess = notes.length
-					? `Imported "${imported.name}". For safety: ${notes.join(', ')}.`
-					: `Imported "${imported.name}"`;
-				await loadPresets();
-			}
-		} catch (error) {
-			presetError = String(error);
-		}
-	}
 
 	function close() {
 		if (originalSettings) {
@@ -360,30 +182,32 @@
 
 	const backdrop = createBackdropClickHandler(close);
 
+	// A preset switch replaces the live settings, so the staged copy has to be
+	// re-seeded and the canvas reloaded from the preset that just became active.
+	async function handlePresetSwitched() {
+		await onApplyPreset?.();
+		const current = $state.snapshot(untrack(() => settingsStore.settings));
+		localSettings = current;
+		originalSettings = current;
+	}
+
+	const stagedDirty = $derived(
+		JSON.stringify({
+			...localSettings,
+			modal_appearance: buildModalAppearanceStore()
+		}) !== JSON.stringify($state.snapshot(settingsStore.settings))
+	);
+
+	const iconsDirty = $derived(hasUnsavedIcons?.() ?? false);
+
 	async function handleSave() {
 		await finishSave();
 	}
 
 	async function finishSave() {
 		localSettings.modal_appearance = buildModalAppearanceStore();
-		if (selectedPreset && selectedPreset !== settingsStore.activePreset) {
-			try {
-				if (settingsStore.activePreset) {
-					settingsStore.updateSettings(localSettings);
-					await settingsStore.saveSettings();
-				}
-				await invoke('set_active_preset', { name: selectedPreset });
-				settingsStore.setActivePreset(selectedPreset);
-				await onApplyPreset?.();
-				localSettings = { ...settingsStore.settings };
-			} catch (error) {
-				presetError = String(error);
-				return;
-			}
-		} else {
-			settingsStore.updateSettings(localSettings);
-			await settingsStore.saveSettings();
-		}
+		settingsStore.updateSettings(localSettings);
+		await settingsStore.saveSettings();
 
 		invoke('update_global_shortcut', {
 			keybind: settingsStore.settings.keybind_toggle_canvas
@@ -671,7 +495,7 @@
 											type="single"
 											value={localSettings.border_radius}
 											min={0}
-											max={20}
+											max={64}
 											step={1}
 											onValueChange={(val) => {
 												localSettings.border_radius = val;
@@ -855,107 +679,12 @@
 									</div>
 								</section>
 							{:else}
-								<section class="settings-section">
-									<h3>Presets</h3>
-									<div class="setting-row">
-										<Label>Active Preset</Label>
-										<div class="preset-select-row">
-											<select
-												value={selectedPreset}
-												onchange={(e) => {
-													selectedPreset = e.currentTarget.value;
-												}}
-												class="bg-select"
-											>
-												<option value="">-- None --</option>
-												{#each presets as preset (preset)}
-													<option value={preset}>{preset}</option>
-												{/each}
-											</select>
-										</div>
-									</div>
-									{#if selectedPreset}
-										<div class="setting-row">
-											<div class="preset-actions">
-												{#if isRenaming}
-													<input
-														type="text"
-														placeholder="New name..."
-														value={renameValue}
-														oninput={(e) => {
-															renameValue = e.currentTarget.value;
-														}}
-														class="preset-input"
-													/>
-													<button class="select-image-btn" onclick={handleRenamePreset}
-														>Confirm</button
-													>
-													<button
-														class="remove-image-btn"
-														onclick={() => {
-															isRenaming = false;
-															renameValue = '';
-														}}>Cancel</button
-													>
-												{:else if confirmDelete}
-													<div class="confirm-row">
-														<span>Delete "{selectedPreset}"?</span>
-														<button class="remove-image-btn" onclick={doDeletePreset}>Delete</button
-														>
-														<button class="preset-action-btn" onclick={cancelDeletePreset}
-															>Cancel</button
-														>
-													</div>
-												{:else}
-													<button
-														class="preset-action-btn"
-														onclick={() => {
-															isRenaming = true;
-															renameValue = selectedPreset;
-														}}>Rename</button
-													>
-													<button class="remove-image-btn" onclick={handleDeletePreset}
-														>Delete</button
-													>
-													<button class="preset-action-btn" onclick={handleExportPreset}
-														>Export</button
-													>
-												{/if}
-											</div>
-										</div>
-									{/if}
-									<div class="setting-row">
-										<Label>Save Current as New Preset</Label>
-										<div class="preset-save-row">
-											<input
-												type="text"
-												placeholder="Preset name..."
-												value={newPresetName}
-												oninput={(e) => {
-													newPresetName = e.currentTarget.value;
-												}}
-												class="preset-input"
-											/>
-											<button class="select-image-btn" onclick={handleSavePreset}>Save</button>
-											<button class="preset-action-btn" onclick={handleSaveDefaultPreset}
-												>Create Blank</button
-											>
-										</div>
-									</div>
-									<div class="setting-row">
-										<div class="preset-actions">
-											<button class="preset-action-btn" onclick={handleImportPreset}
-												>Import Preset...</button
-											>
-										</div>
-									</div>
-									{#if presetError}
-										<div class="preset-message error">{presetError}</div>
-									{/if}
-									{#if presetSuccess}
-										<div class="preset-message success">{presetSuccess}</div>
-									{/if}
-								</section>
+								<PresetPanel
+									settings={localSettings}
+									dirty={stagedDirty}
+									{iconsDirty}
+									onSwitched={handlePresetSwitched}
+								/>
 							{/if}
 						</div>
 					{/if}
@@ -1378,71 +1107,6 @@
 		margin-top: calc(0.5714 * var(--modal-font-size));
 		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
 		font-size: calc(0.8571 * var(--modal-font-size));
-	}
-
-	.preset-select-row,
-	.preset-save-row {
-		display: flex;
-		gap: calc(0.5714 * var(--modal-font-size));
-		align-items: center;
-	}
-
-	.preset-input {
-		flex: 1;
-		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
-		border-radius: 6px;
-		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
-		background: var(--modal-input-bg, rgba(30, 30, 40, 0.9));
-		color: var(--modal-text, white);
-		font-size: calc(1 * var(--modal-font-size));
-		outline: none;
-	}
-
-	.preset-input:focus {
-		border-color: var(--modal-accent, rgba(120, 160, 200, 0.8));
-	}
-
-	.preset-actions {
-		display: flex;
-		gap: calc(0.5714 * var(--modal-font-size));
-		flex-wrap: wrap;
-		align-items: center;
-	}
-
-	.preset-action-btn {
-		padding: calc(0.4286 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
-		border-radius: 6px;
-		border: none;
-		cursor: pointer;
-		font-size: calc(1 * var(--modal-font-size));
-		transition: all 0.2s ease;
-		background: rgba(255, 255, 255, 0.1);
-		color: var(--modal-text, rgba(255, 255, 255, 0.8));
-	}
-
-	.preset-action-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
-		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 26%, transparent);
-		color: var(--modal-title-color, white);
-	}
-
-	.preset-message {
-		padding: calc(0.5714 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
-		border-radius: 6px;
-		font-size: calc(1 * var(--modal-font-size));
-		margin-top: calc(0.2857 * var(--modal-font-size));
-	}
-
-	.preset-message.error {
-		background: rgba(239, 68, 68, 0.2);
-		color: rgba(255, 150, 150, 1);
-		border: 1px solid rgba(239, 68, 68, 0.4);
-	}
-
-	.preset-message.success {
-		background: rgba(34, 197, 94, 0.2);
-		color: rgba(150, 255, 150, 1);
-		border: 1px solid rgba(34, 197, 94, 0.4);
 	}
 
 	.settings-content::-webkit-scrollbar {
