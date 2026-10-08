@@ -3,6 +3,7 @@
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { invoke } from '@tauri-apps/api/core';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { confirm } from '@tauri-apps/plugin-dialog';
 	import IconGrid from '$lib/components/IconGrid.svelte';
 	import BackgroundVideo from '$lib/components/BackgroundVideo.svelte';
 	import ToastStack from '$lib/components/ToastStack.svelte';
@@ -10,7 +11,7 @@
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import { settingsStore, matchesKeybind } from '$lib/stores/settings.svelte';
 	import { platformStore } from '$lib/stores/platform.svelte';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import { toastStore, errorMessage } from '$lib/stores/toast.svelte';
 	import { launchIcon, isLaunchable } from '$lib/launch';
 	import type { CanvasIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
@@ -122,6 +123,27 @@
 		showContextMenu = false;
 	}
 
+	/** Offers to install a newer release when one is published. */
+	async function checkForUpdatesOnStartup() {
+		try {
+			const { checkForUpdate, installUpdate } = await import('$lib/updater');
+			const update = await checkForUpdate();
+			if (!update) return;
+
+			const accepted = await confirm(
+				`Odeko ${update.version} is available (you have ${update.currentVersion}).\n\nInstall it now? Odeko will restart.`,
+				{ title: 'Update available', kind: 'info' }
+			);
+			if (!accepted) return;
+
+			toastStore.show('Installing update…', `Odeko ${update.version}`);
+			await installUpdate(update);
+		} catch (error) {
+			// Offline or nothing published yet: not worth a toast.
+			console.warn('Update check failed:', errorMessage(error));
+		}
+	}
+
 	onMount(() => {
 		const onResize = () => layoutVersion++;
 		window.addEventListener('resize', onResize);
@@ -141,6 +163,8 @@
 			});
 			const icons = settingsStore.getCurrentIcons();
 			invoke('update_icon_shortcuts', { icons });
+
+			void checkForUpdatesOnStartup();
 
 			const unlisten = await listen<string>('power-widget-shortcut', async (event) => {
 				await executePowerWidgetById(event.payload);

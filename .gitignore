@@ -24,3 +24,6 @@ e2e-tests/screenshots
 /src-tauri/target/
 /src-tauri/gen/schemas
 TODO.md
+
+# Tauri updater signing keys: never commit the private key.
+.tauri-signing/

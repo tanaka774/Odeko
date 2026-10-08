@@ -43,6 +43,11 @@ base64 = "0.22"
 tiny_http = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 
+# Pinned below tauri 2.12: 2.13 / 2.4 require tauri >= 2.12 and drag wry and tao
+# forward, which needs its own testing on the transparent-window paths.
+tauri-plugin-updater = "~2.12.0"
+tauri-plugin-process = "~2.3.1"
+
 # Platform-specific media control dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
 mpris = "2.0"

@@ -51,5 +51,7 @@ jobs:
         run: cargo test
         working-directory: src-tauri
 
+      # No signing key in this job, and the pubkey in tauri.conf.json would
+      # otherwise make the bundler abort.
       - name: Build Tauri
-        run: npm run tauri build
+        run: npm run tauri build -- --no-sign

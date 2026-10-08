@@ -18,6 +18,11 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 	open: vi.fn(),
 	save: vi.fn()
 }));
+// The startup update check runs from onMount; keep it inert here.
+vi.mock('$lib/updater', () => ({
+	checkForUpdate: vi.fn().mockResolvedValue(null),
+	installUpdate: vi.fn()
+}));
 vi.mock('fabric', () => ({
 	Canvas: class {},
 	PencilBrush: class {}

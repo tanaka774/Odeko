@@ -42,7 +42,7 @@ jobs:
             xvfb
 
       - name: Build debug app with E2E window config
-        run: VITE_E2E=1 npm run tauri build -- --debug --no-bundle --features e2e --config src-tauri/tauri.conf.e2e.json
+        run: VITE_E2E=1 npm run tauri build -- --debug --no-bundle --no-sign --features e2e --config src-tauri/tauri.conf.e2e.json
 
       - name: Install E2E test dependencies
         working-directory: e2e-tests

@@ -21,6 +21,8 @@
 		"dialog:allow-open",
 		"dialog:allow-save",
 		"fs:default",
+		"updater:default",
+		"process:allow-restart",
 		{
 			"identifier": "fs:allow-read-file",
 			"allow": [
