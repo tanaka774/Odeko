@@ -455,11 +455,9 @@ fn write_config(config: &AppConfig) -> Result<(), String> {
 pub fn launch_app(path: String, args: Option<String>) -> Result<(), String> {
     log::info!("Launching application: {} (args: {:?})", path, args);
 
-    if cfg!(target_os = "macos") {
-        return launch_macos_app(&path, args.as_deref());
-    }
-
     let program = expand_tilde(&path);
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     let extra_args: Vec<String> = args
         .as_deref()
         .and_then(shlex::split)
@@ -474,20 +472,22 @@ pub fn launch_app(path: String, args: Option<String>) -> Result<(), String> {
     // which is what used to leave the canvas hotkey wedged (see #3).
     validate_launch_target(&program)?;
 
-    // macOS returned early above; these two are the only remaining platforms
-    // that reach this point.
+    // `#[cfg]`, not `cfg!`: the macro still type-checks the code it guards, so
+    // it left the macOS build with no `result` in scope (E0425).
+    #[cfg(target_os = "macos")]
+    let result = launch_macos_app(&path, args.as_deref());
     #[cfg(target_os = "linux")]
     let result = Command::new(&program).args(&extra_args).spawn().map(|_| ());
     #[cfg(target_os = "windows")]
     let result = launch_windows(&program, &extra_args);
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    let result: Result<(), std::io::Error> = Err(std::io::Error::other(
+        "launching applications is not supported on this platform",
+    ));
 
     match result {
         Ok(()) => {
-            log::info!(
-                "Successfully launched: {} (args: {:?})",
-                program,
-                extra_args
-            );
+            log::info!("Successfully launched: {}", program);
             Ok(())
         }
         Err(e) => {
@@ -647,6 +647,7 @@ fn validate_launch_target(program: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn launch_macos_app(path: &str, args: Option<&str>) -> Result<(), String> {
     let expanded_path = expand_tilde(path);
 
@@ -679,6 +680,7 @@ fn launch_macos_app(path: &str, args: Option<&str>) -> Result<(), String> {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn find_macos_app_bundle(path: &str) -> Option<String> {
     PathBuf::from(path)
         .ancestors()
