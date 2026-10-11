@@ -127,6 +127,10 @@ pub struct CanvasSettings {
     pub keybind_hide_canvas: KeybindConfig,
     #[serde(default)]
     pub keybind_undo: KeybindConfig,
+    #[serde(default)]
+    pub keybind_prev_preset: KeybindConfig,
+    #[serde(default)]
+    pub keybind_next_preset: KeybindConfig,
     /// App-wide allowed hostnames for Custom HTML widgets (see widget_fetch).
     #[serde(default)]
     pub network_grants: Vec<String>,
@@ -190,6 +194,20 @@ impl Default for CanvasSettings {
                 key: "KeyZ".to_string(),
                 ctrl: true,
                 alt: false,
+                shift: false,
+                meta: false,
+            },
+            keybind_prev_preset: KeybindConfig {
+                key: "ArrowLeft".to_string(),
+                ctrl: true,
+                alt: true,
+                shift: false,
+                meta: false,
+            },
+            keybind_next_preset: KeybindConfig {
+                key: "ArrowRight".to_string(),
+                ctrl: true,
+                alt: true,
                 shift: false,
                 meta: false,
             },
@@ -884,23 +902,54 @@ pub fn load_active_layout() -> Result<CanvasLayout, String> {
     }
 }
 
+/// Where a save goes: the preset the frontend says it is showing, so a save
+/// racing a preset switch cannot land in the newly activated preset.
+/// Without one, the active preset (auto-creating "Default").
+fn save_target(preset: Option<String>) -> Result<String, String> {
+    if let Some(name) = preset.filter(|name| !name.is_empty()) {
+        validate_preset_name(&name)?;
+        if !get_presets_dir().join(format!("{}.json", name)).exists() {
+            return Err(format!("Preset '{}' not found", name));
+        }
+        return Ok(name);
+    }
+    let mut config = read_config();
+    match &config.active_preset {
+        Some(name) if !name.is_empty() => Ok(name.clone()),
+        _ => {
+            let name = "Default".to_string();
+            config.active_preset = Some(name.clone());
+            write_config(&config)?;
+            Ok(name)
+        }
+    }
+}
+
+/// Read a preset without making it active.
+#[tauri::command]
+pub fn load_preset(name: String) -> Result<CanvasLayout, String> {
+    validate_preset_name(&name)?;
+    let preset_path = get_presets_dir().join(format!("{}.json", name));
+    let content = std::fs::read_to_string(&preset_path)
+        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
+    let data: PresetData = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+    Ok(CanvasLayout {
+        icons: data.icons,
+        settings: data.settings,
+        active_preset: Some(name),
+    })
+}
+
 /// Save the current layout to the active preset file. If no active preset is
 /// set, auto-creates "Default". Returns the preset name that was saved to.
 #[tauri::command]
 pub fn save_active_layout(
     icons: Vec<AppIcon>,
     settings: CanvasSettings,
+    preset: Option<String>,
 ) -> Result<String, String> {
-    let mut config = read_config();
-    let preset_name = match &config.active_preset {
-        Some(name) if !name.is_empty() => name.clone(),
-        _ => {
-            let name = "Default".to_string();
-            config.active_preset = Some(name.clone());
-            write_config(&config)?;
-            name
-        }
-    };
+    let preset_name = save_target(preset)?;
 
     let presets_dir = get_presets_dir();
     std::fs::create_dir_all(&presets_dir)
@@ -922,17 +971,11 @@ pub fn save_active_layout(
 /// does not persist uncommitted icon changes.
 /// Returns the preset name that was saved to.
 #[tauri::command]
-pub fn save_active_settings(settings: CanvasSettings) -> Result<String, String> {
-    let mut config = read_config();
-    let preset_name = match &config.active_preset {
-        Some(name) if !name.is_empty() => name.clone(),
-        _ => {
-            let name = "Default".to_string();
-            config.active_preset = Some(name.clone());
-            write_config(&config)?;
-            name
-        }
-    };
+pub fn save_active_settings(
+    settings: CanvasSettings,
+    preset: Option<String>,
+) -> Result<String, String> {
+    let preset_name = save_target(preset)?;
 
     let presets_dir = get_presets_dir();
     std::fs::create_dir_all(&presets_dir)
@@ -1557,6 +1600,20 @@ mod tests {
                 shift: false,
                 meta: true,
             },
+            keybind_prev_preset: KeybindConfig {
+                key: "KeyE".into(),
+                ctrl: true,
+                alt: true,
+                shift: false,
+                meta: false,
+            },
+            keybind_next_preset: KeybindConfig {
+                key: "KeyF".into(),
+                ctrl: true,
+                alt: true,
+                shift: false,
+                meta: false,
+            },
             network_grants: vec!["api.example.com".to_string()],
             allow_local_network: true,
             default_appearance: Some(serde_json::json!({
@@ -1574,7 +1631,7 @@ mod tests {
     fn every_settings_field_round_trips_through_disk() {
         with_fake_config_dir(|| {
             let modified = modified_settings();
-            save_active_settings(modified.clone()).unwrap();
+            save_active_settings(modified.clone(), None).unwrap();
 
             let layout = load_active_layout().unwrap();
             let got = layout.settings;
@@ -1598,6 +1655,8 @@ mod tests {
             assert_eq!(got.keybind_toggle_edit, modified.keybind_toggle_edit);
             assert_eq!(got.keybind_hide_canvas, modified.keybind_hide_canvas);
             assert_eq!(got.keybind_undo, modified.keybind_undo);
+            assert_eq!(got.keybind_prev_preset, modified.keybind_prev_preset);
+            assert_eq!(got.keybind_next_preset, modified.keybind_next_preset);
             assert_eq!(got.default_appearance, modified.default_appearance);
             assert_eq!(got.modal_appearance, modified.modal_appearance);
         });
@@ -1622,7 +1681,7 @@ mod tests {
     #[test]
     fn save_active_settings_auto_creates_default_preset() {
         with_fake_config_dir(|| {
-            let name = save_active_settings(modified_settings()).unwrap();
+            let name = save_active_settings(modified_settings(), None).unwrap();
             assert_eq!(name, "Default");
 
             let layout = load_active_layout().unwrap();
@@ -1643,7 +1702,7 @@ mod tests {
             icon.height = 90.0;
             icon.args = Some("--fullscreen".into());
 
-            save_active_layout(vec![icon.clone()], CanvasSettings::default()).unwrap();
+            save_active_layout(vec![icon.clone()], CanvasSettings::default(), None).unwrap();
 
             let layout = load_active_layout().unwrap();
             assert_eq!(layout.icons.len(), 1);
@@ -1695,6 +1754,27 @@ mod tests {
             assert_eq!(preset_names(), vec!["Beta"]);
 
             assert!(delete_preset("Missing".into()).is_err());
+        });
+    }
+
+    #[test]
+    fn saves_go_to_the_named_preset_not_the_active_one() {
+        with_fake_config_dir(|| {
+            save_preset_as("Alpha".into(), vec![test_icon()], CanvasSettings::default()).unwrap();
+            save_preset_as("Beta".into(), vec![], CanvasSettings::default()).unwrap();
+            set_active_preset("Beta".into()).unwrap();
+
+            let saved = save_active_layout(
+                vec![test_icon(), test_icon()],
+                CanvasSettings::default(),
+                Some("Alpha".into()),
+            )
+            .unwrap();
+            assert_eq!(saved, "Alpha");
+            assert_eq!(load_preset("Alpha".into()).unwrap().icons.len(), 2);
+            assert!(load_preset("Beta".into()).unwrap().icons.is_empty());
+
+            assert!(save_active_settings(CanvasSettings::default(), Some("Gone".into())).is_err());
         });
     }
 

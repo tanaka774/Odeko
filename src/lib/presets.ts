@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { CanvasIcon } from '$lib/icons';
-import type { CanvasSettings } from '$lib/stores/settings.svelte';
+import type { CanvasLayout, CanvasSettings } from '$lib/stores/settings.svelte';
 
 export interface PresetSummary {
 	name: string;
@@ -23,15 +23,20 @@ export function listPresets(): Promise<PresetSummary[]> {
 	return invoke<PresetSummary[]>('list_presets');
 }
 
+export function loadPreset(name: string): Promise<CanvasLayout> {
+	return invoke<CanvasLayout>('load_preset', { name });
+}
+
 export function switchPreset(name: string): Promise<void> {
 	return invoke('set_active_preset', { name });
 }
 
-export function saveLayoutToActivePreset(
+export function saveLayoutToPreset(
+	preset: string | null,
 	icons: CanvasIcon[],
 	settings: CanvasSettings
 ): Promise<string> {
-	return invoke<string>('save_active_layout', { icons, settings });
+	return invoke<string>('save_active_layout', { icons, settings, preset });
 }
 
 export function savePresetAs(
@@ -64,6 +69,15 @@ export function exportPreset(name: string, path: string): Promise<void> {
 
 export function importPreset(path: string): Promise<ImportResult> {
 	return invoke<ImportResult>('import_preset', { path });
+}
+
+/** The preset `step` places away from the active one, wrapping around; unreadable presets are skipped. */
+export function neighborPreset(presets: PresetSummary[], step: 1 | -1): string | null {
+	const usable = presets.filter((preset) => preset.icon_count !== null || preset.is_active);
+	if (usable.length < 2) return null;
+	const current = usable.findIndex((preset) => preset.is_active);
+	if (current < 0) return usable[step > 0 ? 0 : usable.length - 1].name;
+	return usable[(current + step + usable.length) % usable.length].name;
 }
 
 const MINUTE = 60;

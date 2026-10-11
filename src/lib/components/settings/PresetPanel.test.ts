@@ -85,11 +85,12 @@ describe('PresetPanel', () => {
 				return Promise.resolve([preset('Work', { is_active: true }), preset('Gaming')]);
 			return Promise.resolve('Work');
 		});
-		renderPanel();
+		const onSwitched = vi.fn();
+		renderPanel({ onSwitched });
 
 		fireEvent.click(await screen.findByRole('button', { name: /^Gaming\b/ }));
 
-		await waitFor(() => expect(settingsStore.activePreset).toBe('Gaming'));
+		await waitFor(() => expect(onSwitched).toHaveBeenCalled());
 		expect(invokeMock).toHaveBeenCalledWith('set_active_preset', { name: 'Gaming' });
 	});
 

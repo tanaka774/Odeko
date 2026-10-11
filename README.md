@@ -62,7 +62,7 @@ npm run tauri build
 
 - [x] autostart
 - [ ] browser widget
-- [ ] smooth preset change
+- [x] smooth preset change
 - [ ] improve custom html
 - [ ] Multi-monitor placement
 - [ ] ai chat widget

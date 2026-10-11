@@ -1,3 +1,7 @@
+<script module lang="ts">
+	const registeredUrls = new Map<string, string>();
+</script>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -29,14 +33,13 @@
 		src,
 		fit = 'cover',
 		position = 'center',
-		tintColor,
-		tintOpacity
+		onready
 	}: {
 		src: string;
 		fit?: 'cover' | 'contain' | 'stretch';
 		position?: string;
-		tintColor: string;
-		tintOpacity: number;
+		/** Fires once the first frame is decoded, or when playback fails. */
+		onready?: () => void;
 	} = $props();
 
 	let videoA = $state<HTMLVideoElement>();
@@ -51,7 +54,13 @@
 
 	// CSS object-fit calls the "stretch" behavior "fill".
 	let objectFit = $derived(fit === 'stretch' ? 'fill' : fit);
-	let tint = $derived(`rgba(${tintColor}, ${tintOpacity})`);
+
+	let readyFired = false;
+	function markReady() {
+		if (readyFired) return;
+		readyFired = true;
+		onready?.();
+	}
 
 	function activeVideo(): HTMLVideoElement | undefined {
 		return activeIsA ? videoA : videoB;
@@ -73,10 +82,18 @@
 			return;
 		}
 		try {
-			videoSrc = await invoke<string>('register_background_video', { path: filePath });
+			// Reusing the URL lets the webview keep its media cache when the
+			// same file comes back (e.g. cycling presets).
+			let url = registeredUrls.get(filePath);
+			if (!url) {
+				url = await invoke<string>('register_background_video', { path: filePath });
+				registeredUrls.set(filePath, url);
+			}
+			videoSrc = url;
 		} catch (error) {
 			console.error('[BackgroundVideo] could not register video file:', filePath, error);
 			failed = true;
+			markReady();
 		}
 	}
 
@@ -100,6 +117,7 @@
 				.then((visible) => {
 					if (visible) void video.play().catch(() => {});
 				});
+			afterFramePresented(video, markReady);
 		};
 
 		if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
@@ -110,9 +128,20 @@
 		return () => video.removeEventListener('loadeddata', start);
 	});
 
+	function afterFramePresented(video: HTMLVideoElement, done: () => void) {
+		if ('requestVideoFrameCallback' in video) {
+			video.requestVideoFrameCallback(() => done());
+			// A paused video (hidden window, blocked play) never presents a frame.
+			setTimeout(done, 500);
+			return;
+		}
+		requestAnimationFrame(() => requestAnimationFrame(done));
+	}
+
 	function handleError() {
 		console.error('[BackgroundVideo] playback error:', activeVideo()?.error);
 		failed = true;
+		markReady();
 	}
 
 	// Seamless loop driver: watches the active video's remaining time via
@@ -137,13 +166,25 @@
 				active.currentTime = 0;
 			}
 		}
-		requestAnimationFrame(loopTick);
+		raf = requestAnimationFrame(loopTick);
+	}
+
+	let raf = 0;
+
+	// Detaching the source is what makes WebKit tear down the decoder;
+	// removing the element alone can leave it running.
+	function releaseOnRemove(video: HTMLVideoElement) {
+		return () => {
+			video.pause();
+			video.removeAttribute('src');
+			video.load();
+		};
 	}
 
 	onMount(() => {
 		let unlisten: UnlistenFn | null = null;
 		let disposed = false;
-		const raf = requestAnimationFrame(loopTick);
+		raf = requestAnimationFrame(loopTick);
 
 		async function setup() {
 			const window = getCurrentWindow();
@@ -185,11 +226,11 @@
 	});
 </script>
 
-<!-- Base color doubles as the loading state and the error fallback. -->
-<div class="bg-video-layer" style:background={tint}>
+<div class="bg-video-layer">
 	{#if !failed && videoSrc}
 		<video
 			bind:this={videoA}
+			{@attach releaseOnRemove}
 			class="bg-video"
 			class:bg-video-top={activeIsA}
 			src={videoSrc}
@@ -203,6 +244,7 @@
 		></video>
 		<video
 			bind:this={videoB}
+			{@attach releaseOnRemove}
 			class="bg-video"
 			class:bg-video-top={!activeIsA}
 			src={videoSrc}
@@ -213,8 +255,6 @@
 			preload="auto"
 			onerror={handleError}
 		></video>
-		<!-- Same color tint the image background gets via CSS gradient. -->
-		<div class="bg-video-tint" style:background={tint}></div>
 	{/if}
 </div>
 
@@ -239,11 +279,5 @@
 
 	.bg-video-top {
 		z-index: 1;
-	}
-
-	.bg-video-tint {
-		position: absolute;
-		inset: 0;
-		z-index: 2;
 	}
 </style>

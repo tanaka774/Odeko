@@ -1,30 +1,96 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { invoke } from '@tauri-apps/api/core';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { confirm } from '@tauri-apps/plugin-dialog';
 	import IconGrid from '$lib/components/IconGrid.svelte';
-	import BackgroundVideo from '$lib/components/BackgroundVideo.svelte';
+	import CanvasBackground from '$lib/components/CanvasBackground.svelte';
 	import ToastStack from '$lib/components/ToastStack.svelte';
 	import { isVideoBackground } from '$lib/background';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
-	import { settingsStore, matchesKeybind } from '$lib/stores/settings.svelte';
+	import {
+		settingsStore,
+		matchesKeybind,
+		type CanvasLayout,
+		type CanvasSettings
+	} from '$lib/stores/settings.svelte';
+	import { listPresets, loadPreset, neighborPreset, switchPreset } from '$lib/presets';
 	import { platformStore } from '$lib/stores/platform.svelte';
 	import { toastStore, errorMessage } from '$lib/stores/toast.svelte';
 	import { launchIcon, isLaunchable } from '$lib/launch';
 	import type { CanvasIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
-	import { safeRgbColor, safeCssUrl } from '$lib/utils';
 
 	let iconGrid: IconGrid;
+	let background: CanvasBackground;
 
 	let isEditMode = $state(false);
 
 	let showContextMenu = $state(false);
 	let contextMenuX = $state(0);
 	let contextMenuY = $state(0);
+
+	const PRESET_FADE_MS = 140;
+	const PREPARE_TIMEOUT_MS = 2000;
+	let presetSwitching = $state(false);
+	let contentHidden = $state(false);
+	let panelHidden = $state(false);
+	let presetLabel = $state<string | null>(null);
+	let labelTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	const painted = () =>
+		new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+	function panelGeometry(s: CanvasSettings): string {
+		return [s.width_percent, s.height_percent, s.position_x, s.position_y, s.border_radius].join();
+	}
+
+	function showPresetLabel(name: string) {
+		presetLabel = name;
+		if (labelTimer) clearTimeout(labelTimer);
+		labelTimer = setTimeout(() => (presetLabel = null), 1200);
+	}
+
+	// The current preset stays fully on screen (and stays the active one, so
+	// widget autosaves keep landing in it) while the next one's background
+	// loads hidden; only then does the swap happen, so there is never a gap.
+	async function cyclePreset(step: 1 | -1) {
+		if (presetSwitching || isEditMode) return;
+		presetSwitching = true;
+		try {
+			const name = neighborPreset(await listPresets(), step);
+			if (!name) return;
+			const layout = await loadPreset(name);
+			const next = settingsStore.normalizeSettings(layout.settings);
+			await Promise.race([background.prepare(next), wait(PREPARE_TIMEOUT_MS)]);
+
+			// Animating size/position relayouts the whole panel every frame,
+			// which WebKitGTK cannot keep smooth, so a reshape fades the panel.
+			if (panelGeometry(next) !== panelGeometry(settingsStore.settings)) {
+				panelHidden = true;
+			} else {
+				contentHidden = true;
+			}
+			await wait(PRESET_FADE_MS);
+			await switchPreset(name);
+			await iconGrid.applyLayout(layout);
+			await painted();
+			panelHidden = false;
+			contentHidden = false;
+			showPresetLabel(name);
+			await wait(PRESET_FADE_MS);
+		} catch (error) {
+			console.error('Failed to switch preset:', error);
+		} finally {
+			panelHidden = false;
+			contentHidden = false;
+			presetSwitching = false;
+		}
+	}
 
 	async function hideCanvas() {
 		const window = getCurrentWindow();
@@ -71,6 +137,17 @@
 		}
 
 		if (!isEditMode) {
+			if (matchesKeybind(event, s.keybind_prev_preset)) {
+				event.preventDefault();
+				await cyclePreset(-1);
+				return;
+			}
+			if (matchesKeybind(event, s.keybind_next_preset)) {
+				event.preventDefault();
+				await cyclePreset(1);
+				return;
+			}
+
 			const icons = settingsStore.getCurrentIcons();
 			for (const icon of icons) {
 				if (icon.keybind_global) continue;
@@ -202,18 +279,6 @@
 		};
 	});
 
-	function getBackgroundSize(size: 'cover' | 'contain' | 'stretch'): string {
-		switch (size) {
-			case 'stretch':
-				return '100% 100%';
-			case 'contain':
-				return 'contain';
-			case 'cover':
-			default:
-				return 'cover';
-		}
-	}
-
 	// The canvas panel element, so the "light" blur can follow its bounds.
 	let canvasPanelEl = $state<HTMLElement | null>(null);
 	// Bumped on window resizes so the blur region follows the panel.
@@ -230,6 +295,7 @@
 		// when the canvas panel moves or resizes (the geometry settings),
 		// so the anchored modals keep following the panel.
 		void layoutVersion;
+		void presetSwitching;
 		void settings.width_percent;
 		void settings.height_percent;
 		void settings.position_x;
@@ -252,40 +318,13 @@
 			enabled,
 			strength,
 			region,
-			excludePanel: backgroundIsVideo
+			// Mid-switch the panel's area may be uncovered or reshaped, so the
+			// video exclusion waits until the new preset is in place.
+			excludePanel: backgroundIsVideo && !presetSwitching
 		}).catch((error) => console.error('Failed to apply backdrop blur:', error));
 	});
 
-	// Style strings below interpolate settings values that can arrive via
-	// imported presets, so colors and the background URL are scrubbed first
-	// (safeRgbColor/safeCssUrl) to prevent CSS injection.
 	let backgroundIsVideo = $derived(isVideoBackground(settingsStore.settings.background_image));
-	let backgroundRgb = $derived(safeRgbColor(settingsStore.settings.background_color, '20, 20, 30'));
-	let backgroundImageUrl = $derived(safeCssUrl(settingsStore.settings.background_image));
-
-	let canvasStyles = $derived({
-		width: `${settingsStore.settings.width_percent}%`,
-		height: `${settingsStore.settings.height_percent}%`,
-		// Video backgrounds are painted by <BackgroundVideo>, so the overlay
-		// itself stays transparent and skips the CSS image layers.
-		backgroundColor: settingsStore.settings.background_image
-			? 'transparent'
-			: `rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})`,
-		backgroundImage:
-			backgroundImageUrl && !backgroundIsVideo
-				? `linear-gradient(rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity}), rgba(${backgroundRgb}, ${settingsStore.settings.background_opacity})), url("${backgroundImageUrl}")`
-				: 'none',
-		backgroundSize: settingsStore.settings.background_image
-			? `cover, ${getBackgroundSize(settingsStore.settings.background_size)}`
-			: 'cover',
-		backgroundRepeat: settingsStore.settings.background_image
-			? `no-repeat, ${settingsStore.settings.background_repeat ? 'repeat' : 'no-repeat'}`
-			: 'no-repeat',
-		backgroundPosition: settingsStore.settings.background_image
-			? `center, ${settingsStore.settings.background_position}`
-			: 'center',
-		borderRadius: `${settingsStore.settings.border_radius}px`
-	});
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -298,6 +337,7 @@
 	<!-- Backdrop layer: dark overlay behind the canvas. -->
 	<div
 		class="backdrop"
+		class:switching={presetSwitching}
 		style:background="rgba(0, 0, 0, {settingsStore.settings.backdrop_darkness})"
 	></div>
 
@@ -307,30 +347,24 @@
 		class="canvas-panel"
 		onclick={(e) => e.stopPropagation()}
 		oncontextmenu={handleOverlayContextMenu}
-		style:width={canvasStyles.width}
-		style:height={canvasStyles.height}
-		style:background-color={canvasStyles.backgroundColor}
-		style:background-image={canvasStyles.backgroundImage}
-		style:background-size={canvasStyles.backgroundSize}
-		style:background-repeat={canvasStyles.backgroundRepeat}
-		style:background-position={canvasStyles.backgroundPosition}
-		style:border-radius={canvasStyles.borderRadius}
+		class:faded={panelHidden}
+		style:--preset-fade="{PRESET_FADE_MS}ms"
+		style:width="{settingsStore.settings.width_percent}%"
+		style:height="{settingsStore.settings.height_percent}%"
+		style:border-radius="{settingsStore.settings.border_radius}px"
 		style:left="{settingsStore.settings.position_x}%"
 		style:top="{settingsStore.settings.position_y}%"
 		style:transform="translate(-{settingsStore.settings.position_x}%, -{settingsStore.settings
 			.position_y}%)"
 	>
-		{#if backgroundIsVideo && settingsStore.settings.background_image}
-			<BackgroundVideo
-				src={settingsStore.settings.background_image}
-				fit={settingsStore.settings.background_size}
-				position={settingsStore.settings.background_position}
-				tintColor={backgroundRgb}
-				tintOpacity={settingsStore.settings.background_opacity}
-			/>
-		{/if}
+		<CanvasBackground
+			bind:this={background}
+			settings={settingsStore.settings}
+			animate={presetSwitching}
+			instant={panelHidden}
+		/>
 
-		<div class="canvas-content">
+		<div class="canvas-content" class:faded={contentHidden}>
 			<IconGrid
 				bind:this={iconGrid}
 				{isEditMode}
@@ -340,6 +374,10 @@
 				}}
 			/>
 		</div>
+
+		{#if presetLabel}
+			<div class="preset-label" transition:fade={{ duration: 150 }}>{presetLabel}</div>
+		{/if}
 
 		<ToastStack />
 
@@ -470,6 +508,40 @@
 		overflow: hidden;
 		position: absolute;
 		z-index: 1;
+	}
+
+	.canvas-panel,
+	.canvas-content {
+		transition: opacity var(--preset-fade) ease;
+	}
+
+	.canvas-panel {
+		will-change: opacity;
+	}
+
+	/* Not 0: WebKitGTK stops repainting fully transparent layers, so the
+	   fade-in would start from a stale frame of the previous preset. */
+	.canvas-panel.faded,
+	.canvas-content.faded {
+		opacity: 0.01;
+	}
+
+	.backdrop.switching {
+		transition: background 280ms ease;
+	}
+
+	.preset-label {
+		position: absolute;
+		left: 50%;
+		bottom: 8px;
+		transform: translateX(-50%);
+		padding: 2px 8px;
+		border-radius: 6px;
+		background: rgba(0, 0, 0, 0.55);
+		color: rgba(255, 255, 255, 0.9);
+		font-size: 12px;
+		pointer-events: none;
+		z-index: 997;
 	}
 
 	.canvas-content {

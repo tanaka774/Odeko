@@ -660,6 +660,14 @@
 											bind:value={localSettings.keybind_undo}
 											label="Undo last change (edit mode)"
 										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_prev_preset}
+											label="Previous preset"
+										/>
+										<KeybindRecorder
+											bind:value={localSettings.keybind_next_preset}
+											label="Next preset"
+										/>
 									</div>
 									<div class="key-shortcuts" style="margin-top: 24px;">
 										<div class="key-shortcut-item key-static">

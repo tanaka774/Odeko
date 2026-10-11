@@ -11,12 +11,18 @@
 	import Portal from './Portal.svelte';
 	import FloatingEditToolbar from './FloatingEditToolbar.svelte';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
-	import { settingsStore, matchesKeybind, type KeybindConfig } from '$lib/stores/settings.svelte';
+	import {
+		settingsStore,
+		matchesKeybind,
+		type CanvasLayout,
+		type KeybindConfig
+	} from '$lib/stores/settings.svelte';
 	import { createEditSession } from '$lib/edit-session.svelte';
 	import { mergeIconAppearance, setBulkAppearanceHandler } from '$lib/bulk-appearance';
 	import type { WidgetConfigType, WidgetAppearanceConfig } from '$lib/widgets/types';
 	import type { CanvasIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
+	import { saveLayoutToPreset } from '$lib/presets';
 
 	interface Props {
 		isEditMode: boolean;
@@ -119,10 +125,11 @@
 			await settingsStore.loadSettings();
 		}
 		try {
-			const name = await invoke<string>('save_active_layout', {
+			const name = await saveLayoutToPreset(
+				settingsStore.activePreset,
 				icons,
-				settings: settingsStore.settings
-			});
+				settingsStore.settings
+			);
 			if (name) {
 				settingsStore.setActivePreset(name);
 			}
@@ -135,24 +142,23 @@
 
 	async function reloadAll() {
 		try {
-			const layout = await invoke<{
-				icons: CanvasIcon[];
-				settings: object;
-				active_preset: string | null;
-			}>('load_active_layout');
-			// Apply the preset's settings first so normalizeZ's radius
-			// migration stamps the preset's default corner radius.
-			settingsStore.applyLayout(layout as Parameters<typeof settingsStore.applyLayout>[0]);
-			icons = normalizeZ(layout.icons || []);
-			// Global shortcuts belong to the icons of the preset that just
-			// became active, so the previous preset's registrations must go.
-			await refreshIconShortcuts(icons);
+			await applyLayout(await invoke<CanvasLayout>('load_active_layout'));
 		} catch (error) {
 			console.error('Failed to reload layout:', error);
 		}
+	}
+
+	export async function applyLayout(layout: CanvasLayout) {
+		// Apply the preset's settings first so normalizeZ's radius
+		// migration stamps the preset's default corner radius.
+		settingsStore.applyLayout(layout);
+		icons = normalizeZ((layout.icons as CanvasIcon[]) || []);
 		if (isEditMode) {
 			editSession.enter(icons);
 		}
+		// Global shortcuts belong to the icons of the preset that just
+		// became active, so the previous preset's registrations must go.
+		await refreshIconShortcuts(icons);
 	}
 
 	function saveToHistory() {

@@ -293,7 +293,8 @@ describe('settings store', () => {
 		await mod.settingsStore.saveSettings();
 
 		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
-			settings: mod.settingsStore.settings
+			settings: mod.settingsStore.settings,
+			preset: null
 		});
 		expect(mod.settingsStore.activePreset).toBe('Default');
 	});

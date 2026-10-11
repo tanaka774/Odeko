@@ -90,12 +90,16 @@ pub struct WindowBlur {
 
 #[cfg(target_os = "linux")]
 enum BlurInner {
-    /// Keeps the connection and the effect object alive so the effect can be
-    /// destroyed cleanly. The wl_region has copy semantics and the wl_surface
-    /// belongs to GTK, so neither needs to be retained.
+    /// Keeps the connection, the effect object and what is needed to build
+    /// new regions, so the region can be changed in place. The wl_surface
+    /// belongs to GTK; it is only wrapped to commit the region change.
     Wayland {
         conn: wayland_client::Connection,
+        queue: wayland_client::EventQueue<BlurInit>,
+        compositor: wayland_client::protocol::wl_compositor::WlCompositor,
+        surface: wayland_client::protocol::wl_surface::WlSurface,
         effect: wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1,
+        window_size: (i32, i32),
     },
     /// X11 stores the blur window property on the X server, which survives
     /// hide/show — nothing needs to be kept alive.
@@ -118,6 +122,34 @@ pub struct BlurSpec {
     /// Logical window size, used to build the "everything except the panel"
     /// region without overflowing the compositor's integer math.
     pub window_size: (i32, i32),
+}
+
+// The globals helper needs a state type to dispatch events into. We only
+// care about the initial global list, so every handler is a no-op.
+#[cfg(target_os = "linux")]
+pub struct BlurInit;
+
+#[cfg(target_os = "linux")]
+impl wayland_client::Dispatch<wayland_client::protocol::wl_registry::WlRegistry, wayland_client::globals::GlobalListContents> for BlurInit {
+    fn event(
+        _state: &mut Self,
+        _proxy: &wayland_client::protocol::wl_registry::WlRegistry,
+        _event: wayland_client::protocol::wl_registry::Event,
+        _data: &wayland_client::globals::GlobalListContents,
+        _conn: &wayland_client::Connection,
+        _qhandle: &wayland_client::QueueHandle<BlurInit>,
+    ) {
+    }
+}
+
+#[cfg(target_os = "linux")]
+mod blur_init_noop {
+    use super::BlurInit;
+    use wayland_client::delegate_noop;
+    delegate_noop!(BlurInit: wayland_protocols::ext::background_effect::v1::client::ext_background_effect_manager_v1::ExtBackgroundEffectManagerV1);
+    delegate_noop!(BlurInit: wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1);
+    delegate_noop!(BlurInit: wayland_client::protocol::wl_compositor::WlCompositor);
+    delegate_noop!(BlurInit: wayland_client::protocol::wl_region::WlRegion);
 }
 
 #[cfg(target_os = "linux")]
@@ -151,6 +183,23 @@ impl WindowBlur {
         }
     }
 
+    /// Changes the blur region on the live effect. Unlike destroying and
+    /// recreating the effect, the compositor never presents a frame without
+    /// blur in between.
+    pub fn update(&mut self, mut spec: BlurSpec) -> Result<(), String> {
+        match &mut self.inner {
+            BlurInner::Wayland { conn, queue, compositor, surface, effect, window_size } => {
+                spec.window_size = *window_size;
+                let region = build_region(compositor, &queue.handle(), &spec);
+                effect.set_blur_region(Some(&region));
+                region.destroy();
+                surface.commit();
+                conn.flush().map_err(|e| e.to_string())
+            }
+            BlurInner::X11 { .. } => Ok(()),
+        }
+    }
+
     /// Destroys the compositor-side effect object.
     ///
     /// The caller rebuilds the blur from scratch on every show, so the old
@@ -175,40 +224,16 @@ impl WindowBlur {
     /// background behind this". We adopt the Wayland connection the window
     /// already lives on (the one GTK uses) and wrap the window's own
     /// `wl_surface`, so the requests reach the right compositor objects.
-    #[cfg(target_os = "linux")]
     fn new_wayland(
         surface: *mut std::ffi::c_void,
         display: *mut std::ffi::c_void,
         spec: BlurSpec,
     ) -> Result<BlurInner, String> {
         use wayland_backend::sys::client::ObjectId;
-        use wayland_client::delegate_noop;
-        use wayland_client::globals::{registry_queue_init, GlobalListContents};
-        use wayland_client::protocol::{wl_compositor::WlCompositor, wl_registry, wl_surface::WlSurface};
-        use wayland_client::{Connection, Dispatch, Proxy as _};
+        use wayland_client::globals::registry_queue_init;
+        use wayland_client::protocol::{wl_compositor::WlCompositor, wl_surface::WlSurface};
+        use wayland_client::{Connection, Proxy as _};
         use wayland_protocols::ext::background_effect::v1::client::ext_background_effect_manager_v1::ExtBackgroundEffectManagerV1;
-        use wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1;
-
-        // The globals helper needs a state type to dispatch events into. We
-        // only care about the initial global list, so every handler is a no-op.
-        struct BlurInit;
-
-        impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for BlurInit {
-            fn event(
-                _state: &mut Self,
-                _proxy: &wl_registry::WlRegistry,
-                _event: wl_registry::Event,
-                _data: &GlobalListContents,
-                _conn: &Connection,
-                _qhandle: &wayland_client::QueueHandle<BlurInit>,
-            ) {
-            }
-        }
-
-        delegate_noop!(BlurInit: ExtBackgroundEffectManagerV1);
-        delegate_noop!(BlurInit: ExtBackgroundEffectSurfaceV1);
-        delegate_noop!(BlurInit: WlCompositor);
-        delegate_noop!(BlurInit: wayland_client::protocol::wl_region::WlRegion);
 
         // Adopt GTK's connection instead of opening a new one: wl_surface
         // objects only exist on the connection that created them.
@@ -237,38 +262,9 @@ impl WindowBlur {
 
         log::debug!("Blur spec: strength={} panel={:?} exclude_panel={}", spec.strength, spec.panel, spec.exclude_panel);
 
-        // Region coordinates are surface-local (logical pixels); the
-        // compositor clips them to the surface size. The region covers the
-        // whole window unless the panel rectangle limits it, and the panel
-        // is cut out entirely when it is opaque (video background).
-        let region = compositor.create_region(&qh, ());
-        match (spec.strength.as_str(), spec.panel, spec.exclude_panel) {
-            // Whole window.
-            ("full", None, _) | ("light", None, _) => {
-                region.add(0, 0, i32::MAX, i32::MAX);
-            }
-            // Light: blur only behind the canvas panel.
-            ("light", Some((x, y, w, h)), false) => {
-                region.add(x, y, w, h);
-            }
-            // Full with a video background: blur everything except the panel,
-            // so the animated video never forces the blur to re-render below it.
-            ("full", Some((x, y, w, h)), true) => {
-                let (ww, wh) = spec.window_size;
-                add_strip(&region, 0, 0, ww, y); // above the panel
-                add_strip(&region, 0, y + h, ww, wh - y - h); // below
-                add_strip(&region, 0, y, x, h); // left of it
-                add_strip(&region, x + w, y, ww - x - w, h); // right of it
-            }
-            // Light with a video background: the only intended area is the
-            // panel, which is opaque — nothing visible to blur, so none.
-            ("light", Some(_), true) => {}
-            // Fallback: whole window.
-            _ => {
-                region.add(0, 0, i32::MAX, i32::MAX);
-            }
-        }
+        let region = build_region(&compositor, &qh, &spec);
         effect.set_blur_region(Some(&region));
+        region.destroy();
 
         // The blur region is double-buffered: it only takes effect on the
         // next wl_surface.commit. Commit once; GTK commits again on every frame.
@@ -276,8 +272,55 @@ impl WindowBlur {
         conn.flush().map_err(|e| e.to_string())?;
 
         log::info!("Applied native Wayland blur (ext-background-effect-v1)");
-        Ok(BlurInner::Wayland { conn, effect })
+        Ok(BlurInner::Wayland {
+            conn,
+            queue,
+            compositor,
+            surface,
+            effect,
+            window_size: spec.window_size,
+        })
     }
+}
+
+/// Region coordinates are surface-local (logical pixels); the compositor
+/// clips them to the surface size. The region covers the whole window unless
+/// the panel rectangle limits it, and the panel is cut out entirely when it
+/// is opaque (video background).
+#[cfg(target_os = "linux")]
+fn build_region(
+    compositor: &wayland_client::protocol::wl_compositor::WlCompositor,
+    qh: &wayland_client::QueueHandle<BlurInit>,
+    spec: &BlurSpec,
+) -> wayland_client::protocol::wl_region::WlRegion {
+    let region = compositor.create_region(qh, ());
+    match (spec.strength.as_str(), spec.panel, spec.exclude_panel) {
+        // Whole window.
+        ("full", None, _) | ("light", None, _) => {
+            region.add(0, 0, i32::MAX, i32::MAX);
+        }
+        // Light: blur only behind the canvas panel.
+        ("light", Some((x, y, w, h)), false) => {
+            region.add(x, y, w, h);
+        }
+        // Full with a video background: blur everything except the panel,
+        // so the animated video never forces the blur to re-render below it.
+        ("full", Some((x, y, w, h)), true) => {
+            let (ww, wh) = spec.window_size;
+            add_strip(&region, 0, 0, ww, y); // above the panel
+            add_strip(&region, 0, y + h, ww, wh - y - h); // below
+            add_strip(&region, 0, y, x, h); // left of it
+            add_strip(&region, x + w, y, ww - x - w, h); // right of it
+        }
+        // Light with a video background: the only intended area is the
+        // panel, which is opaque — nothing visible to blur, so none.
+        ("light", Some(_), true) => {}
+        // Fallback: whole window.
+        _ => {
+            region.add(0, 0, i32::MAX, i32::MAX);
+        }
+    }
+    region
 }
 
 /// Adds a rectangle to a `wl_region`, skipping degenerate (zero-size) rects.

@@ -20,7 +20,9 @@ export const DEFAULT_KEYBINDS = {
 	toggle_canvas: { key: 'KeyZ', ctrl: false, alt: true, shift: false, meta: true },
 	toggle_edit: { key: 'F2', ctrl: false, alt: false, shift: false, meta: false },
 	hide_canvas: { key: 'Escape', ctrl: false, alt: false, shift: false, meta: false },
-	undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false }
+	undo: { key: 'KeyZ', ctrl: true, alt: false, shift: false, meta: false },
+	prev_preset: { key: 'ArrowLeft', ctrl: true, alt: true, shift: false, meta: false },
+	next_preset: { key: 'ArrowRight', ctrl: true, alt: true, shift: false, meta: false }
 } as const;
 
 export function keybindToString(kb: KeybindConfig): string {
@@ -68,12 +70,7 @@ export interface KeybindConflictCheckOptions {
 	/** Icon id to exclude from the "other icons" check (the icon being edited). */
 	excludeIconId?: string;
 	/** App-level keybinds to check against (from CanvasSettings). */
-	appKeybinds: {
-		toggle_canvas: KeybindConfig;
-		toggle_edit: KeybindConfig;
-		hide_canvas: KeybindConfig;
-		undo: KeybindConfig;
-	};
+	appKeybinds: Partial<Record<keyof typeof APP_KEYBIND_LABELS, KeybindConfig>>;
 	/** Other icons' currently-assigned keybinds. */
 	icons: { id: string; name: string; custom_name?: string | null; keybind?: KeybindConfig }[];
 }
@@ -82,8 +79,23 @@ export const APP_KEYBIND_LABELS = {
 	toggle_canvas: 'Toggle Canvas',
 	toggle_edit: 'Toggle Edit',
 	hide_canvas: 'Hide Canvas',
-	undo: 'Undo'
+	undo: 'Undo',
+	prev_preset: 'Previous Preset',
+	next_preset: 'Next Preset'
 } as const;
+
+export function appKeybindsOf(
+	s: CanvasSettings
+): Record<keyof typeof APP_KEYBIND_LABELS, KeybindConfig> {
+	return {
+		toggle_canvas: s.keybind_toggle_canvas,
+		toggle_edit: s.keybind_toggle_edit,
+		hide_canvas: s.keybind_hide_canvas,
+		undo: s.keybind_undo,
+		prev_preset: s.keybind_prev_preset,
+		next_preset: s.keybind_next_preset
+	};
+}
 
 export function findKeybindConflict(
 	kb: KeybindConfig,
@@ -93,7 +105,7 @@ export function findKeybindConflict(
 	const { appKeybinds, excludeIconId, icons } = opts;
 	for (const name of Object.keys(appKeybinds) as (keyof typeof appKeybinds)[]) {
 		const entry = appKeybinds[name];
-		if (entry.key && keybindEquals(entry, kb)) {
+		if (entry?.key && keybindEquals(entry, kb)) {
 			return `Conflicts with app keybind: ${APP_KEYBIND_LABELS[name]}`;
 		}
 	}
@@ -145,6 +157,8 @@ export interface CanvasSettings {
 	keybind_toggle_edit: KeybindConfig;
 	keybind_hide_canvas: KeybindConfig;
 	keybind_undo: KeybindConfig;
+	keybind_prev_preset: KeybindConfig;
+	keybind_next_preset: KeybindConfig;
 	/** App-wide allowed hostnames for Custom HTML widgets (see network-bridge). */
 	network_grants: string[];
 	/** Allow Custom HTML widgets to fetch from private/LAN addresses. */
@@ -191,6 +205,8 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	keybind_toggle_edit: { ...DEFAULT_KEYBINDS.toggle_edit },
 	keybind_hide_canvas: { ...DEFAULT_KEYBINDS.hide_canvas },
 	keybind_undo: { ...DEFAULT_KEYBINDS.undo },
+	keybind_prev_preset: { ...DEFAULT_KEYBINDS.prev_preset },
+	keybind_next_preset: { ...DEFAULT_KEYBINDS.next_preset },
 	network_grants: [],
 	allow_local_network: false,
 	// Empty until the user changes something: icons then fall back to their
@@ -215,6 +231,10 @@ function createSettingsStore() {
 		if (!merged.keybind_hide_canvas.key)
 			merged.keybind_hide_canvas = { ...DEFAULT_KEYBINDS.hide_canvas };
 		if (!merged.keybind_undo.key) merged.keybind_undo = { ...DEFAULT_KEYBINDS.undo };
+		if (!merged.keybind_prev_preset?.key)
+			merged.keybind_prev_preset = { ...DEFAULT_KEYBINDS.prev_preset };
+		if (!merged.keybind_next_preset?.key)
+			merged.keybind_next_preset = { ...DEFAULT_KEYBINDS.next_preset };
 
 		// The default appearance must stay a plain object (Rust round-trips it
 		// as JSON, so it may arrive as null from older files). Custom CSS keys
@@ -288,7 +308,8 @@ function createSettingsStore() {
 	async function saveSettings() {
 		try {
 			const name = await invoke<string>('save_active_settings', {
-				settings: { ...settings }
+				settings: { ...settings },
+				preset: activePreset
 			});
 			if (name) {
 				activePreset = name;
@@ -300,9 +321,13 @@ function createSettingsStore() {
 		// canvas panel's position for the "light" strength).
 	}
 
+	function normalizeSettings(raw: CanvasSettings): CanvasSettings {
+		return convertBackgroundImage(applyDefaults(raw));
+	}
+
 	function applyLayout(layout: CanvasLayout) {
 		if (layout.settings) {
-			settings = convertBackgroundImage(applyDefaults(layout.settings));
+			settings = normalizeSettings(layout.settings);
 		}
 		activePreset = layout.active_preset ?? null;
 		isLoaded = true;
@@ -341,6 +366,7 @@ function createSettingsStore() {
 		},
 		loadSettings,
 		saveSettings,
+		normalizeSettings,
 		applyLayout,
 		updateSettings,
 		resetToDefaults,

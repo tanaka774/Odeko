@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	formatRelativeTime,
 	importNotes,
+	neighborPreset,
 	presetMeta,
 	uniquePresetName,
 	type ImportResult,
@@ -89,5 +90,31 @@ describe('importNotes', () => {
 			'disabled 1 global shortcut(s)',
 			're-enabled confirmation on 3 power widget(s)'
 		]);
+	});
+});
+
+describe('neighborPreset', () => {
+	const list = (active: string) =>
+		['A', 'B', 'C'].map((name) => summary({ name, is_active: name === active }));
+
+	it('steps forward and backward with wrap-around', () => {
+		expect(neighborPreset(list('A'), 1)).toBe('B');
+		expect(neighborPreset(list('C'), 1)).toBe('A');
+		expect(neighborPreset(list('A'), -1)).toBe('C');
+	});
+
+	it('skips unreadable presets', () => {
+		const presets = list('A');
+		presets[1].icon_count = null;
+		expect(neighborPreset(presets, 1)).toBe('C');
+	});
+
+	it('picks an end when nothing is active', () => {
+		expect(neighborPreset(list(''), 1)).toBe('A');
+		expect(neighborPreset(list(''), -1)).toBe('C');
+	});
+
+	it('returns null when there is nowhere to go', () => {
+		expect(neighborPreset([summary({ is_active: true })], 1)).toBeNull();
 	});
 });

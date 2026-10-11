@@ -12,7 +12,7 @@
 		listPresets,
 		presetMeta,
 		renamePreset,
-		saveLayoutToActivePreset,
+		saveLayoutToPreset,
 		savePresetAs,
 		switchPreset,
 		uniquePresetName,
@@ -94,10 +94,13 @@
 		// Saving with no active preset would make the backend auto-create
 		// "Default", so only do it when there is something worth keeping.
 		if (saveFirst && (settingsStore.activePreset || dirty || iconsDirty)) {
-			await saveLayoutToActivePreset(settingsStore.getCurrentIcons(), settings);
+			await saveLayoutToPreset(
+				settingsStore.activePreset,
+				settingsStore.getCurrentIcons(),
+				settings
+			);
 		}
 		await switchPreset(name);
-		settingsStore.setActivePreset(name);
 		await onSwitched?.();
 		await load();
 	}

@@ -60,6 +60,7 @@ describe('SettingsModal', () => {
 		clickSave();
 
 		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
+			preset: null,
 			settings: expect.objectContaining({ background_color: '255, 0, 0' })
 		});
 		expect(settingsStore.settings.background_color).toBe('255, 0, 0');
@@ -74,6 +75,7 @@ describe('SettingsModal', () => {
 		clickSave();
 
 		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
+			preset: null,
 			settings: expect.objectContaining({ background_color: '0, 204, 255' })
 		});
 		expect(settingsStore.settings.background_color).toBe('0, 204, 255');
@@ -88,6 +90,7 @@ describe('SettingsModal', () => {
 		clickSave();
 
 		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
+			preset: null,
 			settings: expect.objectContaining({ background_color: '20, 20, 30' })
 		});
 		expect(settingsStore.settings.background_color).toBe('20, 20, 30');

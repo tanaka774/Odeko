@@ -1,7 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
-use commands::canvas::{launch_app, open_url, load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
+use commands::canvas::{launch_app, open_url, load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
 use commands::media_server::{register_background_video, MediaServerState};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
@@ -159,7 +159,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             launch_app, open_url,
-            load_active_layout, save_active_layout, save_active_settings, set_active_preset, save_preset_as,
+            load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as,
             scan_installed_apps, get_system_app, convert_icns_to_png, get_system_stats,
             terminal_create_shell, terminal_write, terminal_resize, terminal_start_reader,
             get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players,
@@ -196,7 +196,7 @@ fn configure_canvas_window(app: &tauri::App) {
                 // The canvas is shown and focused together (toggle), so a
                 // focus event means it is on screen again.
                 if matches!(event, WindowEvent::Focused(true)) {
-                    sync_window_blur(&app_handle);
+                    sync_window_blur(&app_handle, true);
                 }
             });
 
@@ -204,7 +204,7 @@ fn configure_canvas_window(app: &tauri::App) {
             // setup runs, so also apply when it is visible right now (e.g. a
             // config with `"visible": true`).
             if window.is_visible().unwrap_or(false) {
-                sync_window_blur(app.handle());
+                sync_window_blur(app.handle(), true);
             }
         }
 
@@ -233,11 +233,23 @@ fn configure_canvas_window(app: &tauri::App) {
 /// itself may be recreated), so on every show we rebuild the effect from
 /// scratch — deterministic, no stale-object edge cases.
 #[cfg(target_os = "linux")]
-fn sync_window_blur(app: &tauri::AppHandle) {
+fn sync_window_blur(app: &tauri::AppHandle, rebuild: bool) {
     let state = app.state::<BlurState>();
     let mut control = state.0.lock();
 
-    // Always drop the previous effect first so a fresh one can be created
+    // A settings or panel change on a visible window only moves the region:
+    // tearing the effect down would flash the desktop unblurred.
+    if !rebuild && control.enabled {
+        let spec = control.spec.clone();
+        if let Some(blur) = control.blur.as_mut() {
+            match blur.update(spec) {
+                Ok(()) => return,
+                Err(error) => log::warn!("Failed to update native backdrop blur: {error}"),
+            }
+        }
+    }
+
+    // Otherwise drop the previous effect first so a fresh one can be created
     // without colliding on the same surface.
     if let Some(old) = control.blur.take() {
         old.destroy();
@@ -293,7 +305,7 @@ fn set_backdrop_blur(
         if let Some(window) = app.get_webview_window("main") {
             let app_handle = app.clone();
             window
-                .run_on_main_thread(move || sync_window_blur(&app_handle))
+                .run_on_main_thread(move || sync_window_blur(&app_handle, false))
                 .map_err(|e| e.to_string())?;
         }
     }
