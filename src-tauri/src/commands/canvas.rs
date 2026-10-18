@@ -94,6 +94,9 @@ pub struct CanvasSettings {
     pub background_repeat: bool,
     #[serde(default)]
     pub background_position: String,
+    /// Animated background shader. Opaque to Rust — interpreted by the frontend.
+    #[serde(default)]
+    pub background_shader: Option<serde_json::Value>,
     // TODO: Replace CSS backdrop-filter with OS-level window blur.
     // CSS backdrop-filter cannot blur content behind the Tauri window.
     #[serde(default)]
@@ -160,6 +163,7 @@ impl Default for CanvasSettings {
             background_size: "cover".to_string(),
             background_repeat: false,
             background_position: "center".to_string(),
+            background_shader: None,
             border_radius: 24.0,
             position_x: 50.0,
             position_y: 50.0,
@@ -1563,6 +1567,7 @@ mod tests {
             background_size: "contain".into(),
             background_repeat: true,
             background_position: "bottom right".into(),
+            background_shader: None,
             border_radius: 12.0,
             position_x: 30.0,
             position_y: 40.0,

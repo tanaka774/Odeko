@@ -359,7 +359,7 @@
 	>
 		<CanvasBackground
 			bind:this={background}
-			settings={settingsStore.settings}
+			settings={settingsStore.preview ?? settingsStore.settings}
 			animate={presetSwitching}
 			instant={panelHidden}
 		/>

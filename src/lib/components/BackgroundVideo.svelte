@@ -33,11 +33,14 @@
 		src,
 		fit = 'cover',
 		position = 'center',
+		texture = false,
 		onready
 	}: {
 		src: string;
 		fit?: 'cover' | 'contain' | 'stretch';
 		position?: string;
+		/** Loads with CORS so the frames can be uploaded as a WebGL texture. */
+		texture?: boolean;
 		/** Fires once the first frame is decoded, or when playback fails. */
 		onready?: () => void;
 	} = $props();
@@ -64,6 +67,10 @@
 
 	function activeVideo(): HTMLVideoElement | undefined {
 		return activeIsA ? videoA : videoB;
+	}
+
+	export function activeElement(): HTMLVideoElement | undefined {
+		return failed ? undefined : activeVideo();
 	}
 
 	function standbyVideo(): HTMLVideoElement | undefined {
@@ -234,6 +241,7 @@
 			class="bg-video"
 			class:bg-video-top={activeIsA}
 			src={videoSrc}
+			crossorigin={texture ? 'anonymous' : undefined}
 			style:object-fit={objectFit}
 			style:object-position={position}
 			muted
@@ -248,6 +256,7 @@
 			class="bg-video"
 			class:bg-video-top={!activeIsA}
 			src={videoSrc}
+			crossorigin={texture ? 'anonymous' : undefined}
 			style:object-fit={objectFit}
 			style:object-position={position}
 			muted

@@ -10,6 +10,8 @@
 	import KeybindRecorder from '$lib/components/KeybindRecorder.svelte';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import { isVideoBackground } from '$lib/background';
+	import { checkShader, SHADER_EXAMPLES } from '$lib/background-shaders';
+	import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import ModalAppearancePanel from './settings/ModalAppearancePanel.svelte';
 	import PresetPanel from './settings/PresetPanel.svelte';
@@ -69,12 +71,13 @@
 		}
 	}
 
-	let activeTab = $state<'appearance' | 'items' | 'modals' | 'edit' | 'keys' | 'presets'>(
-		'appearance'
-	);
+	let activeTab = $state<
+		'appearance' | 'background' | 'items' | 'modals' | 'edit' | 'keys' | 'presets'
+	>('appearance');
 
 	const tabs = [
 		{ key: 'appearance', label: 'Appearance' },
+		{ key: 'background', label: 'Background' },
 		{ key: 'items', label: 'Icon Appearance' },
 		{ key: 'modals', label: 'Modals' },
 		{ key: 'edit', label: 'Edit' },
@@ -165,6 +168,8 @@
 			const current = $state.snapshot(untrack(() => settingsStore.settings));
 			localSettings = current;
 			originalSettings = current;
+			previewSource = current.background_shader.source;
+			shaderError = null;
 			modalDrafts = seedModalDrafts(current.modal_appearance);
 			modalTarget = 'global';
 			modalPanelOpen = false;
@@ -241,6 +246,44 @@
 	function removeBackgroundImage() {
 		localSettings.background_image = null;
 	}
+
+	const SHADER_DOCS_URL = 'https://github.com/tanaka774/Odeko/tree/main/examples/custom-shaders';
+
+	function insertExample(event: Event & { currentTarget: HTMLSelectElement }) {
+		const example = SHADER_EXAMPLES[Number(event.currentTarget.value)];
+		event.currentTarget.value = '';
+		if (!example) return;
+		localSettings.background_shader.source = example.source;
+		localSettings.background_shader.enabled = true;
+	}
+
+	// The canvas previews the staged background while the dialog is open;
+	// the shader only advances to sources that compile, so typing never
+	// blanks it.
+	let shaderError = $state<string | null>(null);
+	let previewSource = $state('');
+
+	$effect(() => {
+		const source = localSettings.background_shader.source;
+		if (!isOpen) return;
+		const timer = setTimeout(() => {
+			shaderError = source.trim() ? checkShader(source) : null;
+			if (!shaderError) previewSource = source;
+		}, 300);
+		return () => clearTimeout(timer);
+	});
+
+	$effect(() => {
+		if (!isOpen) {
+			settingsStore.setPreview(null);
+			return;
+		}
+		const staged = $state.snapshot(localSettings);
+		settingsStore.setPreview({
+			...staged,
+			background_shader: { ...staged.background_shader, source: previewSource }
+		});
+	});
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
@@ -344,6 +387,83 @@
 									</div>
 								</section>
 
+								<section class="settings-section">
+									<h3>Appearance</h3>
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input
+												type="checkbox"
+												checked={localSettings.backdrop_blur}
+												onchange={(e) => {
+													localSettings.backdrop_blur = e.currentTarget.checked;
+												}}
+											/>
+											<span>Backdrop Blur</span>
+										</label>
+									</div>
+									<p class="setting-hint">
+										Backdrop blur works only on systems that support native blur effects.
+									</p>
+									{#if localSettings.backdrop_blur}
+										<div class="setting-row">
+											<Label>Blur Strength</Label>
+											<select
+												value={localSettings.blur_strength}
+												onchange={(e) => {
+													localSettings.blur_strength = e.currentTarget.value as 'light' | 'full';
+												}}
+												class="bg-select"
+											>
+												<option value="full">Full - Blur entire screen</option>
+												<option value="light">Light - Blur only behind the canvas</option>
+											</select>
+										</div>
+									{/if}
+									<div class="setting-row">
+										<Label>Panel Corner Radius: {localSettings.border_radius}px</Label>
+										<Slider
+											type="single"
+											value={localSettings.border_radius}
+											min={0}
+											max={64}
+											step={1}
+											onValueChange={(val) => {
+												localSettings.border_radius = val;
+											}}
+										/>
+									</div>
+									<div class="setting-row">
+										<Label
+											>Backdrop Darkness: {Math.round(
+												localSettings.backdrop_darkness * 100
+											)}%</Label
+										>
+										<Slider
+											type="single"
+											value={localSettings.backdrop_darkness}
+											min={0}
+											max={1.0}
+											step={0.05}
+											onValueChange={(val) => {
+												localSettings.backdrop_darkness = val;
+											}}
+										/>
+									</div>
+								</section>
+								<section class="settings-section">
+									<h3>Startup</h3>
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input
+												type="checkbox"
+												checked={autostartEnabled}
+												onchange={handleAutostartToggle}
+											/>
+											<span>Launch Odeko at login</span>
+										</label>
+									</div>
+								</section>
+							{:else if activeTab === 'background'}
 								<section class="settings-section">
 									<h3>Background</h3>
 									<div class="setting-row">
@@ -458,79 +578,68 @@
 								</section>
 
 								<section class="settings-section">
-									<h3>Appearance</h3>
+									<h3>Shader</h3>
 									<div class="setting-row">
 										<label class="checkbox-label">
 											<input
 												type="checkbox"
-												checked={localSettings.backdrop_blur}
+												checked={localSettings.background_shader.enabled}
 												onchange={(e) => {
-													localSettings.backdrop_blur = e.currentTarget.checked;
+													localSettings.background_shader.enabled = e.currentTarget.checked;
 												}}
 											/>
-											<span>Backdrop Blur</span>
+											<span>Enable shader background</span>
 										</label>
 									</div>
-									<p class="setting-hint">
-										Backdrop blur works only on systems that support native blur effects.
-									</p>
-									{#if localSettings.backdrop_blur}
-										<div class="setting-row">
-											<Label>Blur Strength</Label>
-											<select
-												value={localSettings.blur_strength}
-												onchange={(e) => {
-													localSettings.blur_strength = e.currentTarget.value as 'light' | 'full';
-												}}
-												class="bg-select"
-											>
-												<option value="full">Full - Blur entire screen</option>
-												<option value="light">Light - Blur only behind the canvas</option>
-											</select>
-										</div>
-									{/if}
-									<div class="setting-row">
-										<Label>Panel Corner Radius: {localSettings.border_radius}px</Label>
-										<Slider
-											type="single"
-											value={localSettings.border_radius}
-											min={0}
-											max={64}
-											step={1}
-											onValueChange={(val) => {
-												localSettings.border_radius = val;
-											}}
-										/>
-									</div>
-									<div class="setting-row">
-										<Label
-											>Backdrop Darkness: {Math.round(
-												localSettings.backdrop_darkness * 100
-											)}%</Label
+									<p class="shader-hint">
+										The shader draws the background and gets the image/video above as iChannel0; the
+										tint still applies.
+										<button
+											class="shader-docs-link"
+											onclick={() => invoke('open_url', { url: SHADER_DOCS_URL })}
 										>
-										<Slider
-											type="single"
-											value={localSettings.backdrop_darkness}
-											min={0}
-											max={1.0}
-											step={0.05}
-											onValueChange={(val) => {
-												localSettings.backdrop_darkness = val;
-											}}
-										/>
-									</div>
-								</section>
-								<section class="settings-section">
-									<h3>Startup</h3>
+											Shader guide &amp; examples
+										</button>
+									</p>
 									<div class="setting-row">
-										<label class="checkbox-label">
-											<input
-												type="checkbox"
-												checked={autostartEnabled}
-												onchange={handleAutostartToggle}
-											/>
-											<span>Launch Odeko at login</span>
-										</label>
+										<Label>Source (GLSL, Shadertoy style)</Label>
+										<select class="bg-select shader-examples" value="" onchange={insertExample}>
+											<option value="" disabled>Insert example…</option>
+											{#each SHADER_EXAMPLES as example, index (example.name)}
+												<option value={String(index)}>{example.name}</option>
+											{/each}
+										</select>
+										<textarea
+											class="shader-input"
+											bind:value={localSettings.background_shader.source}
+											spellcheck="false"
+										></textarea>
+										{#if shaderError}
+											<div class="shader-error">
+												<pre>{shaderError}</pre>
+												<button
+													class="select-image-btn"
+													onclick={() => writeText(shaderError ?? '')}
+												>
+													Copy error
+												</button>
+											</div>
+										{/if}
+									</div>
+									<div class="setting-row">
+										<Label>Render Quality</Label>
+										<select
+											value={String(localSettings.background_shader.quality)}
+											onchange={(e) => {
+												localSettings.background_shader.quality = Number(e.currentTarget.value);
+											}}
+											class="bg-select"
+										>
+											<option value="1">Full</option>
+											<option value="0.75">75%</option>
+											<option value="0.5">50% - lighter on the GPU</option>
+											<option value="0.25">25% - lightest</option>
+										</select>
 									</div>
 								</section>
 							{:else if activeTab === 'items'}
@@ -1048,6 +1157,53 @@
 	.bg-select option {
 		background: rgba(30, 30, 40, 1);
 		color: white;
+	}
+
+	.shader-hint {
+		margin: 0 0 calc(0.7143 * var(--modal-font-size));
+		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
+		font-size: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.shader-input {
+		width: 100%;
+		min-height: calc(16 * var(--modal-font-size));
+		box-sizing: border-box;
+		padding: calc(0.5714 * var(--modal-font-size));
+		border-radius: 6px;
+		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
+		background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
+		color: var(--modal-text, white);
+		font-family: ui-monospace, monospace;
+		font-size: calc(0.8571 * var(--modal-font-size));
+		tab-size: 4;
+		resize: vertical;
+	}
+
+	.shader-docs-link {
+		border: none;
+		background: none;
+		padding: 0;
+		color: var(--modal-accent, rgba(120, 160, 200, 0.85));
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.shader-examples {
+		margin-bottom: calc(0.4286 * var(--modal-font-size));
+	}
+
+	.shader-error {
+		margin-top: calc(0.4286 * var(--modal-font-size));
+		color: #ff8a8a;
+		font-size: calc(0.8571 * var(--modal-font-size));
+	}
+
+	.shader-error pre {
+		margin: 0 0 calc(0.4286 * var(--modal-font-size));
+		white-space: pre-wrap;
+		user-select: text;
 	}
 
 	.checkbox-label {

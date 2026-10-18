@@ -1,6 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { backgroundFilePath, isVideoBackground } from '$lib/background';
+import {
+	DEFAULT_BACKGROUND_SHADER,
+	sanitizeBackgroundShader,
+	type BackgroundShader
+} from '$lib/background-shaders';
 import type { CanvasIcon } from '$lib/icons';
 import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 import {
@@ -136,6 +141,8 @@ export interface CanvasSettings {
 		| 'top right'
 		| 'bottom left'
 		| 'bottom right';
+	/** Animated shader drawn instead of the image/video while enabled. */
+	background_shader: BackgroundShader;
 	// The real blur behind the window is applied natively by the Rust side
 	// (src-tauri/src/window_effects.rs); these values only style the panel.
 	border_radius: number;
@@ -192,6 +199,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	background_size: 'cover',
 	background_repeat: false,
 	background_position: 'center',
+	background_shader: { ...DEFAULT_BACKGROUND_SHADER },
 	border_radius: 24,
 	backdrop_darkness: 0.3,
 	backdrop_blur: true,
@@ -218,6 +226,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 function createSettingsStore() {
 	let settings = $state<CanvasSettings>({ ...DEFAULT_SETTINGS });
 	let activePreset = $state<string | null>(null);
+	let preview = $state<CanvasSettings | null>(null);
 	let isLoaded = $state(false);
 	let _currentIcons = $state<CanvasIcon[]>([]);
 
@@ -259,6 +268,7 @@ function createSettingsStore() {
 		}
 		merged.default_appearance = sanitized;
 		merged.modal_appearance = sanitizeModalAppearanceStore(merged.modal_appearance);
+		merged.background_shader = sanitizeBackgroundShader(merged.background_shader);
 		return merged;
 	}
 
@@ -360,6 +370,13 @@ function createSettingsStore() {
 		},
 		get activePreset() {
 			return activePreset;
+		},
+		/** Staged settings the settings dialog is previewing on the canvas. */
+		get preview() {
+			return preview;
+		},
+		setPreview(next: CanvasSettings | null) {
+			preview = next;
 		},
 		get isLoaded() {
 			return isLoaded;

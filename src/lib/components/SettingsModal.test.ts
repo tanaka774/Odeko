@@ -17,9 +17,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 import SettingsModal from './SettingsModal.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 
-async function openModal() {
+async function openModal(tab?: string) {
 	const utils = render(SettingsModal, { isOpen: true });
 	await screen.findByRole('dialog');
+	if (tab) await fireEvent.click(screen.getByRole('tab', { name: tab }));
 	return utils;
 }
 
@@ -49,12 +50,12 @@ afterEach(cleanup);
 
 describe('SettingsModal', () => {
 	it('opens and shows the current background color', async () => {
-		await openModal();
+		await openModal('Background');
 		expect(colorInput().value).toBe('#14141e');
 	});
 
 	it('persists a changed setting when Save is clicked', async () => {
-		await openModal();
+		await openModal('Background');
 
 		fireEvent.input(colorInput(), { target: { value: '#ff0000' } });
 		clickSave();
@@ -67,7 +68,7 @@ describe('SettingsModal', () => {
 	});
 
 	it('accepts a hex code typed into the color text field', async () => {
-		await openModal();
+		await openModal('Background');
 
 		fireEvent.input(screen.getAllByPlaceholderText('#ff8800')[0], {
 			target: { value: '#00ccff' }
@@ -82,7 +83,7 @@ describe('SettingsModal', () => {
 	});
 
 	it('keeps the stored color while an invalid code is being typed', async () => {
-		await openModal();
+		await openModal('Background');
 
 		fireEvent.input(screen.getAllByPlaceholderText('#ff8800')[0], {
 			target: { value: 'not a color' }
@@ -94,6 +95,18 @@ describe('SettingsModal', () => {
 			settings: expect.objectContaining({ background_color: '20, 20, 30' })
 		});
 		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
+	});
+
+	it('inserts a shader example and enables it', async () => {
+		await openModal('Background');
+
+		const select = document.querySelector('select.shader-examples') as HTMLSelectElement;
+		await fireEvent.change(select, { target: { value: '0' } });
+		clickSave();
+
+		const shader = settingsStore.settings.background_shader;
+		expect(shader.enabled).toBe(true);
+		expect(shader.source).toContain('void mainImage(');
 	});
 
 	it('persists an icon position change when Save is clicked', async () => {
@@ -111,7 +124,7 @@ describe('SettingsModal', () => {
 	});
 
 	it('discards changes and does not persist when Cancel is clicked', async () => {
-		await openModal();
+		await openModal('Background');
 
 		fireEvent.input(colorInput(), { target: { value: '#ff0000' } });
 		clickCancel();
@@ -121,7 +134,7 @@ describe('SettingsModal', () => {
 	});
 
 	it('discards changes when the modal is closed via the close button', async () => {
-		await openModal();
+		await openModal('Background');
 
 		fireEvent.input(colorInput(), { target: { value: '#ff0000' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Close' }));

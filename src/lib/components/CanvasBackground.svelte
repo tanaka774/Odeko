@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import BackgroundVideo from './BackgroundVideo.svelte';
+	import ShaderBackground from './ShaderBackground.svelte';
 	import { isVideoBackground } from '$lib/background';
+	import { activeShaderSource } from '$lib/background-shaders';
 	import { safeCssUrl, safeRgbColor } from '$lib/utils';
 	import type { CanvasSettings } from '$lib/stores/settings.svelte';
 
@@ -25,6 +27,7 @@
 
 	interface Look {
 		tint: string;
+		quality: number;
 		size: CanvasSettings['background_size'];
 		repeat: boolean;
 		position: string;
@@ -32,7 +35,10 @@
 
 	interface Layer {
 		id: number;
+		/** Identity of the layer's content; a new key gets a new layer. */
+		key: string | null;
 		src: string | null;
+		shader: string | null;
 		isVideo: boolean;
 		imageUrl: string | null;
 		ready: boolean;
@@ -64,6 +70,7 @@
 	function lookOf(s: CanvasSettings): Look {
 		return {
 			tint: `rgba(${safeRgbColor(s.background_color, '20, 20, 30')}, ${s.background_opacity})`,
+			quality: s.background_shader.quality,
 			size: s.background_size,
 			repeat: s.background_repeat,
 			position: s.background_position
@@ -76,6 +83,11 @@
 
 	function imageSize(size: Look['size']): string {
 		return size === 'stretch' ? '100% 100%' : size;
+	}
+
+	function layerKey(s: CanvasSettings): string | null {
+		const shader = activeShaderSource(s.background_shader);
+		return shader ? `shader:${s.background_image ?? ''}:${shader}` : s.background_image || null;
 	}
 
 	function markReady(id: number) {
@@ -96,15 +108,18 @@
 	}
 
 	function addLayer(s: CanvasSettings, committed: boolean): Layer {
+		const shader = activeShaderSource(s.background_shader);
 		const src = s.background_image || null;
-		const isVideo = isVideoBackground(src);
-		const imageUrl = src && !isVideo ? safeCssUrl(src) : null;
+		const isVideo = !shader && isVideoBackground(src);
+		const imageUrl = src && !shader && !isVideo ? safeCssUrl(src) : null;
 		const layer: Layer = {
 			id: nextId++,
+			key: layerKey(s),
 			src,
+			shader,
 			isVideo,
 			imageUrl,
-			ready: !isVideo && !imageUrl,
+			ready: !shader && !isVideo && !imageUrl,
 			committed,
 			look: lookOf(s)
 		};
@@ -120,19 +135,18 @@
 
 	/** Loads the background of `next` hidden; resolves once it can be shown without a gap. */
 	export function prepare(next: CanvasSettings): Promise<void> {
-		const src = next.background_image || null;
-		if (layers.at(-1)?.src === src) return Promise.resolve();
+		if (layers.at(-1)?.key === layerKey(next)) return Promise.resolve();
 		const layer = addLayer(next, false);
 		if (layer.ready) return Promise.resolve();
 		return new Promise((resolve) => readyWaiters.set(layer.id, resolve));
 	}
 
 	$effect(() => {
-		const src = settings.background_image || null;
+		const key = layerKey(settings);
 		const look = lookOf(settings);
 		untrack(() => {
 			const top = layers.at(-1);
-			if (top && top.src === src) {
+			if (top && top.key === key) {
 				top.look = look;
 				top.committed = true;
 				return;
@@ -150,7 +164,14 @@
 <div class="bg-stack" class:animate class:instant style:--fade-ms="{FADE_MS}ms">
 	{#each layers as layer, index (layer.id)}
 		<div class="bg-layer" class:shown={layer.id === shownId} class:pending={index > shownIndex}>
-			{#if layer.isVideo && layer.src}
+			{#if layer.shader}
+				<ShaderBackground
+					source={layer.shader}
+					quality={layer.look.quality}
+					channel={layer.src}
+					onready={() => markReady(layer.id)}
+				/>
+			{:else if layer.isVideo && layer.src}
 				<BackgroundVideo
 					src={layer.src}
 					fit={layer.look.size}
