@@ -22,6 +22,12 @@
 	import { launchIcon, isLaunchable } from '$lib/launch';
 	import type { CanvasIcon } from '$lib/icons';
 	import { executePowerAction, isPowerActionType } from '$lib/power-control';
+	import {
+		cascadeIn,
+		createCanvasTransition,
+		painted,
+		type TransitionOptions
+	} from '$lib/canvas-transition';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
 
 	let iconGrid: IconGrid;
@@ -42,8 +48,6 @@
 	let labelTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-	const painted = () =>
-		new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
 	function panelGeometry(s: CanvasSettings): string {
 		return [s.width_percent, s.height_percent, s.position_x, s.position_y, s.border_radius].join();
@@ -61,6 +65,7 @@
 	async function cyclePreset(step: 1 | -1) {
 		if (presetSwitching || isEditMode) return;
 		presetSwitching = true;
+		let cascade: Animation[] = [];
 		try {
 			const name = neighborPreset(await listPresets(), step);
 			if (!name) return;
@@ -79,22 +84,65 @@
 			await switchPreset(name);
 			await iconGrid.applyLayout(layout);
 			await painted();
+			const s = settingsStore.settings;
+			if (s.tile_cascade) cascade = cascadeIn(canvasTiles(), s.animation_duration_ms);
 			panelHidden = false;
 			contentHidden = false;
 			showPresetLabel(name);
-			await wait(PRESET_FADE_MS);
+			await Promise.all([wait(PRESET_FADE_MS), ...cascade.map((a) => a.finished)]);
 		} catch (error) {
 			console.error('Failed to switch preset:', error);
 		} finally {
+			for (const animation of cascade) animation.cancel();
 			panelHidden = false;
 			contentHidden = false;
 			presetSwitching = false;
 		}
 	}
 
+	function canvasTiles(): HTMLElement[] {
+		return canvasPanelEl ? [...canvasPanelEl.querySelectorAll<HTMLElement>('.icon-wrapper')] : [];
+	}
+
+	let backdropEl = $state<HTMLElement | null>(null);
+	let concealed = $state(true);
+	const canvasTransition = createCanvasTransition({
+		targets: () =>
+			backdropEl && canvasPanelEl
+				? { backdrop: backdropEl, panel: canvasPanelEl, tiles: canvasTiles() }
+				: null,
+		setConcealed: (value) => (concealed = value),
+		initialPhase: 'closed'
+	});
+
+	function transitionOptions(direction: 'open' | 'close'): TransitionOptions {
+		const s = settingsStore.settings;
+		return {
+			animation: direction === 'open' ? s.open_animation : s.close_animation,
+			edge: s.slide_edge,
+			duration: s.animation_duration_ms,
+			// Closing stays quick; a staggered exit only delays the dismissal.
+			cascade: direction === 'open' && s.tile_cascade
+		};
+	}
+
+	async function showCanvas() {
+		await canvasTransition.open(transitionOptions('open'));
+	}
+
 	async function hideCanvas() {
-		const window = getCurrentWindow();
-		await window.hide();
+		const closed = await canvasTransition.close(transitionOptions('close'));
+		if (closed || canvasTransition.phase === 'closed') {
+			await getCurrentWindow().hide();
+		}
+	}
+
+	function toggleCanvas() {
+		if (canvasTransition.phase === 'closing') {
+			void showCanvas();
+		} else {
+			void hideCanvas();
+		}
 	}
 
 	function enterEditMode() {
@@ -225,8 +273,7 @@
 		const onResize = () => layoutVersion++;
 		window.addEventListener('resize', onResize);
 
-		let unlistenPowerShortcut: UnlistenFn | null = null;
-		let unlistenLaunchError: UnlistenFn | null = null;
+		const unlisteners: UnlistenFn[] = [];
 		let disposed = false;
 
 		async function setup() {
@@ -235,6 +282,7 @@
 			window.show();
 			window.setFocus();
 			await settingsStore.loadSettings();
+			void showCanvas();
 			invoke('update_global_shortcut', {
 				keybind: settingsStore.settings.keybind_toggle_canvas
 			});
@@ -243,29 +291,30 @@
 
 			void checkForUpdatesOnStartup();
 
-			const unlisten = await listen<string>('power-widget-shortcut', async (event) => {
-				await executePowerWidgetById(event.payload);
-			});
+			const listeners = [
+				listen('canvas-show', () => void showCanvas()),
+				listen('canvas-hide', () => void hideCanvas()),
+				listen('canvas-toggle', toggleCanvas),
+				listen<string>('power-widget-shortcut', async (event) => {
+					await executePowerWidgetById(event.payload);
+				}),
 
-			// Global-shortcut launches have no Result to await, so the backend
-			// reports failures as an event. Show it instead of leaving the
-			// canvas looking like the hotkey did nothing (#3).
-			const unlistenError = await listen<{
-				name?: string;
-				path?: string;
-				message?: string;
-			}>('launch-error', (event) => {
-				const { name, path, message } = event.payload ?? {};
-				const label = name?.trim() || path || 'This icon';
-				toastStore.show(`Could not launch ${label}`, message || path);
-			});
-
-			if (disposed) {
-				unlisten();
-				unlistenError();
-			} else {
-				unlistenPowerShortcut = unlisten;
-				unlistenLaunchError = unlistenError;
+				// Global-shortcut launches have no Result to await, so the backend
+				// reports failures as an event. Show it instead of leaving the
+				// canvas looking like the hotkey did nothing (#3).
+				listen<{
+					name?: string;
+					path?: string;
+					message?: string;
+				}>('launch-error', (event) => {
+					const { name, path, message } = event.payload ?? {};
+					const label = name?.trim() || path || 'This icon';
+					toastStore.show(`Could not launch ${label}`, message || path);
+				})
+			];
+			for (const unlisten of await Promise.all(listeners)) {
+				if (disposed) unlisten();
+				else unlisteners.push(unlisten);
 			}
 		}
 
@@ -274,8 +323,7 @@
 		return () => {
 			window.removeEventListener('resize', onResize);
 			disposed = true;
-			unlistenPowerShortcut?.();
-			unlistenLaunchError?.();
+			for (const unlisten of unlisteners) unlisten();
 		};
 	});
 
@@ -336,8 +384,10 @@
 >
 	<!-- Backdrop layer: dark overlay behind the canvas. -->
 	<div
+		bind:this={backdropEl}
 		class="backdrop"
 		class:switching={presetSwitching}
+		class:concealed
 		style:background="rgba(0, 0, 0, {settingsStore.settings.backdrop_darkness})"
 	></div>
 
@@ -348,6 +398,8 @@
 		onclick={(e) => e.stopPropagation()}
 		oncontextmenu={handleOverlayContextMenu}
 		class:faded={panelHidden}
+		class:switching={presetSwitching}
+		class:concealed
 		style:--preset-fade="{PRESET_FADE_MS}ms"
 		style:width="{settingsStore.settings.width_percent}%"
 		style:height="{settingsStore.settings.height_percent}%"
@@ -510,8 +562,8 @@
 		z-index: 1;
 	}
 
-	.canvas-panel,
-	.canvas-content {
+	.canvas-panel.switching,
+	.canvas-panel.switching .canvas-content {
 		transition: opacity var(--preset-fade) ease;
 	}
 
@@ -522,7 +574,8 @@
 	/* Not 0: WebKitGTK stops repainting fully transparent layers, so the
 	   fade-in would start from a stale frame of the previous preset. */
 	.canvas-panel.faded,
-	.canvas-content.faded {
+	.canvas-content.faded,
+	.concealed {
 		opacity: 0.01;
 	}
 

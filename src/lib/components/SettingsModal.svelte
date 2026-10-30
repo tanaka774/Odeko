@@ -10,6 +10,7 @@
 	import KeybindRecorder from '$lib/components/KeybindRecorder.svelte';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
 	import { isVideoBackground } from '$lib/background';
+	import type { CanvasAnimation } from '$lib/canvas-transition';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import ModalAppearancePanel from './settings/ModalAppearancePanel.svelte';
 	import PresetPanel from './settings/PresetPanel.svelte';
@@ -40,6 +41,13 @@
 		onApplyPreset?: () => void;
 		hasUnsavedIcons?: () => boolean;
 	}>();
+
+	const CANVAS_ANIMATIONS: { value: CanvasAnimation; label: string }[] = [
+		{ value: 'none', label: 'None' },
+		{ value: 'fade', label: 'Fade' },
+		{ value: 'zoom', label: 'Zoom' },
+		{ value: 'slide', label: 'Slide' }
+	];
 
 	let localSettings = $state<CanvasSettings>({ ...settingsStore.settings });
 	let originalSettings = $state<CanvasSettings | null>(null);
@@ -519,6 +527,61 @@
 											}}
 										/>
 									</div>
+								</section>
+								<section class="settings-section">
+									<h3>Show / Hide Animation</h3>
+									<div class="setting-row">
+										<Label>Open</Label>
+										<select bind:value={localSettings.open_animation} class="bg-select">
+											{#each CANVAS_ANIMATIONS as animation (animation.value)}
+												<option value={animation.value}>{animation.label}</option>
+											{/each}
+										</select>
+									</div>
+									<div class="setting-row">
+										<Label>Close</Label>
+										<select bind:value={localSettings.close_animation} class="bg-select">
+											{#each CANVAS_ANIMATIONS as animation (animation.value)}
+												<option value={animation.value}>{animation.label}</option>
+											{/each}
+										</select>
+									</div>
+									{#if localSettings.open_animation === 'slide' || localSettings.close_animation === 'slide'}
+										<div class="setting-row">
+											<Label>Slide Edge</Label>
+											<select bind:value={localSettings.slide_edge} class="bg-select">
+												<option value="bottom">Bottom</option>
+												<option value="top">Top</option>
+												<option value="left">Left</option>
+												<option value="right">Right</option>
+											</select>
+										</div>
+									{/if}
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input type="checkbox" bind:checked={localSettings.tile_cascade} />
+											<span>Tile cascade</span>
+										</label>
+									</div>
+									<p class="setting-hint">
+										Tiles sweep in one after another when the canvas opens and when switching
+										presets.
+									</p>
+									{#if localSettings.open_animation !== 'none' || localSettings.close_animation !== 'none' || localSettings.tile_cascade}
+										<div class="setting-row">
+											<Label>Duration: {localSettings.animation_duration_ms}ms</Label>
+											<Slider
+												type="single"
+												value={localSettings.animation_duration_ms}
+												min={80}
+												max={600}
+												step={20}
+												onValueChange={(val) => {
+													localSettings.animation_duration_ms = val;
+												}}
+											/>
+										</div>
+									{/if}
 								</section>
 								<section class="settings-section">
 									<h3>Startup</h3>

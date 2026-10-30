@@ -1,7 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
-use commands::canvas::{launch_app, open_url, load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, get_icon_base64};
+use commands::canvas::{launch_app, open_url, load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, request_canvas_hide, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
 use commands::media_server::{register_background_video, MediaServerState};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
@@ -328,13 +328,17 @@ fn set_backdrop_blur(
 fn toggle_canvas_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(is_visible) = window.is_visible() {
-            if is_visible {
-                let _ = window.hide();
-                log::info!("Canvas hidden");
+            // The frontend animates both ways and hides the window when its
+            // close animation ends; a toggle mid-close reopens.
+            let event = if is_visible {
+                "canvas-toggle"
             } else {
                 let _ = window.show();
                 let _ = window.set_focus();
-                log::info!("Canvas shown");
+                "canvas-show"
+            };
+            if let Err(error) = app.emit(event, ()) {
+                log::warn!("Failed to emit {}: {}", event, error);
             }
         }
     }
@@ -497,11 +501,7 @@ fn update_icon_shortcuts(app: tauri::AppHandle, icons: Vec<AppIcon>) -> Result<(
                         // after a failure would hide the error message too.
                         let launched = launch_icon_sync(app, &icon);
                         if launched {
-                            if let Some(window) = app.get_webview_window("main") {
-                                if window.is_visible().unwrap_or(false) {
-                                    let _ = window.hide();
-                                }
-                            }
+                            request_canvas_hide(app);
                         }
                     }
                 }
