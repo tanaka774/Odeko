@@ -8,6 +8,9 @@
 //! The server only serves files the user explicitly picked as a background
 //! video. Each file gets an unguessable id and the server binds to
 //! 127.0.0.1 on a random port, so nothing is reachable from outside.
+//!
+//! It also serves the library cache for HTML background layers under
+//! `/lib/<token>/` (see `library_cache`).
 
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
@@ -36,6 +39,9 @@ fn mime_for_extension(ext: &str) -> &'static str {
 struct MediaServerInner {
     port: Option<u16>,
     videos: HashMap<String, PathBuf>,
+    /// Unguessable prefix of the library cache route, so other local
+    /// processes cannot use the server as a download proxy.
+    library_token: String,
 }
 
 /// Shared state managed by Tauri. Holds the lazily-started server port and
@@ -50,12 +56,26 @@ impl MediaServerState {
             inner: Arc::new(Mutex::new(MediaServerInner {
                 port: None,
                 videos: HashMap::new(),
+                library_token: unguessable_id("library"),
             })),
         }
     }
 }
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Hash of a seed + timestamp + a process-wide counter.
+fn unguessable_id(seed: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    seed.hash(&mut hasher);
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+        .hash(&mut hasher);
+    ID_COUNTER.fetch_add(1, Ordering::Relaxed).hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
 
 /// Walks the top-level ISO-BMFF box structure and returns true when a
 /// `moof` (movie fragment) box exists, i.e. the file is a fragmented MP4.
@@ -201,21 +221,26 @@ pub fn register_background_video(
         inner.port = Some(start_server(state.inner.clone())?);
     }
 
-    // Unguessable id: hash of path + timestamp + a process-wide counter.
-    let mut hasher = DefaultHasher::new();
-    path.hash(&mut hasher);
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0)
-        .hash(&mut hasher);
-    ID_COUNTER.fetch_add(1, Ordering::Relaxed).hash(&mut hasher);
-    let id = format!("{:016x}", hasher.finish());
+    let id = unguessable_id(&path);
 
     inner.videos.insert(id.clone(), path_buf);
     let port = inner.port.unwrap();
     log::info!("Registered background video {} as /{}.{}", path, id, ext);
     Ok(format!("http://127.0.0.1:{}/{}.{}", port, id, ext))
+}
+
+/// Base URL that library URLs are rewritten to: `<base>host/path`.
+#[tauri::command]
+pub fn library_base_url(state: tauri::State<MediaServerState>) -> Result<String, String> {
+    let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    if inner.port.is_none() {
+        inner.port = Some(start_server(state.inner.clone())?);
+    }
+    Ok(format!(
+        "http://127.0.0.1:{}/lib/{}/",
+        inner.port.unwrap(),
+        inner.library_token
+    ))
 }
 
 fn start_server(inner: Arc<Mutex<MediaServerInner>>) -> Result<u16, String> {
@@ -272,8 +297,15 @@ fn handle_request(
     request: tiny_http::Request,
     inner: &Arc<Mutex<MediaServerInner>>,
 ) -> Result<(), String> {
-    // URL form: "/<id>.<ext>"
+    // URL form: "/<id>.<ext>", or "/lib/<token>/<host>/<path>".
     let url = request.url().trim_start_matches('/').to_string();
+    let library_prefix = {
+        let inner = inner.lock().map_err(|e| e.to_string())?;
+        format!("lib/{}/", inner.library_token)
+    };
+    if let Some(rest) = url.strip_prefix(&library_prefix) {
+        return respond_library(request, rest);
+    }
     let id = url.split('.').next().unwrap_or("").to_string();
 
     let range_header = request
@@ -333,6 +365,23 @@ fn handle_request(
             &format!("bytes {}-{}/{}", start, start + length - 1, file_size),
         ));
     }
+    request.respond(response).map_err(|e| e.to_string())
+}
+
+fn respond_library(request: tiny_http::Request, rest: &str) -> Result<(), String> {
+    let mut response = match super::library_cache::load(rest) {
+        Ok((bytes, content_type)) => {
+            let mut response = tiny_http::Response::from_data(bytes);
+            response.add_header(header("Content-Type", &content_type));
+            response
+        }
+        Err(error) => {
+            log::warn!("Library cache failed for {rest}: {error}");
+            tiny_http::Response::from_string(error).with_status_code(502)
+        }
+    };
+    // Module scripts from the sandboxed (opaque-origin) iframe are CORS loads.
+    response.add_header(header("Access-Control-Allow-Origin", "*"));
     request.respond(response).map_err(|e| e.to_string())
 }
 

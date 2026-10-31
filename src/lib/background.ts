@@ -1,3 +1,5 @@
+import { convertFileSrc } from '@tauri-apps/api/core';
+
 // Helpers for the canvas background media (image or video).
 
 // Video containers the webview can decode natively (hardware accelerated).
@@ -33,4 +35,11 @@ export function backgroundFilePath(src: string): string | null {
 		return decodeURIComponent(src.slice('asset://localhost/'.length));
 	}
 	return src;
+}
+
+// Turns a stored image source (plain path or URL) into something an <img>
+// or Image() can load. Videos go through BackgroundVideo instead.
+export function mediaUrl(src: string): string {
+	if (/^(https?|data|asset|blob):/.test(src)) return src;
+	return convertFileSrc(src);
 }

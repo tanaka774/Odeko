@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const invokeMock = vi.fn();
-const convertFileSrcMock = vi.fn((path: string) => `asset://localhost${path}`);
 
 vi.mock('@tauri-apps/api/core', () => ({
-	invoke: (...args: unknown[]) => invokeMock(...args),
-	convertFileSrc: (path: string) => convertFileSrcMock(path)
+	invoke: (...args: unknown[]) => invokeMock(...args)
 }));
 
 import {
@@ -129,7 +127,6 @@ describe('keybind helpers', () => {
 describe('settings store', () => {
 	beforeEach(() => {
 		invokeMock.mockReset();
-		convertFileSrcMock.mockClear();
 	});
 
 	it('loadSettings merges missing keybinds with defaults', async () => {
@@ -154,64 +151,32 @@ describe('settings store', () => {
 		expect(mod.settingsStore.isLoaded).toBe(true);
 	});
 
-	it('loadSettings converts a local background image path', async () => {
+	it('loadSettings sanitizes the background layers', async () => {
 		invokeMock.mockResolvedValueOnce({
 			icons: [],
 			active_preset: null,
-			settings: { background_image: '/home/user/bg.jpg' }
+			settings: {
+				background_layers: [{ id: 'bg', type: 'media', src: '/home/user/bg.jpg', opacity: 5 }, 7]
+			}
 		});
 
 		const mod = await loadFreshModule();
 		await mod.settingsStore.loadSettings();
 
-		expect(mod.settingsStore.settings.background_image).toBe('asset://localhost/home/user/bg.jpg');
-		expect(convertFileSrcMock).toHaveBeenCalledWith('/home/user/bg.jpg');
+		expect(mod.settingsStore.settings.background_layers).toEqual([
+			expect.objectContaining({ id: 'bg', src: '/home/user/bg.jpg', opacity: 1 })
+		]);
 	});
 
-	it('loadSettings leaves http, data and asset background urls untouched', async () => {
-		for (const url of [
-			'https://example.com/bg.png',
-			'data:image/png;base64,AAA',
-			'asset://bg.png'
-		]) {
-			invokeMock.mockResolvedValueOnce({
-				icons: [],
-				active_preset: null,
-				settings: { background_image: url }
-			});
-			const mod = await loadFreshModule();
-			await mod.settingsStore.loadSettings();
-			expect(mod.settingsStore.settings.background_image).toBe(url);
-		}
-		expect(convertFileSrcMock).not.toHaveBeenCalled();
-	});
-
-	it('loadSettings keeps a plain path for background videos', async () => {
-		invokeMock.mockResolvedValueOnce({
-			icons: [],
-			active_preset: null,
-			settings: { background_image: '/home/user/bg.mp4' }
-		});
+	it('loadSettings gives the default stack when none is stored', async () => {
+		invokeMock.mockResolvedValueOnce({ icons: [], active_preset: null, settings: {} });
 
 		const mod = await loadFreshModule();
 		await mod.settingsStore.loadSettings();
 
-		expect(mod.settingsStore.settings.background_image).toBe('/home/user/bg.mp4');
-		expect(convertFileSrcMock).not.toHaveBeenCalled();
-	});
-
-	it('loadSettings normalizes a legacy asset:// video url back to a path', async () => {
-		invokeMock.mockResolvedValueOnce({
-			icons: [],
-			active_preset: null,
-			settings: { background_image: 'asset://localhost/%2Fhome%2Fuser%2Fmy%20video.mp4' }
-		});
-
-		const mod = await loadFreshModule();
-		await mod.settingsStore.loadSettings();
-
-		expect(mod.settingsStore.settings.background_image).toBe('/home/user/my video.mp4');
-		expect(convertFileSrcMock).not.toHaveBeenCalled();
+		expect(mod.settingsStore.settings.background_layers).toEqual([
+			expect.objectContaining({ type: 'color', name: 'Tint' })
+		]);
 	});
 
 	it('loadSettings keeps the default appearance and strips custom CSS keys', async () => {
@@ -304,11 +269,7 @@ describe('settings store', () => {
 		const updates: Array<[keyof CanvasSettings, unknown]> = [
 			['width_percent', 50],
 			['height_percent', 60],
-			['background_color', '1, 2, 3'],
-			['background_opacity', 0.42],
-			['background_size', 'contain'],
-			['background_repeat', true],
-			['background_position', 'bottom right'],
+			['background_layers', []],
 			['border_radius', 12],
 			['backdrop_darkness', 0.55],
 			['position_x', 30],

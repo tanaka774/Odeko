@@ -1,20 +1,17 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { settingsStore, type CanvasSettings } from '$lib/stores/settings.svelte';
-	import { open } from '@tauri-apps/plugin-dialog';
-	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { invoke } from '@tauri-apps/api/core';
 	import Slider from '$lib/components/ui/slider/slider.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import ColorInput from '$lib/components/ColorInput.svelte';
 	import KeybindRecorder from '$lib/components/KeybindRecorder.svelte';
 	import { createBackdropClickHandler } from '$lib/components/modal/backdrop';
-	import { isVideoBackground } from '$lib/background';
-	import { checkShader, SHADER_EXAMPLES } from '$lib/background-shaders';
-	import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+	import type { BackgroundLayer } from '$lib/background-layers';
 	import WidgetAppearanceSettings from './WidgetAppearanceSettings.svelte';
 	import ModalAppearancePanel from './settings/ModalAppearancePanel.svelte';
 	import PresetPanel from './settings/PresetPanel.svelte';
+	import BackgroundLayersPanel from './settings/BackgroundLayersPanel.svelte';
 	import TabBar from './settings/TabBar.svelte';
 	import { prefixSelectors } from '$lib/widgets/custom-css';
 	import {
@@ -168,8 +165,7 @@
 			const current = $state.snapshot(untrack(() => settingsStore.settings));
 			localSettings = current;
 			originalSettings = current;
-			previewSource = current.background_shader.source;
-			shaderError = null;
+			previewLayers = null;
 			modalDrafts = seedModalDrafts(current.modal_appearance);
 			modalTarget = 'global';
 			modalPanelOpen = false;
@@ -222,56 +218,8 @@
 		close();
 	}
 
-	async function selectBackgroundImage() {
-		const selected = await open({
-			multiple: false,
-			filters: [
-				{
-					name: 'Images',
-					extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
-				},
-				{
-					name: 'Videos',
-					extensions: ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'mkv']
-				}
-			]
-		});
-		if (selected && typeof selected === 'string') {
-			localSettings.background_image = isVideoBackground(selected)
-				? selected
-				: convertFileSrc(selected);
-		}
-	}
-
-	function removeBackgroundImage() {
-		localSettings.background_image = null;
-	}
-
-	const SHADER_DOCS_URL = 'https://github.com/tanaka774/Odeko/tree/main/examples/custom-shaders';
-
-	function insertExample(event: Event & { currentTarget: HTMLSelectElement }) {
-		const example = SHADER_EXAMPLES[Number(event.currentTarget.value)];
-		event.currentTarget.value = '';
-		if (!example) return;
-		localSettings.background_shader.source = example.source;
-		localSettings.background_shader.enabled = true;
-	}
-
-	// The canvas previews the staged background while the dialog is open;
-	// the shader only advances to sources that compile, so typing never
-	// blanks it.
-	let shaderError = $state<string | null>(null);
-	let previewSource = $state('');
-
-	$effect(() => {
-		const source = localSettings.background_shader.source;
-		if (!isOpen) return;
-		const timer = setTimeout(() => {
-			shaderError = source.trim() ? checkShader(source) : null;
-			if (!shaderError) previewSource = source;
-		}, 300);
-		return () => clearTimeout(timer);
-	});
+	// The canvas previews the staged settings while the dialog is open.
+	let previewLayers = $state<BackgroundLayer[] | null>(null);
 
 	$effect(() => {
 		if (!isOpen) {
@@ -281,7 +229,9 @@
 		const staged = $state.snapshot(localSettings);
 		settingsStore.setPreview({
 			...staged,
-			background_shader: { ...staged.background_shader, source: previewSource }
+			background_layers: previewLayers
+				? ($state.snapshot(previewLayers) as BackgroundLayer[])
+				: staged.background_layers
 		});
 	});
 
@@ -464,184 +414,10 @@
 									</div>
 								</section>
 							{:else if activeTab === 'background'}
-								<section class="settings-section">
-									<h3>Background</h3>
-									<div class="setting-row">
-										<Label>Color (RGB)</Label>
-										<ColorInput
-											value={localSettings.background_color}
-											onchange={(rgb) => (localSettings.background_color = rgb)}
-										/>
-									</div>
-									<div class="setting-row">
-										<Label>Opacity: {Math.round(localSettings.background_opacity * 100)}%</Label>
-										<Slider
-											type="single"
-											value={localSettings.background_opacity}
-											min={0.0}
-											max={1}
-											step={0.05}
-											onValueChange={(val) => {
-												localSettings.background_opacity = val;
-											}}
-										/>
-									</div>
-									<div class="setting-row">
-										<Label>Background Image / Video</Label>
-										<div class="image-row">
-											{#if localSettings.background_image}
-												<span class="image-path">{localSettings.background_image}</span>
-												<button class="remove-image-btn" onclick={removeBackgroundImage}
-													>Remove</button
-												>
-											{:else}
-												<span class="no-image">No image or video selected</span>
-											{/if}
-											<button class="select-image-btn" onclick={selectBackgroundImage}>
-												Select File
-											</button>
-										</div>
-									</div>
-									{#if localSettings.background_image}
-										<div class="setting-row">
-											<Label>Image Fit</Label>
-											<select
-												value={localSettings.background_size}
-												onchange={(e) => {
-													localSettings.background_size = e.currentTarget.value as
-														| 'cover'
-														| 'contain'
-														| 'stretch';
-												}}
-												class="bg-select"
-											>
-												<option value="cover">Cover - Fill entire area</option>
-												<option value="contain">Contain - Show full image</option>
-												<option value="stretch">Stretch - Distort to fit</option>
-											</select>
-										</div>
-										{#if !isVideoBackground(localSettings.background_image)}
-											<div class="setting-row">
-												<label class="checkbox-label">
-													<input
-														type="checkbox"
-														checked={localSettings.background_repeat}
-														onchange={(e) => {
-															localSettings.background_repeat = e.currentTarget.checked;
-														}}
-													/>
-													<span>Repeat image if smaller than canvas</span>
-												</label>
-											</div>
-										{/if}
-										<div class="setting-row">
-											<Label>Image Position</Label>
-											<div class="position-grid">
-												{#each ['top', 'center', 'bottom'] as v (v)}
-													{#each ['left', 'center', 'right'] as h (h)}
-														{@const pos =
-															v === 'center' && h === 'center'
-																? 'center'
-																: v === 'center'
-																	? h
-																	: h === 'center'
-																		? v
-																		: `${v} ${h}`}
-														<button
-															class="position-btn"
-															class:active={localSettings.background_position === pos}
-															onclick={() => {
-																localSettings.background_position =
-																	pos as CanvasSettings['background_position'];
-															}}
-														>
-															{#if pos === 'top'}
-																↑
-															{:else if pos === 'bottom'}
-																↓
-															{:else if pos === 'left'}
-																←
-															{:else if pos === 'right'}
-																→
-															{:else}
-																•
-															{/if}
-														</button>
-													{/each}
-												{/each}
-											</div>
-											<div class="position-labels">
-												<span>Selected: {localSettings.background_position}</span>
-											</div>
-										</div>
-									{/if}
-								</section>
-
-								<section class="settings-section">
-									<h3>Shader</h3>
-									<div class="setting-row">
-										<label class="checkbox-label">
-											<input
-												type="checkbox"
-												checked={localSettings.background_shader.enabled}
-												onchange={(e) => {
-													localSettings.background_shader.enabled = e.currentTarget.checked;
-												}}
-											/>
-											<span>Enable shader background</span>
-										</label>
-									</div>
-									<p class="shader-hint">
-										The shader draws the background and gets the image/video above as iChannel0; the
-										tint still applies.
-										<button
-											class="shader-docs-link"
-											onclick={() => invoke('open_url', { url: SHADER_DOCS_URL })}
-										>
-											Shader guide &amp; examples
-										</button>
-									</p>
-									<div class="setting-row">
-										<Label>Source (GLSL, Shadertoy style)</Label>
-										<select class="bg-select shader-examples" value="" onchange={insertExample}>
-											<option value="" disabled>Insert example…</option>
-											{#each SHADER_EXAMPLES as example, index (example.name)}
-												<option value={String(index)}>{example.name}</option>
-											{/each}
-										</select>
-										<textarea
-											class="shader-input"
-											bind:value={localSettings.background_shader.source}
-											spellcheck="false"
-										></textarea>
-										{#if shaderError}
-											<div class="shader-error">
-												<pre>{shaderError}</pre>
-												<button
-													class="select-image-btn"
-													onclick={() => writeText(shaderError ?? '')}
-												>
-													Copy error
-												</button>
-											</div>
-										{/if}
-									</div>
-									<div class="setting-row">
-										<Label>Render Quality</Label>
-										<select
-											value={String(localSettings.background_shader.quality)}
-											onchange={(e) => {
-												localSettings.background_shader.quality = Number(e.currentTarget.value);
-											}}
-											class="bg-select"
-										>
-											<option value="1">Full</option>
-											<option value="0.75">75%</option>
-											<option value="0.5">50% - lighter on the GPU</option>
-											<option value="0.25">25% - lightest</option>
-										</select>
-									</div>
-								</section>
+								<BackgroundLayersPanel
+									bind:layers={localSettings.background_layers}
+									onpreview={(layers) => (previewLayers = layers)}
+								/>
 							{:else if activeTab === 'items'}
 								<section class="settings-section">
 									<h3>Icon Style Defaults</h3>
@@ -1031,56 +807,6 @@
 		margin-bottom: calc(0.5714 * var(--modal-font-size));
 	}
 
-	.image-row {
-		display: flex;
-		align-items: center;
-		gap: calc(0.8571 * var(--modal-font-size));
-		flex-wrap: wrap;
-	}
-
-	.image-path {
-		color: var(--modal-text, rgba(255, 255, 255, 0.7));
-		font-size: calc(0.8571 * var(--modal-font-size));
-		max-width: calc(14.2857 * var(--modal-font-size));
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.no-image {
-		color: var(--modal-muted, rgba(255, 255, 255, 0.4));
-		font-size: calc(1 * var(--modal-font-size));
-		font-style: italic;
-	}
-
-	.select-image-btn,
-	.remove-image-btn {
-		padding: calc(0.4286 * var(--modal-font-size)) calc(0.8571 * var(--modal-font-size));
-		border-radius: 6px;
-		border: none;
-		cursor: pointer;
-		font-size: calc(1 * var(--modal-font-size));
-		transition: all 0.2s ease;
-	}
-
-	.select-image-btn {
-		background: var(--modal-accent, rgba(120, 160, 200, 0.85));
-		color: var(--modal-accent-fg, white);
-	}
-
-	.select-image-btn:hover {
-		background: color-mix(in srgb, var(--modal-accent, #78a0c8) 80%, white);
-	}
-
-	.remove-image-btn {
-		background: var(--edit-danger-bg);
-		color: var(--edit-control-fg);
-	}
-
-	.remove-image-btn:hover {
-		background: var(--edit-danger-bg-hover);
-	}
-
 	.modal-footer {
 		display: flex;
 		justify-content: space-between;
@@ -1157,53 +883,6 @@
 	.bg-select option {
 		background: rgba(30, 30, 40, 1);
 		color: white;
-	}
-
-	.shader-hint {
-		margin: 0 0 calc(0.7143 * var(--modal-font-size));
-		color: var(--modal-muted, rgba(255, 255, 255, 0.5));
-		font-size: calc(0.8571 * var(--modal-font-size));
-	}
-
-	.shader-input {
-		width: 100%;
-		min-height: calc(16 * var(--modal-font-size));
-		box-sizing: border-box;
-		padding: calc(0.5714 * var(--modal-font-size));
-		border-radius: 6px;
-		border: 1px solid var(--modal-input-border, rgba(255, 255, 255, 0.2));
-		background: var(--modal-input-bg, rgba(0, 0, 0, 0.4));
-		color: var(--modal-text, white);
-		font-family: ui-monospace, monospace;
-		font-size: calc(0.8571 * var(--modal-font-size));
-		tab-size: 4;
-		resize: vertical;
-	}
-
-	.shader-docs-link {
-		border: none;
-		background: none;
-		padding: 0;
-		color: var(--modal-accent, rgba(120, 160, 200, 0.85));
-		font: inherit;
-		text-decoration: underline;
-		cursor: pointer;
-	}
-
-	.shader-examples {
-		margin-bottom: calc(0.4286 * var(--modal-font-size));
-	}
-
-	.shader-error {
-		margin-top: calc(0.4286 * var(--modal-font-size));
-		color: #ff8a8a;
-		font-size: calc(0.8571 * var(--modal-font-size));
-	}
-
-	.shader-error pre {
-		margin: 0 0 calc(0.4286 * var(--modal-font-size));
-		white-space: pre-wrap;
-		user-select: text;
 	}
 
 	.checkbox-label {

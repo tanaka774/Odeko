@@ -16,6 +16,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import SettingsModal from './SettingsModal.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
+import type { ColorLayer } from '$lib/background-layers';
 
 async function openModal(tab?: string) {
 	const utils = render(SettingsModal, { isOpen: true });
@@ -26,6 +27,10 @@ async function openModal(tab?: string) {
 
 function colorInput(): HTMLInputElement {
 	return document.querySelector('input[type="color"]') as HTMLInputElement;
+}
+
+function tint(): ColorLayer {
+	return settingsStore.settings.background_layers[0] as ColorLayer;
 }
 
 function clickSave() {
@@ -49,12 +54,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('SettingsModal', () => {
-	it('opens and shows the current background color', async () => {
+	it('opens with the tint layer selected', async () => {
 		await openModal('Background');
 		expect(colorInput().value).toBe('#14141e');
 	});
 
-	it('persists a changed setting when Save is clicked', async () => {
+	it('persists a changed layer color when Save is clicked', async () => {
 		await openModal('Background');
 
 		fireEvent.input(colorInput(), { target: { value: '#ff0000' } });
@@ -62,9 +67,11 @@ describe('SettingsModal', () => {
 
 		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
 			preset: null,
-			settings: expect.objectContaining({ background_color: '255, 0, 0' })
+			settings: expect.objectContaining({
+				background_layers: [expect.objectContaining({ color: '255, 0, 0' })]
+			})
 		});
-		expect(settingsStore.settings.background_color).toBe('255, 0, 0');
+		expect(tint().color).toBe('255, 0, 0');
 	});
 
 	it('accepts a hex code typed into the color text field', async () => {
@@ -75,11 +82,7 @@ describe('SettingsModal', () => {
 		});
 		clickSave();
 
-		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
-			preset: null,
-			settings: expect.objectContaining({ background_color: '0, 204, 255' })
-		});
-		expect(settingsStore.settings.background_color).toBe('0, 204, 255');
+		expect(tint().color).toBe('0, 204, 255');
 	});
 
 	it('keeps the stored color while an invalid code is being typed', async () => {
@@ -90,23 +93,66 @@ describe('SettingsModal', () => {
 		});
 		clickSave();
 
-		expect(invokeMock).toHaveBeenCalledWith('save_active_settings', {
-			preset: null,
-			settings: expect.objectContaining({ background_color: '20, 20, 30' })
-		});
-		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
+		expect(tint().color).toBe('20, 20, 30');
 	});
 
-	it('inserts a shader example and enables it', async () => {
+	it('adds a shader layer on top with a starter source', async () => {
 		await openModal('Background');
 
-		const select = document.querySelector('select.shader-examples') as HTMLSelectElement;
-		await fireEvent.change(select, { target: { value: '0' } });
+		await fireEvent.click(screen.getByRole('button', { name: '+ Shader' }));
 		clickSave();
 
-		const shader = settingsStore.settings.background_shader;
-		expect(shader.enabled).toBe(true);
-		expect(shader.source).toContain('void mainImage(');
+		const layers = settingsStore.settings.background_layers;
+		expect(layers).toHaveLength(2);
+		expect(layers[1].type === 'shader' && layers[1].source).toContain('void mainImage(');
+	});
+
+	it('reorders and deletes layers', async () => {
+		await openModal('Background');
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ HTML' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Move HTML down' }));
+		expect(
+			screen
+				.getAllByRole('button', { name: /^Move .* up$/ })
+				.map((b) => b.getAttribute('aria-label'))
+		).toEqual(['Move Tint up', 'Move HTML up']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		clickSave();
+
+		expect(settingsStore.settings.background_layers.map((layer) => layer.type)).toEqual(['color']);
+	});
+
+	it('opens an exported layer file with scripts off', async () => {
+		openMock.mockResolvedValueOnce('/tmp/layer.json');
+		invokeMock.mockImplementation((cmd: string) => {
+			if (cmd === 'read_text_file') {
+				return Promise.resolve({
+					content: JSON.stringify({
+						type: 'html',
+						name: 'Shared',
+						source: '<p>x</p>',
+						scripts: true
+					}),
+					modified: 0
+				});
+			}
+			if (cmd === 'list_presets') return Promise.resolve([]);
+			return Promise.resolve(0);
+		});
+		await openModal('Background');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Open file…' }));
+		await screen.findByText(/Scripts are off for imported HTML layers/);
+		clickSave();
+
+		expect(settingsStore.settings.background_layers[1]).toMatchObject({
+			type: 'html',
+			name: 'Shared',
+			scripts: false
+		});
 	});
 
 	it('persists an icon position change when Save is clicked', async () => {
@@ -130,7 +176,7 @@ describe('SettingsModal', () => {
 		clickCancel();
 
 		expect(invokeMock).not.toHaveBeenCalledWith('save_active_settings', expect.anything());
-		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
+		expect(tint().color).toBe('20, 20, 30');
 	});
 
 	it('discards changes when the modal is closed via the close button', async () => {
@@ -140,7 +186,7 @@ describe('SettingsModal', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
 		expect(invokeMock).not.toHaveBeenCalledWith('save_active_settings', expect.anything());
-		expect(settingsStore.settings.background_color).toBe('20, 20, 30');
+		expect(tint().color).toBe('20, 20, 30');
 	});
 
 	it('does not show a stale preset message after reopening', async () => {
@@ -174,7 +220,8 @@ describe('SettingsModal', () => {
 					cleared_network_grants: 2,
 					cleared_local_network: true,
 					cleared_global_shortcuts: 1,
-					forced_power_confirmation: 1
+					forced_power_confirmation: 1,
+					disabled_script_layers: 0
 				});
 			}
 			return Promise.resolve('Default');

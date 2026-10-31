@@ -13,6 +13,8 @@ export interface PendingRequest {
 	url: string;
 	host: string;
 	iframe: Window;
+	/** Sent by an HTML background layer rather than a Custom widget (prompt placement only). */
+	fromBackground: boolean;
 }
 
 function hostOf(url: string): string {
@@ -78,7 +80,7 @@ function createBridge() {
 		// opaque-origin frames, so the source window cannot identify the owning
 		// widget; grants are app-wide, so identification is unnecessary.
 		// The sandbox plus the consent prompt gate every fetch.
-		const msg = event.data as { kind?: string; id?: number; url?: string };
+		const msg = event.data as { kind?: string; id?: number; url?: string; from?: string };
 		if (!msg || msg.kind !== 'widget-fetch') return;
 		if (typeof msg.url !== 'string' || typeof msg.id !== 'number') return;
 
@@ -94,7 +96,13 @@ function createBridge() {
 		if (grantedHosts().includes(host)) {
 			void doFetch(event.source as Window, msg.id, msg.url);
 		} else {
-			state.pending = { id: msg.id, url: msg.url, host, iframe: event.source as Window };
+			state.pending = {
+				id: msg.id,
+				url: msg.url,
+				host,
+				iframe: event.source as Window,
+				fromBackground: msg.from === 'background'
+			};
 		}
 	}
 

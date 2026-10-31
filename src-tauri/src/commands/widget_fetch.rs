@@ -70,6 +70,56 @@ pub async fn widget_fetch(url: String, allow_local: bool) -> Result<FetchResult,
     Err(format!("too many redirects (more than {MAX_REDIRECTS})"))
 }
 
+/// Downloads a public https resource as bytes (used by the library cache),
+/// with the same address validation and manual redirects as `widget_fetch`.
+pub(crate) async fn fetch_public_bytes(
+    url: &str,
+    max_bytes: usize,
+) -> Result<(Vec<u8>, Option<String>), String> {
+    let mut current = Url::parse(url).map_err(|e| format!("invalid URL: {e}"))?;
+    for _ in 0..=MAX_REDIRECTS {
+        if current.scheme() != "https" {
+            return Err("only https URLs can be cached".to_string());
+        }
+        let client = client_for_url(&current, false).await?;
+        let response = client
+            .get(current.clone())
+            .send()
+            .await
+            .map_err(|e| format!("request failed: {e}"))?;
+        let status = response.status();
+        if status.is_redirection() {
+            let location = response
+                .headers()
+                .get(LOCATION)
+                .ok_or("redirect response had no Location header")?
+                .to_str()
+                .map_err(|_| "redirect Location was not valid text")?;
+            current = current
+                .join(location)
+                .map_err(|e| format!("invalid redirect target: {e}"))?;
+            continue;
+        }
+        if !status.is_success() {
+            return Err(format!("upstream returned {}", status.as_u16()));
+        }
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("failed to read response body: {e}"))?;
+        if bytes.len() > max_bytes {
+            return Err(format!("file is larger than {} MB", max_bytes / (1024 * 1024)));
+        }
+        return Ok((bytes.to_vec(), content_type));
+    }
+    Err(format!("too many redirects (more than {MAX_REDIRECTS})"))
+}
+
 fn ensure_http_scheme(scheme: &str) -> Result<(), String> {
     match scheme {
         "http" | "https" => Ok(()),

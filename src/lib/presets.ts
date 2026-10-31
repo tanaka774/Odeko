@@ -17,6 +17,7 @@ export interface ImportResult {
 	cleared_local_network: boolean;
 	cleared_global_shortcuts: number;
 	forced_power_confirmation: number;
+	disabled_script_layers: number;
 }
 
 export function listPresets(): Promise<PresetSummary[]> {
@@ -125,6 +126,9 @@ export function importNotes(result: ImportResult): string[] {
 	}
 	if (result.forced_power_confirmation > 0) {
 		notes.push(`re-enabled confirmation on ${result.forced_power_confirmation} power widget(s)`);
+	}
+	if (result.disabled_script_layers > 0) {
+		notes.push(`turned off scripts in ${result.disabled_script_layers} HTML background layer(s)`);
 	}
 	return notes;
 }

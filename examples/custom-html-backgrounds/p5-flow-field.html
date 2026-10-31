@@ -1,0 +1,81 @@
+<!-- p5.js Flow Field -->
+<!doctype html>
+<html>
+	<head>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+			}
+		</style>
+		<script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/p5.min.js"></script>
+	</head>
+	<body>
+		<script>
+			// Particles drifting along a Perlin noise field, drawn with p5.js
+			// (downloaded once, then cached). They flow around the icons and
+			// swirl around the pointer.
+			let particles = [];
+			let state = null;
+
+			odeko.on('frame', (next) => (state = next));
+			odeko.on('pause', () => noLoop());
+			odeko.on('resume', () => loop());
+
+			function setup() {
+				createCanvas(windowWidth, windowHeight);
+				background(0, 0);
+				for (let i = 0; i < 1200; i++) particles.push(createVector(random(width), random(height)));
+			}
+
+			function windowResized() {
+				resizeCanvas(windowWidth, windowHeight);
+			}
+
+			function insideIcon(p) {
+				if (!state) return null;
+				for (const icon of state.icons) {
+					const cx = icon.x + icon.width / 2;
+					const cy = icon.y + icon.height / 2;
+					if (dist(p.x, p.y, cx, cy) < icon.width * 0.75) return createVector(cx, cy);
+				}
+				return null;
+			}
+
+			function draw() {
+				// Fade the previous frame towards transparent to leave trails.
+				drawingContext.globalCompositeOperation = 'destination-out';
+				noStroke();
+				fill(0, 18);
+				rect(0, 0, width, height);
+				drawingContext.globalCompositeOperation = 'source-over';
+
+				stroke(160, 200, 255, 90);
+				strokeWeight(1.2);
+				const t = frameCount * 0.002;
+				for (const p of particles) {
+					const angle = noise(p.x * 0.003, p.y * 0.003, t) * TWO_PI * 2;
+					const step = p5.Vector.fromAngle(angle, 1.4);
+					const center = insideIcon(p);
+					if (center) step.add(p5.Vector.sub(p, center).setMag(2));
+					if (state && state.pointer.presence > 0.1) {
+						const d = dist(p.x, p.y, state.pointer.x, state.pointer.y);
+						if (d < 140) {
+							const swirl = createVector(state.pointer.y - p.y, p.x - state.pointer.x);
+							step.add(swirl.setMag((1 - d / 140) * 3));
+						}
+					}
+					const before = p.copy();
+					p.add(step);
+					line(before.x, before.y, p.x, p.y);
+					if (p.x < 0 || p.x > width || p.y < 0 || p.y > height) {
+						p.set(random(width), random(height));
+					}
+				}
+			}
+		</script>
+	</body>
+</html>

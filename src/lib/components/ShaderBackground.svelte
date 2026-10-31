@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import {
 		compileShader,
 		hasBufferPass,
@@ -8,30 +7,32 @@
 		MAX_ICONS,
 		type CompiledShader
 	} from '$lib/background-shaders';
-	import { isVideoBackground } from '$lib/background';
+	import { isVideoBackground, mediaUrl } from '$lib/background';
+	import { createInputTracker } from '$lib/background-input';
+	import { watchWindowVisibility } from '$lib/window-visibility';
 	import BackgroundVideo from './BackgroundVideo.svelte';
 
-	// Renders a background shader and feeds it the Shadertoy inputs plus the
-	// pointer, the icons and clicks; the wallpaper is bound as iChannel0 and
-	// the optional feedback pass ping-pongs between two buffer textures. The
-	// layer never takes pointer events itself, so it listens on the window and
-	// maps coordinates onto its own canvas (bottom-left origin, like
-	// gl_FragCoord).
+	// Renders a shader layer and feeds it the Shadertoy inputs plus the
+	// pointer, icons and clicks (in canvas pixels, bottom-left origin like
+	// gl_FragCoord); the layer's texture is bound as iChannel0 and the
+	// optional feedback pass ping-pongs between two buffer textures.
 	let {
 		source,
-		quality,
 		channel,
+		quality,
+		fps,
 		onready
 	}: {
 		source: string;
-		quality: number;
-		/** Wallpaper image/video exposed as iChannel0. */
+		/** Image/video exposed as iChannel0. */
 		channel: string | null;
+		quality: number;
+		/** Frame rate cap; 0 = display rate. */
+		fps: number;
 		/** Fires once the first frame is drawn, or when the shader cannot run. */
 		onready?: () => void;
 	} = $props();
 
-	const FRAME_MS = 1000 / 60;
 	const CHANNEL_TIMEOUT_MS = 2000;
 
 	let canvas: HTMLCanvasElement;
@@ -72,15 +73,10 @@
 		let compiledSource: string | null = null;
 		let failed = false;
 
-		const pointer = { x: 0, y: 0, inside: false, presence: 0, vx: 0, vy: 0, lastX: 0, lastY: 0 };
-		const hover = { el: null as HTMLElement | null, rect: [0, 0, 0, 0], amount: 0 };
-		const pulse = { x: 0, y: 0, at: -Infinity };
-		const mouse = { x: 0, y: 0, clickX: 0, clickY: 0, down: false, clicked: false };
-		const clickHistory: { x: number; y: number; at: number }[] = [];
+		const input = createInputTracker(canvas);
 		let time = 0;
 		let frameIndex = 0;
 		const icons = new Float32Array(MAX_ICONS * 4);
-		let iconCount = 0;
 		const clicks = new Float32Array(MAX_CLICKS * 3);
 		const channelSize = new Float32Array(12);
 		let lastVideoTime = -1;
@@ -134,7 +130,7 @@
 			picture.crossOrigin = 'anonymous';
 			picture.onload = () => uploadChannel(picture, picture.naturalWidth, picture.naturalHeight);
 			picture.onerror = () => (channelReady = true);
-			picture.src = channel;
+			picture.src = mediaUrl(channel);
 		}
 
 		function updateVideoChannel() {
@@ -143,24 +139,6 @@
 			if (video.currentTime === lastVideoTime) return;
 			lastVideoTime = video.currentTime;
 			uploadChannel(video, video.videoWidth, video.videoHeight);
-		}
-
-		function updateIcons(bounds: DOMRect, ratio: number) {
-			iconCount = 0;
-			for (const el of document.querySelectorAll('.icon-wrapper[data-item-id]')) {
-				if (iconCount >= MAX_ICONS) break;
-				const r = el.getBoundingClientRect();
-				icons.set(
-					[
-						(r.left - bounds.left) * ratio,
-						(bounds.bottom - r.bottom) * ratio,
-						r.width * ratio,
-						r.height * ratio
-					],
-					iconCount * 4
-				);
-				iconCount++;
-			}
 		}
 
 		function releaseBuffer() {
@@ -248,13 +226,9 @@
 			return width / Math.max(1, canvas.clientWidth);
 		}
 
-		function ease(current: number, target: number, dt: number, rate: number): number {
-			return current + (target - current) * (1 - Math.exp(-dt * rate));
-		}
-
 		function frame(now: number) {
 			raf = requestAnimationFrame(frame);
-			if (now - lastFrame < FRAME_MS - 1) return;
+			if (fps > 0 && now - lastFrame < 1000 / fps - 1) return;
 			lastFrame = now;
 			const dt = Math.min(0.1, (now - last) / 1000);
 			last = now;
@@ -264,36 +238,25 @@
 			if (!image) return;
 
 			const ratio = resize();
-			const bounds = canvas.getBoundingClientRect();
-			pointer.presence = ease(pointer.presence, pointer.inside ? 1 : 0, dt, 8);
-			if (dt > 0) {
-				pointer.vx = ease(pointer.vx, (pointer.x - pointer.lastX) / dt, dt, 20);
-				pointer.vy = ease(pointer.vy, (pointer.lastY - pointer.y) / dt, dt, 20);
-			}
-			pointer.lastX = pointer.x;
-			pointer.lastY = pointer.y;
-			hover.amount = ease(hover.amount, hover.el ? 1 : 0, dt, 10);
-			if (hover.el) {
-				const r = hover.el.getBoundingClientRect();
-				hover.rect = [
-					(r.left - bounds.left) * ratio,
-					(bounds.bottom - r.bottom) * ratio,
-					r.width * ratio,
-					r.height * ratio
-				];
-			}
-
+			const state = input.sample(now, dt);
 			if (channelIsVideo) updateVideoChannel();
-			updateIcons(bounds, ratio);
-			const toX = (clientX: number) => (clientX - bounds.left) * ratio;
-			const toY = (clientY: number) => (bounds.bottom - clientY) * ratio;
+			// CSS pixels, top-left origin -> canvas pixels, bottom-left origin.
+			const toX = (x: number) => x * ratio;
+			const toY = (y: number) => (state.height - y) * ratio;
+			const rect = (r: { x: number; y: number; width: number; height: number }) => [
+				toX(r.x),
+				toY(r.y + r.height),
+				r.width * ratio,
+				r.height * ratio
+			];
+			const iconCount = state.icons.length;
+			state.icons.forEach((icon, i) => icons.set(rect(icon), i * 4));
 			for (let i = 0; i < MAX_CLICKS; i++) {
-				const click = clickHistory[i];
-				clicks.set(
-					click ? [toX(click.x), toY(click.y), (now - click.at) / 1000] : [0, 0, 1e3],
-					i * 3
-				);
+				const click = state.clicks[i];
+				clicks.set(click ? [toX(click.x), toY(click.y), click.age] : [0, 0, 1e3], i * 3);
 			}
+			const hover = rect(state.hover);
+			const mouse = state.mouse;
 			const date = new Date();
 			const seconds =
 				date.getHours() * 3600 +
@@ -327,15 +290,20 @@
 				gl!.bindTexture(gl!.TEXTURE_2D, bufferTexture);
 				gl!.uniform1i(u.odBuffer, 1);
 				gl!.uniform1f(u.odPixelRatio, ratio);
-				gl!.uniform3f(u.odPointer, toX(pointer.x), toY(pointer.y), pointer.presence);
-				gl!.uniform2f(u.odPointerVelocity, pointer.vx, pointer.vy);
-				gl!.uniform4f(u.odHover, hover.rect[0], hover.rect[1], hover.rect[2], hover.rect[3]);
-				gl!.uniform1f(u.odHoverAmount, hover.amount);
+				gl!.uniform3f(
+					u.odPointer,
+					toX(state.pointer.x),
+					toY(state.pointer.y),
+					state.pointer.presence
+				);
+				gl!.uniform2f(u.odPointerVelocity, state.velocity.x, -state.velocity.y);
+				gl!.uniform4f(u.odHover, hover[0], hover[1], hover[2], hover[3]);
+				gl!.uniform1f(u.odHoverAmount, state.hover.amount);
 				gl!.uniform3f(
 					u.odPulse,
-					toX(pulse.x),
-					toY(pulse.y),
-					Math.min(1e3, (now - pulse.at) / 1000)
+					toX(state.pulse.x),
+					toY(state.pulse.y),
+					Math.min(1e3, state.pulse.age)
 				);
 				gl!.uniform3fv(u.odClicks, clicks);
 				gl!.uniform4fv(u.odIcons, icons);
@@ -356,7 +324,6 @@
 			}
 			draw(image, bufferTexture);
 			frameIndex++;
-			mouse.clicked = false;
 			if (!readyFired && channelReady) requestAnimationFrame(markReady);
 		}
 
@@ -372,58 +339,6 @@
 			cancelAnimationFrame(raf);
 		}
 
-		function insideCanvas(event: PointerEvent): boolean {
-			const bounds = canvas.getBoundingClientRect();
-			return (
-				event.clientX >= bounds.left &&
-				event.clientX <= bounds.right &&
-				event.clientY >= bounds.top &&
-				event.clientY <= bounds.bottom
-			);
-		}
-
-		function onPointerMove(event: PointerEvent) {
-			// Entering the canvas is not movement; don't report the jump as velocity.
-			if (!pointer.inside) {
-				pointer.lastX = event.clientX;
-				pointer.lastY = event.clientY;
-			}
-			pointer.x = event.clientX;
-			pointer.y = event.clientY;
-			pointer.inside = insideCanvas(event);
-			if (mouse.down) {
-				mouse.x = event.clientX;
-				mouse.y = event.clientY;
-			}
-			const target = event.target instanceof Element ? event.target : null;
-			hover.el = target?.closest<HTMLElement>('.icon-wrapper[data-item-id]') ?? null;
-		}
-
-		function onPointerLeave() {
-			pointer.inside = false;
-			hover.el = null;
-		}
-
-		function onPointerDown(event: PointerEvent) {
-			if (event.button !== 0 || !insideCanvas(event)) return;
-			mouse.x = mouse.clickX = event.clientX;
-			mouse.y = mouse.clickY = event.clientY;
-			mouse.down = true;
-			mouse.clicked = true;
-			clickHistory.unshift({ x: event.clientX, y: event.clientY, at: performance.now() });
-			clickHistory.length = Math.min(clickHistory.length, MAX_CLICKS);
-			const target = event.target instanceof Element ? event.target : null;
-			const icon = target?.closest('.icon-wrapper[data-item-id]');
-			if (!icon || icon.querySelector('.edit-mode')) return;
-			pulse.x = event.clientX;
-			pulse.y = event.clientY;
-			pulse.at = performance.now();
-		}
-
-		function onPointerUp() {
-			mouse.down = false;
-		}
-
 		function onContextLost(event: Event) {
 			event.preventDefault();
 			stop();
@@ -437,41 +352,23 @@
 			start();
 		}
 
-		window.addEventListener('pointermove', onPointerMove);
-		window.addEventListener('pointerdown', onPointerDown, true);
-		window.addEventListener('pointerup', onPointerUp, true);
-		document.documentElement.addEventListener('pointerleave', onPointerLeave);
 		canvas.addEventListener('webglcontextlost', onContextLost);
 		canvas.addEventListener('webglcontextrestored', onContextRestored);
 
-		// Same policy as the video background: render only while the window is visible.
-		const appWindow = getCurrentWindow();
-		let unlisten: (() => void) | null = null;
-		let disposed = false;
-		void appWindow
-			.onFocusChanged(async ({ payload: focused }) => {
-				if (focused) start();
-				else if (!(await appWindow.isVisible())) stop();
-			})
-			.then((un) => {
-				if (disposed) un();
-				else unlisten = un;
-			});
-		void appWindow.isVisible().then((visible) => {
-			if (disposed) return;
+		// A hidden window draws nothing, so there is no first frame to wait for.
+		const stopWatching = watchWindowVisibility((visible) => {
 			if (visible) start();
-			else markReady();
+			else {
+				stop();
+				markReady();
+			}
 		});
 
 		return () => {
-			disposed = true;
 			clearTimeout(channelTimer);
 			stop();
-			unlisten?.();
-			window.removeEventListener('pointermove', onPointerMove);
-			window.removeEventListener('pointerdown', onPointerDown, true);
-			window.removeEventListener('pointerup', onPointerUp, true);
-			document.documentElement.removeEventListener('pointerleave', onPointerLeave);
+			stopWatching();
+			input.destroy();
 			canvas.removeEventListener('webglcontextlost', onContextLost);
 			canvas.removeEventListener('webglcontextrestored', onContextRestored);
 			releasePrograms();

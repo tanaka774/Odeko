@@ -1,25 +1,14 @@
-// Animated canvas backgrounds: user-written GLSL fragment shaders in
+// Shader background layers: user-written GLSL fragment shaders in
 // Shadertoy style (`mainImage(out vec4, in vec2)`), rendered by
 // ShaderBackground.svelte. The Shadertoy inputs keep their names and types;
-// Odeko's pointer and icon inputs are prefixed with `od`. The wallpaper
-// image/video is bound as iChannel0. A shader that also defines
+// Odeko's pointer and icon inputs are prefixed with `od`. The layer's
+// texture image/video is bound as iChannel0. A shader that also defines
 // `bufferImage` gets a feedback pass: it renders into odBuffer every frame
 // while reading its own previous frame from it.
 
-export interface BackgroundShader {
-	enabled: boolean;
-	source: string;
-	/** Canvas pixels per CSS pixel, relative to the display density. */
-	quality: number;
-}
+import { MAX_CLICKS, MAX_ICONS } from './background-input';
 
-export interface ShaderExample {
-	name: string;
-	source: string;
-}
-
-export const MAX_ICONS = 64;
-export const MAX_CLICKS = 8;
+export { MAX_CLICKS, MAX_ICONS };
 
 export const PRELUDE = `#version 300 es
 precision highp float;
@@ -109,52 +98,12 @@ void main() {
 `
 };
 
-const exampleFiles = import.meta.glob<string>('../../examples/custom-shaders/*.glsl', {
-	query: '?raw',
-	import: 'default',
-	eager: true
-});
-
-/** Examples from examples/custom-shaders; each file's first line is `// <Name>`. */
-export const SHADER_EXAMPLES: ShaderExample[] = Object.entries(exampleFiles)
-	.map(([path, source]) => ({
-		name: source.match(/^\/\/\s*(.+)/)?.[1].trim() ?? path.split('/').pop()!,
-		source
-	}))
-	.sort((a, b) => a.name.localeCompare(b.name));
-
-export const DEFAULT_BACKGROUND_SHADER: BackgroundShader = {
-	enabled: false,
-	source: '',
-	quality: 1
-};
-
 export function shaderSource(source: string, entry: ShaderEntry = 'mainImage'): string {
 	return PRELUDE + source + MAIN[entry];
 }
 
 export function hasBufferPass(source: string): boolean {
 	return /\bvoid\s+bufferImage\s*\(/.test(source);
-}
-
-/** Normalizes a stored (possibly imported) value. */
-export function sanitizeBackgroundShader(raw: unknown): BackgroundShader {
-	const d = DEFAULT_BACKGROUND_SHADER;
-	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...d };
-	const value = raw as Record<string, unknown>;
-	return {
-		enabled: typeof value.enabled === 'boolean' ? value.enabled : d.enabled,
-		source: typeof value.source === 'string' ? value.source : d.source,
-		quality:
-			typeof value.quality === 'number' && Number.isFinite(value.quality)
-				? Math.min(1, Math.max(0.25, value.quality))
-				: d.quality
-	};
-}
-
-/** The source to render, or null when the effect is off. */
-export function activeShaderSource(shader: BackgroundShader): string | null {
-	return shader.enabled && shader.source.trim() ? shader.source : null;
 }
 
 export interface CompiledShader {

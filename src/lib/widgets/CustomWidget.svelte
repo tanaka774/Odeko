@@ -57,7 +57,7 @@
 		<span class="placeholder-text">Empty — add HTML in the widget settings</span>
 	{/if}
 
-	{#if bridge.pending}
+	{#if bridge.pending && !bridge.pending.fromBackground}
 		<div class="net-prompt" role="alertdialog" aria-label="Network access request">
 			<p class="net-prompt-text">
 				This widget wants to fetch data from <strong>{bridge.pending.host}</strong>

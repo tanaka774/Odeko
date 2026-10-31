@@ -1,0 +1,58 @@
+<!-- Big Clock -->
+<!doctype html>
+<html>
+	<head>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+			}
+			body {
+				display: grid;
+				place-items: center;
+				color: rgba(255, 255, 255, 0.12);
+				font-family: ui-monospace, monospace;
+				font-weight: 200;
+				text-align: center;
+			}
+			#time {
+				font-size: 22vw;
+				line-height: 1;
+				letter-spacing: -0.04em;
+			}
+			#date {
+				font-size: 3vw;
+				letter-spacing: 0.4em;
+				text-transform: lowercase;
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+			<div id="time">00:00</div>
+			<div id="date"></div>
+		</div>
+		<script>
+			// A huge, faint clock behind the icons. Plain HTML/CSS plus a few
+			// lines of script; it only updates while the canvas is shown.
+			const time = document.getElementById('time');
+			const date = document.getElementById('date');
+			let shown = '';
+			odeko.on('frame', () => {
+				const now = new Date();
+				const text = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+				if (text === shown) return;
+				shown = text;
+				time.textContent = text;
+				date.textContent = now.toLocaleDateString([], {
+					weekday: 'long',
+					month: 'long',
+					day: 'numeric'
+				});
+			});
+		</script>
+	</body>
+</html>

@@ -82,21 +82,10 @@ pub struct CanvasSettings {
     pub width_percent: f32,
     #[serde(default)]
     pub height_percent: f32,
+    /// Background layer stack (color, media, shader, html). Opaque to Rust
+    /// except for import neutralization — interpreted by the frontend.
     #[serde(default)]
-    pub background_color: String,
-    #[serde(default)]
-    pub background_opacity: f32,
-    #[serde(default)]
-    pub background_image: Option<String>,
-    #[serde(default)]
-    pub background_size: String,
-    #[serde(default)]
-    pub background_repeat: bool,
-    #[serde(default)]
-    pub background_position: String,
-    /// Animated background shader. Opaque to Rust — interpreted by the frontend.
-    #[serde(default)]
-    pub background_shader: Option<serde_json::Value>,
+    pub background_layers: Option<serde_json::Value>,
     // TODO: Replace CSS backdrop-filter with OS-level window blur.
     // CSS backdrop-filter cannot blur content behind the Tauri window.
     #[serde(default)]
@@ -157,13 +146,7 @@ impl Default for CanvasSettings {
         Self {
             width_percent: 90.0,
             height_percent: 85.0,
-            background_color: "20, 20, 30".to_string(),
-            background_opacity: 0.75,
-            background_image: None,
-            background_size: "cover".to_string(),
-            background_repeat: false,
-            background_position: "center".to_string(),
-            background_shader: None,
+            background_layers: None,
             border_radius: 24.0,
             position_x: 50.0,
             position_y: 50.0,
@@ -280,6 +263,8 @@ pub struct ImportResult {
     pub cleared_global_shortcuts: usize,
     /// Power widgets whose confirmation was re-enabled.
     pub forced_power_confirmation: usize,
+    /// HTML background layers whose scripts were turned off.
+    pub disabled_script_layers: usize,
 }
 
 fn is_power_widget_icon(icon: &AppIcon) -> bool {
@@ -355,6 +340,30 @@ fn neutralize_preset(data: &mut PresetData) -> (usize, bool, usize, usize) {
         cleared_global_shortcuts,
         forced_power_confirmation,
     )
+}
+
+/// Imported background layers never run scripts or read local files until
+/// the user turns that on: HTML layers get `scripts: false` and every layer
+/// loses its linked source file. Returns how many layers had scripts on.
+fn neutralize_background_layers(data: &mut PresetData) -> usize {
+    let Some(serde_json::Value::Array(layers)) = data.settings.background_layers.as_mut() else {
+        return 0;
+    };
+    let mut disabled = 0;
+    for layer in layers.iter_mut() {
+        let serde_json::Value::Object(fields) = layer else {
+            continue;
+        };
+        fields.insert("file".to_string(), serde_json::Value::Null);
+        fields.insert("watch".to_string(), serde_json::Value::Bool(false));
+        if fields.get("type") == Some(&serde_json::json!("html")) {
+            if fields.get("scripts") == Some(&serde_json::Value::Bool(true)) {
+                disabled += 1;
+            }
+            fields.insert("scripts".to_string(), serde_json::Value::Bool(false));
+        }
+    }
+    disabled
 }
 
 /// Preset names become file paths (`{name}.json`), so they must not be able
@@ -1217,6 +1226,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
     let name = sanitize_preset_name(raw_name);
     let (cleared_network_grants, cleared_local_network, cleared_global_shortcuts, forced_power_confirmation) =
         neutralize_preset(&mut data);
+    let disabled_script_layers = neutralize_background_layers(&mut data);
 
     let presets_dir = get_presets_dir();
     if let Err(e) = std::fs::create_dir_all(&presets_dir) {
@@ -1257,6 +1267,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
         cleared_local_network,
         cleared_global_shortcuts,
         forced_power_confirmation,
+        disabled_script_layers,
     })
 }
 
@@ -1426,7 +1437,7 @@ mod tests {
 
         assert_eq!(back.width_percent, settings.width_percent);
         assert_eq!(back.height_percent, settings.height_percent);
-        assert_eq!(back.background_color, settings.background_color);
+        assert_eq!(back.background_layers, settings.background_layers);
         assert_eq!(back.grid_size, settings.grid_size);
         assert_eq!(back.magnetic_snap, settings.magnetic_snap);
         assert_eq!(back.grid_line_color, settings.grid_line_color);
@@ -1561,13 +1572,7 @@ mod tests {
         CanvasSettings {
             width_percent: 50.0,
             height_percent: 60.0,
-            background_color: "10, 20, 30".into(),
-            background_opacity: 0.42,
-            background_image: Some("/tmp/bg.png".into()),
-            background_size: "contain".into(),
-            background_repeat: true,
-            background_position: "bottom right".into(),
-            background_shader: None,
+            background_layers: Some(serde_json::json!([{ "id": "tint", "type": "color" }])),
             border_radius: 12.0,
             position_x: 30.0,
             position_y: 40.0,
@@ -1633,6 +1638,28 @@ mod tests {
     }
 
     #[test]
+    fn imported_background_layers_lose_scripts_and_files() {
+        let mut data = PresetData {
+            icons: vec![],
+            settings: CanvasSettings {
+                background_layers: Some(serde_json::json!([
+                    { "id": "a", "type": "html", "scripts": true, "file": "/tmp/x.html", "watch": true },
+                    { "id": "b", "type": "html", "scripts": false },
+                    { "id": "c", "type": "shader", "file": "/tmp/x.glsl", "watch": true }
+                ])),
+                ..CanvasSettings::default()
+            },
+        };
+        assert_eq!(neutralize_background_layers(&mut data), 1);
+        let layers = data.settings.background_layers.unwrap();
+        for layer in layers.as_array().unwrap() {
+            assert_eq!(layer["file"], serde_json::Value::Null);
+            assert_eq!(layer["watch"], false);
+        }
+        assert_eq!(layers[0]["scripts"], false);
+    }
+
+    #[test]
     fn every_settings_field_round_trips_through_disk() {
         with_fake_config_dir(|| {
             let modified = modified_settings();
@@ -1643,12 +1670,7 @@ mod tests {
 
             assert_eq!(got.width_percent, 50.0);
             assert_eq!(got.height_percent, 60.0);
-            assert_eq!(got.background_color, "10, 20, 30");
-            assert_eq!(got.background_opacity, 0.42);
-            assert_eq!(got.background_image.as_deref(), Some("/tmp/bg.png"));
-            assert_eq!(got.background_size, "contain");
-            assert!(got.background_repeat);
-            assert_eq!(got.background_position, "bottom right");
+            assert_eq!(got.background_layers, modified.background_layers);
             assert_eq!(got.border_radius, 12.0);
             assert_eq!(got.position_x, 30.0);
             assert_eq!(got.position_y, 40.0);

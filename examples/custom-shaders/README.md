@@ -1,12 +1,17 @@
 # Custom shader examples
 
-Animated canvas backgrounds written as GLSL fragment shaders, Shadertoy style.
+Animated background layers written as GLSL fragment shaders, Shadertoy style.
 
 ## How to install
 
-Settings → **Background** → **Shader**: pick one from **Insert example…**, or
-paste a file's content into the editor. The canvas previews it live; **Save
-Changes** keeps it.
+Download a file, then Settings → **Background** → **Open file…**. The layer
+stays linked to the file and reloads whenever you save it. You can also add a
+**Shader** layer and paste the content into its editor; the canvas previews it
+live and **Save Changes** keeps it. Opacity, blend mode and whether it draws
+behind or over the icons are set per layer.
+
+Examples that use `iChannel0` (ASCII Wallpaper, CRT Wallpaper, Water Ripples)
+need an image or video set as the layer's **iChannel0**.
 
 ## Writing a shader
 
@@ -28,8 +33,8 @@ Shadertoy inputs, same names and types:
 | `iFrame`                | `int`       | frame counter                                                            |
 | `iMouse`                | `vec4`      | Shadertoy convention: `xy` while the button is held, `zw` press position |
 | `iDate`                 | `vec4`      | year, month (0–11), day, seconds of the day                              |
-| `iChannel0`             | `sampler2D` | the wallpaper image/video from the Background tab (black when none)      |
-| `iChannelResolution[0]` | `vec3`      | wallpaper size in pixels (`0` when none)                                 |
+| `iChannel0`             | `sampler2D` | the layer's iChannel0 image/video (black when none)                      |
+| `iChannelResolution[0]` | `vec3`      | its size in pixels (`0` when none)                                       |
 
 Odeko inputs (positions in canvas pixels, origin bottom-left like `fragCoord`):
 
@@ -80,8 +85,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   (16-bit float where the GPU supports it, so negative values work).
 - The buffer starts as all zeros, also after the canvas resizes; write a
   marker into alpha to know whether it has been initialized.
-- It updates once per frame (max 60 fps), so simulation speed depends on
-  frame rate and Render Quality.
+- It updates once per frame, so simulation speed depends on the layer's
+  Frame rate and Resolution.
 
 ## Generating one with an LLM
 
@@ -90,5 +95,5 @@ compile, use **Copy error** under the editor and send the error back.
 
 ## Performance
 
-The shader runs for every pixel at up to 60 fps. If it stutters, lower
-**Render Quality** in the same panel.
+The shader runs for every pixel every frame. If it stutters, lower the
+layer's **Resolution** or **Frame rate**.

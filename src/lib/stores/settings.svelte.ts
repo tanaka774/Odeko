@@ -1,11 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { backgroundFilePath, isVideoBackground } from '$lib/background';
-import {
-	DEFAULT_BACKGROUND_SHADER,
-	sanitizeBackgroundShader,
-	type BackgroundShader
-} from '$lib/background-shaders';
+import { defaultLayers, sanitizeLayers, type BackgroundLayer } from '$lib/background-layers';
 import type { CanvasIcon } from '$lib/icons';
 import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 import {
@@ -126,23 +120,8 @@ export function findKeybindConflict(
 export interface CanvasSettings {
 	width_percent: number;
 	height_percent: number;
-	background_color: string;
-	background_opacity: number;
-	background_image: string | null;
-	background_size: 'cover' | 'contain' | 'stretch';
-	background_repeat: boolean;
-	background_position:
-		| 'center'
-		| 'top'
-		| 'bottom'
-		| 'left'
-		| 'right'
-		| 'top left'
-		| 'top right'
-		| 'bottom left'
-		| 'bottom right';
-	/** Animated shader drawn instead of the image/video while enabled. */
-	background_shader: BackgroundShader;
+	/** Background layer stack, bottom first. */
+	background_layers: BackgroundLayer[];
 	// The real blur behind the window is applied natively by the Rust side
 	// (src-tauri/src/window_effects.rs); these values only style the panel.
 	border_radius: number;
@@ -193,13 +172,7 @@ export interface CanvasLayout {
 const DEFAULT_SETTINGS: CanvasSettings = {
 	width_percent: 90,
 	height_percent: 85,
-	background_color: '20, 20, 30',
-	background_opacity: 0.75,
-	background_image: null,
-	background_size: 'cover',
-	background_repeat: false,
-	background_position: 'center',
-	background_shader: { ...DEFAULT_BACKGROUND_SHADER },
+	background_layers: defaultLayers(),
 	border_radius: 24,
 	backdrop_darkness: 0.3,
 	backdrop_blur: true,
@@ -224,7 +197,10 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 };
 
 function createSettingsStore() {
-	let settings = $state<CanvasSettings>({ ...DEFAULT_SETTINGS });
+	let settings = $state<CanvasSettings>({
+		...DEFAULT_SETTINGS,
+		background_layers: defaultLayers()
+	});
 	let activePreset = $state<string | null>(null);
 	let preview = $state<CanvasSettings | null>(null);
 	let isLoaded = $state(false);
@@ -268,41 +244,15 @@ function createSettingsStore() {
 		}
 		merged.default_appearance = sanitized;
 		merged.modal_appearance = sanitizeModalAppearanceStore(merged.modal_appearance);
-		merged.background_shader = sanitizeBackgroundShader(merged.background_shader);
+		merged.background_layers = sanitizeLayers(merged.background_layers);
 		return merged;
-	}
-
-	function convertBackgroundImage(loadedSettings: CanvasSettings) {
-		const background = loadedSettings.background_image;
-		if (!background) return loadedSettings;
-
-		if (isVideoBackground(background)) {
-			// Videos are read through the fs plugin (the asset protocol cannot
-			// stream media on Linux/WebKitGTK), so they must keep a plain
-			// filesystem path. Legacy asset:// video URLs are normalized back
-			// to plain paths here.
-			const filePath = backgroundFilePath(background);
-			if (filePath) {
-				loadedSettings.background_image = filePath;
-			}
-			return loadedSettings;
-		}
-
-		if (
-			!background.startsWith('http') &&
-			!background.startsWith('data:') &&
-			!background.startsWith('asset:')
-		) {
-			loadedSettings.background_image = convertFileSrc(background);
-		}
-		return loadedSettings;
 	}
 
 	async function loadSettings() {
 		try {
 			const layout = await invoke<CanvasLayout>('load_active_layout');
 			if (layout.settings) {
-				settings = convertBackgroundImage(applyDefaults(layout.settings));
+				settings = applyDefaults(layout.settings);
 			}
 			activePreset = layout.active_preset ?? null;
 			isLoaded = true;
@@ -332,7 +282,7 @@ function createSettingsStore() {
 	}
 
 	function normalizeSettings(raw: CanvasSettings): CanvasSettings {
-		return convertBackgroundImage(applyDefaults(raw));
+		return applyDefaults(raw);
 	}
 
 	function applyLayout(layout: CanvasLayout) {
@@ -348,7 +298,7 @@ function createSettingsStore() {
 	}
 
 	function resetToDefaults() {
-		settings = { ...DEFAULT_SETTINGS };
+		settings = { ...DEFAULT_SETTINGS, background_layers: defaultLayers() };
 		activePreset = null;
 	}
 

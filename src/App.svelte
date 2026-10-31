@@ -9,6 +9,8 @@
 	import CanvasBackground from '$lib/components/CanvasBackground.svelte';
 	import ToastStack from '$lib/components/ToastStack.svelte';
 	import { isVideoBackground } from '$lib/background';
+	import { layersAt } from '$lib/background-layers';
+	import { bridge } from '$lib/widgets/network-bridge.svelte';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import {
 		settingsStore,
@@ -25,7 +27,8 @@
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
 
 	let iconGrid: IconGrid;
-	let background: CanvasBackground;
+	let backgroundBelow: CanvasBackground;
+	let backgroundAbove: CanvasBackground;
 
 	let isEditMode = $state(false);
 
@@ -66,7 +69,13 @@
 			if (!name) return;
 			const layout = await loadPreset(name);
 			const next = settingsStore.normalizeSettings(layout.settings);
-			await Promise.race([background.prepare(next), wait(PREPARE_TIMEOUT_MS)]);
+			await Promise.race([
+				Promise.all([
+					backgroundBelow.prepare(layersAt(next.background_layers, 'below')),
+					backgroundAbove.prepare(layersAt(next.background_layers, 'above'))
+				]),
+				wait(PREPARE_TIMEOUT_MS)
+			]);
 
 			// Animating size/position relayouts the whole panel every frame,
 			// which WebKitGTK cannot keep smooth, so a reshape fades the panel.
@@ -324,7 +333,12 @@
 		}).catch((error) => console.error('Failed to apply backdrop blur:', error));
 	});
 
-	let backgroundIsVideo = $derived(isVideoBackground(settingsStore.settings.background_image));
+	let backgroundIsVideo = $derived(
+		settingsStore.settings.background_layers.some(
+			(layer) => layer.enabled && layer.type === 'media' && isVideoBackground(layer.src)
+		)
+	);
+	let shownLayers = $derived((settingsStore.preview ?? settingsStore.settings).background_layers);
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -358,8 +372,8 @@
 			.position_y}%)"
 	>
 		<CanvasBackground
-			bind:this={background}
-			settings={settingsStore.preview ?? settingsStore.settings}
+			bind:this={backgroundBelow}
+			layers={layersAt(shownLayers, 'below')}
 			animate={presetSwitching}
 			instant={panelHidden}
 		/>
@@ -375,11 +389,28 @@
 			/>
 		</div>
 
+		<CanvasBackground
+			bind:this={backgroundAbove}
+			layers={layersAt(shownLayers, 'above')}
+			animate={presetSwitching}
+			instant={panelHidden}
+		/>
+
 		{#if presetLabel}
 			<div class="preset-label" transition:fade={{ duration: 150 }}>{presetLabel}</div>
 		{/if}
 
 		<ToastStack />
+
+		{#if bridge.pending?.fromBackground}
+			<div class="net-prompt" role="alertdialog" aria-label="Network access request">
+				<span
+					>A background layer wants to fetch data from <strong>{bridge.pending.host}</strong></span
+				>
+				<button class="net-prompt-allow" onclick={() => bridge.resolvePrompt(true)}>Allow</button>
+				<button onclick={() => bridge.resolvePrompt(false)}>Deny</button>
+			</div>
+		{/if}
 
 		{#if showContextMenu}
 			<div
@@ -528,6 +559,42 @@
 
 	.backdrop.switching {
 		transition: background 280ms ease;
+	}
+
+	.net-prompt {
+		position: absolute;
+		left: 50%;
+		bottom: 16px;
+		transform: translateX(-50%);
+		z-index: 20;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 12px;
+		max-width: calc(100% - 32px);
+		background: rgba(20, 20, 30, 0.96);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 8px;
+		color: white;
+		font-size: 13px;
+	}
+
+	.net-prompt span {
+		word-break: break-all;
+	}
+
+	.net-prompt button {
+		padding: 5px 10px;
+		border: none;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.12);
+		color: white;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.net-prompt .net-prompt-allow {
+		background: #2f7d5c;
 	}
 
 	.preset-label {

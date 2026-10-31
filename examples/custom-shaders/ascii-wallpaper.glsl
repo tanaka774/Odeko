@@ -1,7 +1,7 @@
 // ASCII Wallpaper
-// Redraws the wallpaper (image or video) as colored ASCII characters; a lens
-// under the pointer reveals the original. Set a wallpaper in the Background
-// tab; without one it shows a color gradient.
+// Redraws the layer's iChannel0 image or video as colored ASCII characters;
+// a lens under the pointer reveals the original. Without one it shows a color
+// gradient.
 const float CELL = 8.0;
 
 float glyphBit(int bits, vec2 cellUv) {

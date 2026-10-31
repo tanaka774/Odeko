@@ -1,7 +1,7 @@
 // Icon Shadows
 // The pointer is a lamp and every icon casts a soft shadow; without the
-// pointer the light circles slowly. Heavy: set Render Quality to 50% if it
-// stutters.
+// pointer the light circles slowly. Heavy: set the layer's Resolution to 50% if
+// it stutters.
 float softShadow(vec2 p, vec2 light) {
 	vec2 dir = light - p;
 	float total = length(dir) / odPixelRatio;

@@ -1,7 +1,7 @@
 // Water Ripples
 // The canvas is a pool: moving the pointer stirs it, clicks drop stones,
-// icons are walls the waves bounce off, and the wallpaper refracts through
-// the water. The feedback buffer holds the simulated water surface.
+// icons are walls the waves bounce off, and the iChannel0 image refracts
+// through the water. The feedback buffer holds the simulated water surface.
 const float DAMPING = 0.985;
 
 void bufferImage(out vec4 fragColor, in vec2 fragCoord) {

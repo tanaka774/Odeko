@@ -1,7 +1,7 @@
 // CRT Wallpaper
-// Shows the wallpaper (image or video) on a curved CRT screen with
+// Shows the layer's iChannel0 image or video on a curved CRT screen with
 // scanlines, color fringing and a rolling bar; icon clicks glitch it. Without
-// a wallpaper it shows color bars.
+// one it shows color bars.
 vec3 colorBars(vec2 uv) {
 	float i = floor(uv.x * 7.0);
 	float r = step(i, 1.5) + step(3.5, i) * step(i, 5.5);
