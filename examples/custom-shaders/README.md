@@ -10,7 +10,7 @@ stays linked to the file and reloads whenever you save it. You can also add a
 live and **Save Changes** keeps it. Opacity, blend mode and whether it draws
 behind or over the icons are set per layer.
 
-Examples that use `iChannel0` (ASCII Wallpaper, CRT Wallpaper, Water Ripples)
+Examples that use `iChannel0` (CRT Wallpaper, Water Ripples)
 need an image or video set as the layer's **iChannel0**.
 
 ## Writing a shader

@@ -1,0 +1,326 @@
+<!-- Start Page -->
+<!doctype html>
+<html>
+	<head>
+		<style>
+			:root {
+				--panel: rgba(18, 20, 28, 0.72);
+				--line: rgba(255, 255, 255, 0.1);
+				--text: rgba(255, 255, 255, 0.9);
+				--muted: rgba(255, 255, 255, 0.5);
+				--accent: #7aa2ff;
+			}
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				color: var(--text);
+				font:
+					14px/1.5 system-ui,
+					sans-serif;
+			}
+			/* Docked on the right; keep icons out of that strip. */
+			.site {
+				position: absolute;
+				top: 24px;
+				right: 24px;
+				bottom: 24px;
+				width: 340px;
+				display: flex;
+				flex-direction: column;
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				backdrop-filter: blur(12px);
+				overflow: hidden;
+			}
+			header {
+				padding: 20px 20px 0;
+			}
+			.time {
+				font-size: 40px;
+				font-weight: 300;
+				letter-spacing: -1px;
+			}
+			.date {
+				color: var(--muted);
+			}
+			nav {
+				display: flex;
+				gap: 4px;
+				margin-top: 16px;
+				border-bottom: 1px solid var(--line);
+			}
+			nav button {
+				flex: 1;
+				padding: 8px 0;
+				border: 0;
+				border-bottom: 2px solid transparent;
+				background: none;
+				color: var(--muted);
+				font: inherit;
+				cursor: pointer;
+			}
+			nav button:hover {
+				color: var(--text);
+			}
+			nav button.active {
+				color: var(--text);
+				border-bottom-color: var(--accent);
+			}
+			main {
+				flex: 1;
+				overflow-y: auto;
+				padding: 16px 20px;
+			}
+			section:not(.active) {
+				display: none;
+			}
+			form {
+				display: flex;
+				gap: 8px;
+			}
+			input[type='text'],
+			textarea {
+				flex: 1;
+				min-width: 0;
+				padding: 8px 10px;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				background: rgba(255, 255, 255, 0.06);
+				color: inherit;
+				font: inherit;
+				outline: none;
+			}
+			input[type='text']:focus,
+			textarea:focus {
+				border-color: var(--accent);
+			}
+			textarea {
+				width: 100%;
+				height: 240px;
+				box-sizing: border-box;
+				resize: none;
+			}
+			.btn {
+				padding: 8px 12px;
+				border: 0;
+				border-radius: 8px;
+				background: var(--accent);
+				color: #0b1020;
+				font: inherit;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			.btn:hover {
+				filter: brightness(1.1);
+			}
+			ul {
+				list-style: none;
+				margin: 12px 0 0;
+				padding: 0;
+			}
+			li {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 8px 4px;
+				border-bottom: 1px solid var(--line);
+			}
+			li.done span {
+				color: var(--muted);
+				text-decoration: line-through;
+			}
+			li span {
+				flex: 1;
+			}
+			li .remove {
+				visibility: hidden;
+				border: 0;
+				background: none;
+				color: var(--muted);
+				cursor: pointer;
+			}
+			li:hover .remove {
+				visibility: visible;
+			}
+			.empty,
+			.status {
+				color: var(--muted);
+			}
+			.weather {
+				margin-top: 16px;
+			}
+			.weather .temp {
+				font-size: 48px;
+				font-weight: 300;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="site">
+			<header>
+				<div class="time" id="time"></div>
+				<div class="date" id="date"></div>
+				<nav>
+					<button class="active" data-tab="todo">Todo</button>
+					<button data-tab="notes">Notes</button>
+					<button data-tab="weather">Weather</button>
+				</nav>
+			</header>
+			<main>
+				<section id="todo" class="active">
+					<form id="todo-form">
+						<input type="text" id="todo-input" placeholder="Add a task" />
+						<button class="btn">Add</button>
+					</form>
+					<ul id="todo-list"></ul>
+				</section>
+				<section id="notes">
+					<textarea placeholder="Scratch notes"></textarea>
+				</section>
+				<section id="weather">
+					<form id="weather-form">
+						<input type="text" id="city" placeholder="City" value="Tokyo" />
+						<button class="btn">Show</button>
+					</form>
+					<div class="weather" id="weather-result"></div>
+				</section>
+			</main>
+		</div>
+		<script>
+			// A small start page: clock, tabs, a todo list, notes and weather.
+			// Background pages have no storage, so todos and notes last until
+			// the layer reloads. Weather asks once to reach open-meteo.com.
+			const $ = (id) => document.getElementById(id);
+
+			function tick() {
+				const now = new Date();
+				$('time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+				$('date').textContent = now.toLocaleDateString([], {
+					weekday: 'long',
+					month: 'long',
+					day: 'numeric'
+				});
+			}
+			tick();
+			setInterval(tick, 1000);
+
+			document.querySelectorAll('nav button').forEach((button) => {
+				button.addEventListener('click', () => {
+					document.querySelectorAll('nav button, section').forEach((el) => {
+						el.classList.toggle('active', el === button || el.id === button.dataset.tab);
+					});
+				});
+			});
+
+			const todos = [
+				{ text: 'Try clicking the tabs', done: true },
+				{ text: 'Add a task of your own', done: false }
+			];
+
+			function renderTodos() {
+				const list = $('todo-list');
+				list.replaceChildren();
+				if (!todos.length) {
+					list.innerHTML = '<li class="empty">Nothing to do</li>';
+					return;
+				}
+				todos.forEach((todo, i) => {
+					const item = document.createElement('li');
+					item.classList.toggle('done', todo.done);
+					const check = document.createElement('input');
+					check.type = 'checkbox';
+					check.checked = todo.done;
+					check.addEventListener('change', () => {
+						todo.done = check.checked;
+						renderTodos();
+					});
+					const text = document.createElement('span');
+					text.textContent = todo.text;
+					const remove = document.createElement('button');
+					remove.className = 'remove';
+					remove.textContent = '✕';
+					remove.addEventListener('click', () => {
+						todos.splice(i, 1);
+						renderTodos();
+					});
+					item.append(check, text, remove);
+					list.append(item);
+				});
+			}
+			renderTodos();
+
+			$('todo-form').addEventListener('submit', (event) => {
+				event.preventDefault();
+				const text = $('todo-input').value.trim();
+				if (!text) return;
+				todos.push({ text, done: false });
+				$('todo-input').value = '';
+				renderTodos();
+			});
+
+			const WEATHER = {
+				0: 'Clear',
+				1: 'Mostly clear',
+				2: 'Partly cloudy',
+				3: 'Cloudy',
+				45: 'Fog',
+				48: 'Fog',
+				51: 'Drizzle',
+				53: 'Drizzle',
+				55: 'Drizzle',
+				61: 'Rain',
+				63: 'Rain',
+				65: 'Heavy rain',
+				71: 'Snow',
+				73: 'Snow',
+				75: 'Heavy snow',
+				80: 'Showers',
+				81: 'Showers',
+				82: 'Heavy showers',
+				95: 'Thunderstorm'
+			};
+
+			async function getJson(url) {
+				const { status, body } = await odeko.fetch(url);
+				if (status !== 200) throw new Error(`HTTP ${status}`);
+				return JSON.parse(body);
+			}
+
+			$('weather-form').addEventListener('submit', async (event) => {
+				event.preventDefault();
+				const result = $('weather-result');
+				const city = $('city').value.trim();
+				if (!city) return;
+				result.innerHTML = '<p class="status">Loading…</p>';
+				try {
+					const geo = await getJson(
+						`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`
+					);
+					const place = geo.results?.[0];
+					if (!place) throw new Error('City not found');
+					const data = await getJson(
+						`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code`
+					);
+					result.innerHTML = '';
+					const temp = document.createElement('div');
+					temp.className = 'temp';
+					temp.textContent = `${Math.round(data.current.temperature_2m)}°`;
+					const label = document.createElement('div');
+					label.className = 'status';
+					label.textContent = `${WEATHER[data.current.weather_code] ?? '—'} · ${place.name}, ${place.country}`;
+					result.append(temp, label);
+				} catch (error) {
+					result.innerHTML = '';
+					const message = document.createElement('p');
+					message.className = 'status';
+					message.textContent = error.message;
+					result.append(message);
+				}
+			});
+		</script>
+	</body>
+</html>

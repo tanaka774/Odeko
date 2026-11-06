@@ -10,13 +10,30 @@ stays linked to the file and reloads whenever you save it, so you can keep
 editing it (or have an LLM edit it) while watching the canvas. You can also
 add an **HTML** layer and paste the content into its editor.
 
-**Placement** chooses whether the layer draws behind or over the icons; Snow
-and Icon Sparks are meant to go over them.
+**Placement** chooses whether the layer draws behind or over the icons.
+
+## Examples
+
+| File                  |                                                                          | Placement  |
+| --------------------- | ------------------------------------------------------------------------ | ---------- |
+| `start-page.html`     | A start page docked on the right: clock, tabs, todo list, notes, weather |            |
+| `meteor-defense.html` | A game: meteors aim at your icons, click to blast them                   |            |
+| `garden.html`         | Click to plant flowers that lean away from the pointer                   |            |
+| `snow.html`           | Snow that settles on the icons                                           | Over icons |
+| `icon-sparks.html`    | Sparks around the hovered and clicked icons                              | Over icons |
+| `big-clock.html`      | A large clock                                                            |            |
+| `three-scene.html`    | Three.js crystals, loaded from a CDN                                     |            |
+| `p5-flow-field.html`  | A p5.js flow field, loaded from a CDN                                    |            |
 
 ## How it runs
 
-- The page runs in a sandboxed frame and never receives clicks; it gets the
-  pointer and icons through `odeko` instead (below).
+- The page runs in a sandboxed frame. It also gets the pointer and icons
+  through `odeko` (below), even under the icons and when not interactive.
+- Layers behind the icons are **Interactive** by default: the page takes
+  clicks, hover, scrolling and typing wherever no icon covers it, like a
+  normal web page. Icons stay on top and clickable, and edit mode turns it
+  off while you arrange them. Turn it off for pure wallpapers. The page has
+  no storage, so its state resets when it reloads.
 - **Run JavaScript** can be turned off per layer; the page then renders as
   static HTML/CSS. Layers from an imported preset or layer file start with it
   off.

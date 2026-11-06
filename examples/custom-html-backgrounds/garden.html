@@ -1,0 +1,132 @@
+<!-- Garden -->
+<!doctype html>
+<html>
+	<head>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				cursor: pointer;
+			}
+			canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas></canvas>
+		<script>
+			// Click empty canvas to plant a flower where you clicked. Stems grow,
+			// lean away from the pointer and bloom; hovering a bloom opens it
+			// wider. The oldest flowers wilt once there are too many.
+			const canvas = document.querySelector('canvas');
+			const ctx = canvas.getContext('2d');
+			const MAX_PLANTS = 40;
+			const COLORS = [
+				'255, 120, 160',
+				'255, 200, 90',
+				'150, 140, 255',
+				'120, 220, 200',
+				'255, 150, 90'
+			];
+			const plants = [];
+			let width = 0;
+			let height = 0;
+			let last = 0;
+
+			function resize(state) {
+				const ratio = window.devicePixelRatio || 1;
+				if (state.width === width && state.height === height) return;
+				width = state.width;
+				height = state.height;
+				canvas.width = width * ratio;
+				canvas.height = height * ratio;
+				ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+			}
+
+			window.addEventListener('pointerdown', (event) => {
+				if (event.button !== 0) return;
+				plants.push({
+					x: event.clientX,
+					y: event.clientY,
+					height: 40 + Math.random() * 60,
+					petals: 5 + Math.floor(Math.random() * 4),
+					color: COLORS[Math.floor(Math.random() * COLORS.length)],
+					growth: 0,
+					lean: 0,
+					open: 0,
+					wilt: 0
+				});
+				const alive = plants.filter((p) => !p.wilt);
+				if (alive.length > MAX_PLANTS) alive[0].wilt = 0.001;
+			});
+
+			function drawPlant(p, time) {
+				const grown = Math.min(1, p.growth);
+				const fade = 1 - Math.min(1, p.wilt);
+				const stem = p.height * grown;
+				const sway = Math.sin(time * 1.3 + p.x * 0.05) * 4 + p.lean;
+				const tipX = p.x + sway;
+				const tipY = p.y - stem;
+
+				ctx.strokeStyle = `rgba(110, 190, 110, ${0.9 * fade})`;
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo(p.x, p.y);
+				ctx.quadraticCurveTo(p.x, p.y - stem * 0.5, tipX, tipY);
+				ctx.stroke();
+
+				const bloom = Math.max(0, (p.growth - 0.8) / 0.4);
+				if (bloom <= 0) return;
+				const size = (6 + p.open * 6) * Math.min(1, bloom) * (1 - p.wilt * 0.5);
+				ctx.fillStyle = `rgba(${p.color}, ${0.85 * fade})`;
+				for (let i = 0; i < p.petals; i++) {
+					const angle = (i / p.petals) * Math.PI * 2 + time * 0.2;
+					ctx.beginPath();
+					ctx.ellipse(
+						tipX + Math.cos(angle) * size,
+						tipY + Math.sin(angle) * size,
+						size * 0.8,
+						size * 0.45,
+						angle,
+						0,
+						Math.PI * 2
+					);
+					ctx.fill();
+				}
+				ctx.fillStyle = `rgba(255, 235, 150, ${fade})`;
+				ctx.beginPath();
+				ctx.arc(tipX, tipY, size * 0.45, 0, Math.PI * 2);
+				ctx.fill();
+			}
+
+			odeko.on('frame', (state) => {
+				const dt = Math.min(0.05, state.time - last);
+				last = state.time;
+				resize(state);
+				const { pointer } = state;
+
+				for (const p of plants) {
+					p.growth += dt * 0.5;
+					const tipY = p.y - p.height * Math.min(1, p.growth);
+					const dx = p.x - pointer.x;
+					const near = Math.max(0, 1 - Math.hypot(dx, tipY - pointer.y) / 120) * pointer.presence;
+					p.lean += (Math.sign(dx) * near * 25 - p.lean) * dt * 4;
+					p.open += ((near > 0.6 ? 1 : 0) - p.open) * dt * 5;
+					if (p.wilt) p.wilt += dt * 0.5;
+				}
+				for (let i = plants.length - 1; i >= 0; i--) {
+					if (plants[i].wilt >= 1) plants.splice(i, 1);
+				}
+
+				ctx.clearRect(0, 0, width, height);
+				for (const p of plants) drawPlant(p, state.time);
+			});
+		</script>
+	</body>
+</html>
