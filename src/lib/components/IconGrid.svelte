@@ -861,6 +861,8 @@
 		position: relative;
 		overflow: hidden;
 		background: transparent;
+		/* Keeps icon z-indexes below background layers placed over icons. */
+		isolation: isolate;
 	}
 	.icon-grid.edit-mode {
 		background-image:
