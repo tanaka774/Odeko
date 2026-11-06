@@ -187,7 +187,7 @@
 		}
 
 		let last = performance.now();
-		let lastFrame = 0;
+		let nextFrame = 0;
 		let raf = 0;
 		let running = false;
 
@@ -228,8 +228,12 @@
 
 		function frame(now: number) {
 			raf = requestAnimationFrame(frame);
-			if (fps > 0 && now - lastFrame < 1000 / fps - 1) return;
-			lastFrame = now;
+			if (fps > 0) {
+				if (now < nextFrame - 1) return;
+				// Advance from the due time, not `now`, so display-tick jitter does
+				// not push every frame back a whole tick.
+				nextFrame = Math.max(nextFrame + 1000 / fps, now);
+			}
 			const dt = Math.min(0.1, (now - last) / 1000);
 			last = now;
 			time += dt;
