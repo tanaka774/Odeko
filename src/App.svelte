@@ -9,7 +9,7 @@
 	import CanvasBackground from '$lib/components/CanvasBackground.svelte';
 	import ToastStack from '$lib/components/ToastStack.svelte';
 	import { isVideoBackground } from '$lib/background';
-	import { layersAt } from '$lib/background-layers';
+	import { isInteractive, layersAt } from '$lib/background-layers';
 	import { bridge } from '$lib/widgets/network-bridge.svelte';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import {
@@ -339,6 +339,9 @@
 		)
 	);
 	let shownLayers = $derived((settingsStore.preview ?? settingsStore.settings).background_layers);
+	let backgroundIsInteractive = $derived(
+		shownLayers.some((layer) => layer.enabled && isInteractive(layer))
+	);
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -362,6 +365,7 @@
 		onclick={(e) => e.stopPropagation()}
 		oncontextmenu={handleOverlayContextMenu}
 		class:faded={panelHidden}
+		class:interactive-bg={backgroundIsInteractive && !isEditMode}
 		style:--preset-fade="{PRESET_FADE_MS}ms"
 		style:width="{settingsStore.settings.width_percent}%"
 		style:height="{settingsStore.settings.height_percent}%"
@@ -555,6 +559,15 @@
 	.canvas-panel.faded,
 	.canvas-content.faded {
 		opacity: 0.01;
+	}
+
+	.interactive-bg .canvas-content {
+		pointer-events: none;
+	}
+
+	.interactive-bg :global(.icon-wrapper),
+	.interactive-bg :global(.bg-html.interactive) {
+		pointer-events: auto;
 	}
 
 	.backdrop.switching {

@@ -87,6 +87,8 @@ export interface HtmlLayer extends LayerCommon, SourceFile {
 	type: 'html';
 	/** Off: the page renders as static HTML/CSS. */
 	scripts: boolean;
+	/** Below icons only: the page takes pointer and keyboard input on empty canvas. */
+	interactive: boolean;
 }
 
 export type BackgroundLayer = ColorLayer | MediaLayer | ShaderLayer | HtmlLayer;
@@ -189,7 +191,8 @@ export function createLayer(
 							source: STARTER_HTML,
 							file: null,
 							watch: false,
-							scripts: true
+							scripts: true,
+							interactive: true
 						};
 	return { ...layer, ...overrides } as BackgroundLayer;
 }
@@ -268,7 +271,13 @@ export function sanitizeLayer(raw: unknown): BackgroundLayer | null {
 				fps: pick(value.fps, [0, 15, 30, 60], 60)
 			};
 		case 'html':
-			return { ...common, ...sourceFile, type, scripts: bool(value.scripts, true) };
+			return {
+				...common,
+				...sourceFile,
+				type,
+				scripts: bool(value.scripts, true),
+				interactive: bool(value.interactive, true)
+			};
 	}
 }
 
@@ -285,6 +294,11 @@ export function sanitizeLayers(raw: unknown): BackgroundLayer[] {
 		layers.push(layer);
 	}
 	return layers;
+}
+
+/** Whether `layer` takes input on empty canvas. */
+export function isInteractive(layer: BackgroundLayer): boolean {
+	return layer.type === 'html' && layer.interactive && layer.placement === 'below';
 }
 
 /** Layers that render in `placement`, bottom first. */

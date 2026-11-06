@@ -440,6 +440,17 @@
 						<input type="checkbox" bind:checked={layer.scripts} />
 						Run JavaScript
 					</label>
+					<span class="label">Input</span>
+					<label class="check" class:off={layer.placement !== 'below'}>
+						<input
+							type="checkbox"
+							bind:checked={layer.interactive}
+							disabled={layer.placement !== 'below'}
+						/>
+						{layer.placement === 'below'
+							? 'Interactive: clicks on empty canvas go to the page'
+							: 'Interactive needs Placement "Behind icons"'}
+					</label>
 				{/if}
 			</div>
 
@@ -716,6 +727,11 @@
 		align-items: center;
 		gap: calc(0.4286 * var(--modal-font-size));
 		cursor: pointer;
+	}
+
+	.check.off {
+		opacity: 0.5;
+		cursor: default;
 	}
 
 	input[type='checkbox'] {

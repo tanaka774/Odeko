@@ -52,6 +52,36 @@ export const HELPER_SCRIPT = `(function () {
 		event.preventDefault();
 		parent.postMessage({ kind: 'odeko-contextmenu', x: event.clientX, y: event.clientY }, '*');
 	});
+	// An interactive page takes the pointer and focus away from the app; pass
+	// them on so other layers keep tracking and app shortcuts keep working.
+	function forwardPointer(event) {
+		parent.postMessage(
+			{ kind: 'odeko-pointer', type: event.type, x: event.clientX, y: event.clientY, button: event.button },
+			'*'
+		);
+	}
+	window.addEventListener('pointermove', forwardPointer, true);
+	window.addEventListener('pointerdown', forwardPointer, true);
+	window.addEventListener('pointerup', forwardPointer, true);
+	window.addEventListener('keydown', function (event) {
+		var target = event.target;
+		if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+		setTimeout(function () {
+			if (event.defaultPrevented) return;
+			parent.postMessage(
+				{
+					kind: 'odeko-key',
+					key: event.key,
+					code: event.code,
+					ctrlKey: event.ctrlKey,
+					altKey: event.altKey,
+					shiftKey: event.shiftKey,
+					metaKey: event.metaKey
+				},
+				'*'
+			);
+		});
+	});
 	window.odeko = odeko;
 })();`;
 

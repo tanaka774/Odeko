@@ -11,31 +11,42 @@
 		return libraryBase;
 	}
 
-	// Re-fires a right-click the frame handed back (see HELPER_SCRIPT) on the
-	// app element under it. Every HTML layer covers the canvas panel, so the
-	// first one's rect maps the position for all of them.
-	function forwardContextMenu(event: MessageEvent) {
-		if (event.origin !== 'null' || event.data?.kind !== 'odeko-contextmenu') return;
-		const frame = document.querySelector('.bg-html');
-		const { x, y } = event.data as { x: unknown; y: unknown };
-		if (!frame || typeof x !== 'number' || typeof y !== 'number') return;
+	// Re-fires input a frame handed back (see HELPER_SCRIPT) in the app.
+	function forwardFromFrame(event: MessageEvent) {
+		const data = event.data;
+		if (event.origin !== 'null' || typeof data?.kind !== 'string') return;
+		if (data.kind === 'odeko-key') {
+			window.dispatchEvent(new KeyboardEvent('keydown', { ...data, bubbles: true }));
+			return;
+		}
+		if (data.kind !== 'odeko-contextmenu' && data.kind !== 'odeko-pointer') return;
+		const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe.bg-html')].find(
+			(element) => element.contentWindow === event.source
+		);
+		if (!frame || typeof data.x !== 'number' || typeof data.y !== 'number') return;
 		const rect = frame.getBoundingClientRect();
-		const clientX = rect.left + x;
-		const clientY = rect.top + y;
-		document
-			.elementFromPoint(clientX, clientY)
-			?.dispatchEvent(
-				new MouseEvent('contextmenu', {
-					bubbles: true,
-					cancelable: true,
-					button: 2,
-					clientX,
-					clientY
-				})
-			);
+		const clientX = rect.left + data.x;
+		const clientY = rect.top + data.y;
+		if (data.kind === 'odeko-pointer') {
+			if (['pointermove', 'pointerdown', 'pointerup'].includes(data.type)) {
+				window.dispatchEvent(
+					new PointerEvent(data.type, { clientX, clientY, button: Number(data.button) || 0 })
+				);
+			}
+			return;
+		}
+		document.elementFromPoint(clientX, clientY)?.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				button: 2,
+				clientX,
+				clientY
+			})
+		);
 	}
 
-	if (typeof window !== 'undefined') window.addEventListener('message', forwardContextMenu);
+	if (typeof window !== 'undefined') window.addEventListener('message', forwardFromFrame);
 </script>
 
 <script lang="ts">
@@ -47,14 +58,17 @@
 	// Renders an HTML layer in a sandboxed iframe. With scripts on, the page
 	// receives `odeko-frame` messages with the shared inputs (CSS pixels,
 	// top-left origin) every animation frame, and pause/resume while the
-	// window hides and shows.
+	// window hides and shows. An interactive page takes pointer input where
+	// no icon covers it while the panel has `interactive-bg`.
 	let {
 		source,
 		scripts,
+		interactive,
 		onready
 	}: {
 		source: string;
 		scripts: boolean;
+		interactive: boolean;
 		/** Fires once the page has loaded. */
 		onready?: () => void;
 	} = $props();
@@ -114,6 +128,7 @@
 <iframe
 	bind:this={iframe}
 	class="bg-html"
+	class:interactive
 	title="Background layer"
 	sandbox="allow-scripts"
 	{srcdoc}

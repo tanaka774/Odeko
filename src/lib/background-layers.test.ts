@@ -3,6 +3,7 @@ import {
 	contentKey,
 	createLayer,
 	defaultLayers,
+	isInteractive,
 	layerContent,
 	layersAt,
 	sanitizeLayer,
@@ -73,6 +74,17 @@ describe('layersAt', () => {
 		const d = createLayer('shader', { id: 'd' });
 		expect(layersAt([a, b, c, d], 'below').map((l) => l.id)).toEqual(['a', 'd']);
 		expect(layersAt([a, b, c, d], 'above').map((l) => l.id)).toEqual(['b']);
+	});
+});
+
+describe('isInteractive', () => {
+	it('only applies to HTML layers behind the icons', () => {
+		expect(isInteractive(createLayer('html'))).toBe(true);
+		expect(isInteractive(createLayer('html', { interactive: false }))).toBe(false);
+		expect(isInteractive(createLayer('html', { placement: 'above' }))).toBe(false);
+		expect(sanitizeLayer({ type: 'html', interactive: 'yes' })).toMatchObject({
+			interactive: true
+		});
 	});
 });
 

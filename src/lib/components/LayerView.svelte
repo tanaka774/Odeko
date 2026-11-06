@@ -4,7 +4,7 @@
 	import MediaLayerView from './MediaLayerView.svelte';
 	import ShaderBackground from './ShaderBackground.svelte';
 	import { safeRgbColor } from '$lib/utils';
-	import type { BackgroundLayer, LayerContent } from '$lib/background-layers';
+	import { isInteractive, type BackgroundLayer, type LayerContent } from '$lib/background-layers';
 
 	// One rendered version of a layer. `content` is frozen for this version
 	// (a change mounts a new version); everything else in `layer` updates live.
@@ -51,7 +51,12 @@
 		{onready}
 	/>
 {:else}
-	<HtmlLayer source={content.source} scripts={content.scripts} {onready} />
+	<HtmlLayer
+		source={content.source}
+		scripts={content.scripts}
+		interactive={isInteractive(layer)}
+		{onready}
+	/>
 {/if}
 
 <style>
