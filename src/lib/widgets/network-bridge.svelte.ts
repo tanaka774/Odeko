@@ -49,7 +49,9 @@ export function setAllowLocalNetwork(enabled: boolean): void {
 }
 
 function createBridge() {
-	const state = $state({ pending: null as PendingRequest | null });
+	// Raw: a deep proxy would wrap the cross-origin `iframe` window, and reading
+	// it back through the proxy throws a SecurityError.
+	let pending = $state.raw<PendingRequest | null>(null);
 
 	function postResult(iframe: Window, id: number, payload: Record<string, unknown>) {
 		iframe.postMessage({ kind: 'widget-fetch-result', id, ...payload }, '*');
@@ -94,14 +96,14 @@ function createBridge() {
 		if (grantedHosts().includes(host)) {
 			void doFetch(event.source as Window, msg.id, msg.url);
 		} else {
-			state.pending = { id: msg.id, url: msg.url, host, iframe: event.source as Window };
+			pending = { id: msg.id, url: msg.url, host, iframe: event.source as Window };
 		}
 	}
 
 	function resolvePrompt(allowed: boolean) {
-		if (!state.pending) return;
-		const request = state.pending;
-		state.pending = null;
+		if (!pending) return;
+		const request = pending;
+		pending = null;
 		if (!allowed) {
 			postResult(request.iframe, request.id, { ok: false, error: 'denied by user' });
 			return;
@@ -116,7 +118,7 @@ function createBridge() {
 
 	return {
 		get pending() {
-			return state.pending;
+			return pending;
 		},
 		resolvePrompt
 	};
