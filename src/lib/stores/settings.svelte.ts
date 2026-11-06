@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { defaultLayers, sanitizeLayers, type BackgroundLayer } from '$lib/background-layers';
+import type { CanvasAnimation, SlideEdge } from '$lib/canvas-transition';
 import type { CanvasIcon } from '$lib/icons';
 import type { WidgetAppearanceConfig } from '$lib/widgets/types';
 import {
@@ -133,6 +134,13 @@ export interface CanvasSettings {
 	 * area (desktop stays visible), `full` blurs the whole screen.
 	 */
 	blur_strength: 'light' | 'full';
+	open_animation: CanvasAnimation;
+	close_animation: CanvasAnimation;
+	/** Screen edge the "slide" animation enters from and leaves to. */
+	slide_edge: SlideEdge;
+	/** Tiles sweep in one after another on open and on preset switches. */
+	tile_cascade: boolean;
+	animation_duration_ms: number;
 	position_x: number;
 	position_y: number;
 	magnetic_snap: boolean;
@@ -177,6 +185,11 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	backdrop_darkness: 0.3,
 	backdrop_blur: true,
 	blur_strength: 'full',
+	open_animation: 'fade',
+	close_animation: 'fade',
+	slide_edge: 'bottom',
+	tile_cascade: false,
+	animation_duration_ms: 220,
 	position_x: 50,
 	position_y: 50,
 	magnetic_snap: true,

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -104,6 +104,20 @@ pub struct CanvasSettings {
     /// the canvas panel area.
     #[serde(default = "default_full_strength")]
     pub blur_strength: String,
+    /// Show/hide animations, played by the frontend: `"none"`, `"fade"`,
+    /// `"zoom"` or `"slide"`.
+    #[serde(default = "default_fade_animation")]
+    pub open_animation: String,
+    #[serde(default = "default_fade_animation")]
+    pub close_animation: String,
+    /// Screen edge the `"slide"` animation enters from and leaves to.
+    #[serde(default = "default_slide_edge")]
+    pub slide_edge: String,
+    /// Tiles sweep in one after another on open and on preset switches.
+    #[serde(default)]
+    pub tile_cascade: bool,
+    #[serde(default = "default_animation_duration_ms")]
+    pub animation_duration_ms: f32,
     #[serde(default)]
     pub magnetic_snap: bool,
     #[serde(default)]
@@ -153,6 +167,11 @@ impl Default for CanvasSettings {
             backdrop_darkness: 0.3,
             backdrop_blur: true,
             blur_strength: "full".to_string(),
+            open_animation: default_fade_animation(),
+            close_animation: default_fade_animation(),
+            slide_edge: default_slide_edge(),
+            tile_cascade: false,
+            animation_duration_ms: default_animation_duration_ms(),
             magnetic_snap: true,
             grid_size: 40.0,
             grid_line_color: "255, 255, 255".to_string(),
@@ -421,6 +440,18 @@ fn default_true() -> bool {
 
 fn default_full_strength() -> String {
     "full".to_string()
+}
+
+fn default_fade_animation() -> String {
+    "fade".to_string()
+}
+
+fn default_slide_edge() -> String {
+    "bottom".to_string()
+}
+
+fn default_animation_duration_ms() -> f32 {
+    220.0
 }
 
 fn default_grid_line_color() -> String {
@@ -1271,10 +1302,15 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
     })
 }
 
+/// The frontend plays the close animation and hides the window itself.
 #[tauri::command]
 pub fn hide_canvas(app: tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
+    request_canvas_hide(&app);
+}
+
+pub fn request_canvas_hide(app: &tauri::AppHandle) {
+    if let Err(error) = app.emit("canvas-hide", ()) {
+        log::warn!("Failed to emit canvas-hide: {}", error);
     }
 }
 
@@ -1579,6 +1615,11 @@ mod tests {
             backdrop_darkness: 0.55,
             backdrop_blur: false,
             blur_strength: "light".to_string(),
+            open_animation: "zoom".to_string(),
+            close_animation: "slide".to_string(),
+            slide_edge: "left".to_string(),
+            tile_cascade: true,
+            animation_duration_ms: 400.0,
             magnetic_snap: false,
             grid_size: 64.0,
             grid_line_color: "200, 100, 50".into(),
@@ -1675,6 +1716,11 @@ mod tests {
             assert_eq!(got.position_x, 30.0);
             assert_eq!(got.position_y, 40.0);
             assert_eq!(got.backdrop_darkness, 0.55);
+            assert_eq!(got.open_animation, "zoom");
+            assert_eq!(got.close_animation, "slide");
+            assert_eq!(got.slide_edge, "left");
+            assert!(got.tile_cascade);
+            assert_eq!(got.animation_duration_ms, 400.0);
             assert!(!got.magnetic_snap);
             assert_eq!(got.grid_size, 64.0);
             assert_eq!(got.grid_line_color, "200, 100, 50");
