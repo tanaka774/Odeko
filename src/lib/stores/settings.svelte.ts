@@ -209,6 +209,8 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	modal_appearance: {}
 };
 
+export const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof CanvasSettings)[];
+
 function createSettingsStore() {
 	let settings = $state<CanvasSettings>({
 		...DEFAULT_SETTINGS,

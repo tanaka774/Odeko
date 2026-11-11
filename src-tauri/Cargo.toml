@@ -37,7 +37,7 @@ walkdir = "2"
 regex = "1"
 sysinfo = "0.30"
 portable-pty = "0.9"
-tokio = { version = "1", features = ["time", "net"] }
+tokio = { version = "1", features = ["time", "net", "sync"] }
 shlex = "1"
 base64 = "0.22"
 tiny_http = "0.12"
@@ -50,6 +50,9 @@ tauri-plugin-process = "~2.3.1"
 
 # Platform-specific media control dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
+# Canvas screenshots for the AI chat (WebKitGTK snapshot, encoded with cairo).
+webkit2gtk = "=2.0.2"
+cairo-rs = { version = "=0.18.5", features = ["png"] }
 mpris = "2.0"
 zbus = { version = "4", default-features = false, features = ["tokio"] }
 freedesktop-icons = "0.3"

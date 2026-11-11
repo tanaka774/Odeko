@@ -45,6 +45,50 @@ And you can change basic styles of these icons like background color, opacity or
 
 - You can save the layout as a preset, and import or export it as a JSON file.
 
+### AI Chat
+
+An AI chat widget: a normal chat assistant that can also change the canvas when you ask.
+
+**Setup**
+
+1. Edit Mode → Add Widget → AI Chat.
+2. Right-click it → Open Settings… → Providers → + Add, pick a provider and paste your API key.
+   - OpenAI, Anthropic, Google Gemini, DeepSeek, OpenRouter, or any OpenAI-compatible server through Custom, including local ones like Ollama and LM Studio (the API key may stay empty).
+3. Save, then pick the provider for this widget in the Chat tab.
+
+**Web search** (Providers tab → Web search)
+
+| Service  | Needs                                | Cost                        |
+| -------- | ------------------------------------ | --------------------------- |
+| Off      | —                                    | —                           |
+| DeepSeek | a DeepSeek provider (reuses its key) | $0.75 per 1,000 searches    |
+| Tavily   | its own key                          | 1,000 free searches a month |
+| Brave    | its own key                          | free monthly credit         |
+| Exa      | its own key                          | free monthly credit         |
+| SearXNG  | the URL of your own server           | free                        |
+
+The default is DeepSeek when you have a DeepSeek provider, otherwise Off. "Save and test" checks the setup.
+
+**What it can do**
+
+- Chat, read web pages, search the web, and look at images you attach (paste, drag or the image button; needs a model that accepts images).
+- Change the canvas: background layers and shaders, colors, widgets and icons, layout, custom CSS and HTML, presets. It asks once per chat before reading the config, because the config holds app paths and memo text. You can switch that to "Always allow" in the Chat tab.
+- Every change applies right away and gets a Revert button in the chat. In Edit Mode, Ctrl+Z and Cancel also undo the AI's changes.
+- Take a screenshot of the canvas to check its work (Linux only for now).
+
+**What needs your approval or is blocked**
+
+- Approval: app icons that launch a program, launch arguments, non-web links, shortcuts, turning off Sleep/Restart/Shutdown confirmations, renaming or deleting presets.
+- Blocked: network permissions of Custom HTML widgets, deleting AI chat widgets.
+
+**Privacy**
+
+- API keys are stored by the app's backend in `ai-secrets.json` in the config folder, readable only by you. The interface never receives them, and a key is only ever sent to its own provider.
+- Conversations are stored in `ai-chats/` in the config folder. Neither keys nor conversations are part of presets or exported files.
+- What you type, attached images, and (once you allow it) the parts of the config the AI reads are sent to your AI provider. Search queries go to the search service you picked. Clipboard history, drawings and network permissions are never sent.
+
+Config folder: `~/.config/odeko` on Linux, `~/Library/Application Support/odeko` on macOS, `%APPDATA%\odeko` on Windows.
+
 ## Development
 
 ```bash

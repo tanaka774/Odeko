@@ -1,0 +1,54 @@
+/*
+ * AI chat widget - "Midnight Terminal" theme.
+ * Deep indigo glass, monospace transcript, violet user bubbles and green
+ * change cards with a glowing revert button.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this whole file.
+ */
+
+.aichat-widget {
+	background: linear-gradient(170deg, rgba(15, 23, 42, 0.94), rgba(30, 27, 75, 0.94));
+	border: 1px solid rgba(129, 140, 248, 0.45);
+	border-radius: 16px;
+	color: #e0e7ff;
+	box-shadow: 0 16px 36px rgba(2, 6, 23, 0.55);
+}
+
+.chat-log {
+	font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+	font-size: 0.92em;
+}
+
+.chat-user .chat-text {
+	background: linear-gradient(135deg, #6366f1, #8b5cf6);
+	color: #ffffff;
+	border-radius: 12px 12px 2px 12px;
+}
+
+.chat-assistant .chat-text {
+	color: #c7d2fe;
+}
+
+.chat-change {
+	background: rgba(16, 185, 129, 0.14);
+	border-left-color: #34d399;
+}
+
+.chat-revert {
+	background: rgba(52, 211, 153, 0.2);
+	box-shadow: 0 0 10px rgba(52, 211, 153, 0.35);
+}
+
+.chat-error {
+	color: #fda4af;
+}
+
+.chat-input {
+	background: rgba(2, 6, 23, 0.6);
+	border-color: rgba(129, 140, 248, 0.5);
+	border-radius: 10px;
+}
+
+.chat-send {
+	background: #6366f1;
+	color: #ffffff;
+}

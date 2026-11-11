@@ -120,6 +120,55 @@ pub(crate) async fn fetch_public_bytes(
     Err(format!("too many redirects (more than {MAX_REDIRECTS})"))
 }
 
+const PAGE_MAX_BYTES: usize = 4 * 1024 * 1024;
+
+/// Fetches a public web page for the AI chat's `fetch_page` tool. Same
+/// address validation as `widget_fetch`, private/LAN hosts always refused.
+#[tauri::command]
+pub async fn ai_fetch_page(url: String) -> Result<FetchResult, String> {
+    let mut current = Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
+    ensure_http_scheme(current.scheme())?;
+    for _ in 0..=MAX_REDIRECTS {
+        let client = client_for_url(&current, false).await?;
+        let response = client
+            .get(current.clone())
+            .header("Accept", "text/html,text/plain,application/json;q=0.9,*/*;q=0.5")
+            .send()
+            .await
+            .map_err(|e| format!("request failed: {e}"))?;
+        let status = response.status();
+        if status.is_redirection() {
+            let location = response
+                .headers()
+                .get(LOCATION)
+                .ok_or("redirect response had no Location header")?
+                .to_str()
+                .map_err(|_| "redirect Location was not valid text")?;
+            current = current
+                .join(location)
+                .map_err(|e| format!("invalid redirect target: {e}"))?;
+            ensure_http_scheme(current.scheme())?;
+            continue;
+        }
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("failed to read response body: {e}"))?;
+        let slice = &bytes[..bytes.len().min(PAGE_MAX_BYTES)];
+        return Ok(FetchResult {
+            status: status.as_u16(),
+            body: String::from_utf8_lossy(slice).into_owned(),
+            content_type,
+        });
+    }
+    Err(format!("too many redirects (more than {MAX_REDIRECTS})"))
+}
+
 fn ensure_http_scheme(scheme: &str) -> Result<(), String> {
     match scheme {
         "http" | "https" => Ok(()),

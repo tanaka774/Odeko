@@ -20,6 +20,7 @@ import RestartWidget from './RestartWidget.svelte';
 import ShutdownWidget from './ShutdownWidget.svelte';
 import ClipboardWidget from './ClipboardWidget.svelte';
 import CustomWidget from './CustomWidget.svelte';
+import AiChatWidget from './AiChatWidgetLazy.svelte';
 
 export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
 	clock: ClockWidget,
@@ -36,5 +37,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
 	restart: RestartWidget,
 	shutdown: ShutdownWidget,
 	clipboard: ClipboardWidget,
-	custom: CustomWidget
+	custom: CustomWidget,
+	aichat: AiChatWidget
 };

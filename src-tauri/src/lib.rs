@@ -1,5 +1,8 @@
 mod commands;
 mod window_effects;
+use commands::ai_snapshot::ai_canvas_snapshot;
+use commands::ai_http::{ai_request_cancel, ai_request_read, ai_request_send};
+use commands::ai_settings::{delete_ai_chat, load_ai_chat, load_ai_settings, prune_ai_secrets, save_ai_chat, save_ai_settings, set_ai_secret};
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
 use commands::canvas::{launch_app, open_url, load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, request_canvas_hide, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
@@ -9,7 +12,7 @@ use commands::text_files::{read_text_file, text_file_modified, write_text_file};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
 use commands::system_stats::get_system_stats;
 use commands::terminal::{TerminalState, terminal_create_shell, terminal_write, terminal_resize, terminal_start_reader};
-use commands::widget_fetch::widget_fetch;
+use commands::widget_fetch::{ai_fetch_page, widget_fetch};
 use tauri::{Emitter, Manager};
 use tauri::utils::config::Color;
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState, GlobalShortcutExt};
@@ -171,7 +174,10 @@ pub fn run() {
             set_autostart, get_autostart,
             register_background_video, set_backdrop_blur, widget_fetch,
             library_base_url, library_cache_size, clear_library_cache,
-            read_text_file, text_file_modified, write_text_file
+            read_text_file, text_file_modified, write_text_file,
+            load_ai_settings, save_ai_settings, set_ai_secret, prune_ai_secrets,
+            load_ai_chat, save_ai_chat, delete_ai_chat,
+            ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

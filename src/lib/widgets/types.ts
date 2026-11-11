@@ -15,7 +15,8 @@ export type WidgetType =
 	| 'restart'
 	| 'shutdown'
 	| 'clipboard'
-	| 'custom';
+	| 'custom'
+	| 'aichat';
 
 export type WidgetBorderStyle = 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
 
@@ -158,6 +159,12 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 		backgroundColor: 'rgba(30, 30, 40, 0.95)',
 		backgroundOpacity: 0.95,
 		padding: 0
+	},
+	aichat: {
+		backgroundColor: 'rgba(24, 24, 32, 0.95)',
+		backgroundOpacity: 0.95,
+		fontSize: 14,
+		padding: 8
 	},
 	system: {
 		backgroundColor: 'rgba(0, 8, 0, 0.85)',
@@ -364,6 +371,14 @@ export interface ClipboardWidgetConfig extends WidgetConfig {
 export interface CustomWidgetConfig extends WidgetConfig {
 	content?: string;
 }
+
+// AI chat widget config. Provider profiles (with API keys) live outside the
+// preset in ai.json; the widget only references one by id.
+export interface AiChatWidgetConfig extends WidgetConfig {
+	profileId?: string | null;
+	/** Extra instructions appended to the system prompt. */
+	instructions?: string;
+}
 // Union type for all widget configs
 export type WidgetConfigType =
 	| ClockWidgetConfig
@@ -380,7 +395,8 @@ export type WidgetConfigType =
 	| RestartWidgetConfig
 	| ShutdownWidgetConfig
 	| ClipboardWidgetConfig
-	| CustomWidgetConfig;
+	| CustomWidgetConfig
+	| AiChatWidgetConfig;
 
 // Common props every widget component accepts. WidgetContainer dispatches
 // through a registry and passes these uniformly, so every widget shares one
@@ -557,6 +573,16 @@ export const WIDGET_REGISTRY: WidgetMeta[] = [
 		defaultHeight: 200,
 		minWidth: 120,
 		minHeight: 80
+	},
+	{
+		type: 'aichat',
+		name: 'AI Chat',
+		description: 'Chat with an AI that can restyle and rearrange this canvas',
+		icon: 'bot',
+		defaultWidth: 360,
+		defaultHeight: 480,
+		minWidth: 240,
+		minHeight: 240
 	}
 ];
 
@@ -675,6 +701,8 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 				showTimestamps: true,
 				captureImages: true
 			};
+		case 'aichat':
+			return { profileId: null, instructions: '' };
 		case 'custom':
 			return {
 				content: '<h1>My widget</h1>\n<p>Edit the HTML in the widget settings.</p>'

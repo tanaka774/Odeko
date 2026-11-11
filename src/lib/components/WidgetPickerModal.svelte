@@ -22,6 +22,7 @@
 	import Power from '@lucide/svelte/icons/power';
 	import Clipboard from '@lucide/svelte/icons/clipboard';
 	import Code from '@lucide/svelte/icons/code';
+	import Bot from '@lucide/svelte/icons/bot';
 	import type { Component } from 'svelte';
 
 	interface Props {
@@ -47,7 +48,8 @@
 		'rotate-cw': RotateCw,
 		power: Power,
 		clipboard: Clipboard,
-		code: Code
+		code: Code,
+		bot: Bot
 	};
 
 	function handleSelect(widgetType: WidgetType) {

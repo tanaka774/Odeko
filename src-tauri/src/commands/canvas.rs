@@ -331,6 +331,11 @@ fn neutralize_preset(data: &mut PresetData) -> (usize, bool, usize, usize) {
     let mut cleared_global_shortcuts = 0;
     let mut forced_power_confirmation = 0;
     for icon in &mut data.icons {
+        if icon.widget_type.as_deref() == Some("aichat") {
+            if let Some(serde_json::Value::Object(obj)) = icon.widget_config.as_mut() {
+                obj.remove("chat");
+            }
+        }
         if icon.keybind_global == Some(true) {
             icon.keybind_global = Some(false);
             cleared_global_shortcuts += 1;
@@ -1193,10 +1198,29 @@ pub fn export_preset(name: String, path: String) -> Result<(), String> {
     if !preset_path.exists() {
         return Err(format!("Preset '{}' not found", name));
     }
-    let dest = PathBuf::from(path);
-    match std::fs::copy(&preset_path, &dest) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(format!("Failed to export preset: {}", e)),
+    let text = std::fs::read_to_string(&preset_path)
+        .map_err(|e| format!("Failed to read preset: {}", e))?;
+    let mut value: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("Failed to parse preset: {}", e))?;
+    strip_private_widget_data(&mut value);
+    let json = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
+    std::fs::write(PathBuf::from(path), json).map_err(|e| format!("Failed to export preset: {}", e))
+}
+
+/// AI chat conversations belong in ai-chats/, never in a preset file that
+/// can be exported or shared; older versions stored them in the widget.
+pub(crate) fn strip_private_widget_data(preset: &mut serde_json::Value) {
+    let Some(icons) = preset.get_mut("icons").and_then(|i| i.as_array_mut()) else {
+        return;
+    };
+    for icon in icons {
+        if icon.get("widget_type").and_then(|t| t.as_str()) != Some("aichat") {
+            continue;
+        }
+        if let Some(config) = icon.get_mut("widget_config").and_then(|c| c.as_object_mut()) {
+            config.remove("chat");
+        }
     }
 }
 
@@ -1335,6 +1359,26 @@ pub fn get_icon_base64(icon_path: String) -> Result<String, String> {
     let bytes = std::fs::read(&path).map_err(|e| format!("read {}: {}", icon_path, e))?;
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     Ok(format!("data:image/png;base64,{}", STANDARD.encode(&bytes)))
+}
+
+#[cfg(test)]
+mod strip_tests {
+    use super::*;
+
+    #[test]
+    fn export_drops_ai_chat_logs() {
+        let mut preset = serde_json::json!({
+            "icons": [
+                { "widget_type": "aichat", "widget_config": { "profileId": "p", "chat": { "messages": [] } } },
+                { "widget_type": "memo", "widget_config": { "chat": "kept" } }
+            ],
+            "settings": {}
+        });
+        strip_private_widget_data(&mut preset);
+        assert!(preset["icons"][0]["widget_config"].get("chat").is_none());
+        assert_eq!(preset["icons"][0]["widget_config"]["profileId"], "p");
+        assert_eq!(preset["icons"][1]["widget_config"]["chat"], "kept");
+    }
 }
 
 #[cfg(test)]

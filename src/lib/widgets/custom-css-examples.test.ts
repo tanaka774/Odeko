@@ -30,6 +30,7 @@ const MARKUP_SOURCES: Record<CssApiItemType, string> = {
 	shutdown: 'src/lib/widgets/PowerControlBaseWidget.svelte',
 	clipboard: 'src/lib/widgets/ClipboardWidget.svelte',
 	custom: 'src/lib/widgets/CustomWidget.svelte',
+	aichat: 'src/lib/widgets/AiChatWidget.svelte',
 	icon: 'src/lib/components/AppIcon.svelte'
 };
 
@@ -127,10 +128,7 @@ describe('custom CSS examples', () => {
 
 		// @keyframes bodies keep their own `from`/`50%` preludes — prefixSelectors
 		// passes them through verbatim, so drop them before the scope check.
-		const withoutKeyframes = scoped.replace(
-			/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g,
-			''
-		);
+		const withoutKeyframes = scoped.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
 
 		const unscoped = selectorPreludes(withoutKeyframes).filter(
 			(prelude) => !prelude.startsWith(SCOPE)

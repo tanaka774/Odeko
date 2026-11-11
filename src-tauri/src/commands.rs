@@ -1,3 +1,6 @@
+pub mod ai_http;
+pub mod ai_settings;
+pub mod ai_snapshot;
 pub mod app_scanner;
 pub mod errors;
 pub mod canvas;

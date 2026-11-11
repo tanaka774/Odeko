@@ -20,6 +20,7 @@ export type ModalKey =
 	| 'shutdown'
 	| 'clipboard'
 	| 'custom'
+	| 'aichat'
 	| 'app-picker'
 	| 'widget-picker';
 
@@ -41,6 +42,7 @@ export const MODAL_KEYS: ModalKey[] = [
 	'shutdown',
 	'clipboard',
 	'custom',
+	'aichat',
 	'app-picker',
 	'widget-picker'
 ];
@@ -63,6 +65,7 @@ export const MODAL_LABELS: Record<ModalKey, string> = {
 	shutdown: 'Shutdown Settings',
 	clipboard: 'Clipboard Settings',
 	custom: 'Custom Widget Settings',
+	aichat: 'AI Chat Settings',
 	'app-picker': 'Add App Dialog',
 	'widget-picker': 'Add Widget Dialog'
 };

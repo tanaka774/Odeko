@@ -257,6 +257,30 @@ export const WIDGET_CSS_API: Record<
 			'.custom-widget { background: linear-gradient(140deg, #111827, #4c1d95); border: 1px solid rgba(196, 181, 253, 0.4); }\n.html-content h1 { color: #f0abfc; letter-spacing: 0.04em; }\n.html-content a { color: #67e8f9; }',
 		note: 'Class names inside your HTML are your own — they are not part of the stable API. Prefer element selectors scoped under .html-content. The iframe document itself cannot be reached from here.'
 	},
+	aichat: {
+		classes: [
+			'.aichat-widget',
+			'.chat-log',
+			'.chat-message',
+			'.chat-user',
+			'.chat-assistant',
+			'.chat-text',
+			'.chat-reasoning',
+			'.chat-tool',
+			'.chat-change',
+			'.chat-revert',
+			'.chat-error',
+			'.chat-permission',
+			'.chat-image',
+			'.chat-attachments',
+			'.chat-attach',
+			'.chat-input-row',
+			'.chat-input',
+			'.chat-send'
+		],
+		example:
+			'.aichat-widget { background: linear-gradient(170deg, #0f172a, #1e1b4b); }\n.chat-user .chat-text { background: #4338ca; color: #ffffff; }\n.chat-input { border-color: #6366f1; }'
+	},
 	icon: {
 		classes: [
 			'.app-icon',

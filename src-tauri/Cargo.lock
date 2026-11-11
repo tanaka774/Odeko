@@ -3300,6 +3300,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "block2 0.6.1",
+ "cairo-rs",
  "cocoa",
  "core-foundation 0.9.4",
  "core-graphics 0.23.2",
@@ -3338,6 +3339,7 @@ dependencies = [
  "wayland-backend",
  "wayland-client",
  "wayland-protocols",
+ "webkit2gtk",
  "windows 0.54.0",
  "windows-sys 0.52.0",
  "winrt-notification",

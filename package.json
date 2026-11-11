@@ -44,6 +44,10 @@
 		"vitest": "^4.1.10"
 	},
 	"dependencies": {
+		"@ai-sdk/anthropic": "^4.0.102",
+		"@ai-sdk/google": "^4.0.117",
+		"@ai-sdk/openai": "^4.0.114",
+		"@ai-sdk/openai-compatible": "^3.0.90",
 		"@tailwindcss/vite": "^4.1.7",
 		"@tauri-apps/api": "~2.10.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.3.2",
@@ -54,10 +58,14 @@
 		"@types/node": "^22.15.19",
 		"@xterm/addon-fit": "^0.11.0",
 		"@xterm/xterm": "^6.0.0",
+		"ai": "^7.0.169",
 		"clsx": "^2.1.1",
 		"dompurify": "^3.4.13",
 		"fabric": "^7.3.1",
+		"fast-json-patch": "^3.1.1",
+		"marked": "^18.2.0",
 		"tailwind-merge": "^3.3.0",
-		"tailwindcss": "^4.1.7"
+		"tailwindcss": "^4.1.7",
+		"zod": "^4.6.7"
 	}
 }

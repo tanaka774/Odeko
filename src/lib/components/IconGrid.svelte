@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { confirm } from '@tauri-apps/plugin-dialog';
 	import AppIcon from './AppIcon.svelte';
@@ -14,6 +14,7 @@
 	import {
 		settingsStore,
 		matchesKeybind,
+		keybindEquals,
 		type CanvasLayout,
 		type KeybindConfig
 	} from '$lib/stores/settings.svelte';
@@ -23,6 +24,7 @@
 	import type { CanvasIcon } from '$lib/icons';
 	import { safeRgbColor } from '$lib/utils';
 	import { saveLayoutToPreset } from '$lib/presets';
+	import { revertSettings, setLayoutBridge } from '$lib/ai/layout-bridge';
 
 	interface Props {
 		isEditMode: boolean;
@@ -89,8 +91,60 @@
 		// "apply to all" requests through this handler instead of threading a
 		// callback through every modal in the tree.
 		setBulkAppearanceHandler(handleBulkAppearanceChange);
+		setLayoutBridge({
+			read: () => ({
+				icons: $state.snapshot(icons) as CanvasIcon[],
+				settings: $state.snapshot(settingsStore.settings) as CanvasLayout['settings']
+			}),
+			preset: () => settingsStore.activePreset,
+			write: applyAiLayout
+		});
 		await loadLayout();
 	});
+
+	onDestroy(() => setLayoutBridge(null));
+
+	function syncToggleShortcut(previous: KeybindConfig) {
+		if (!keybindEquals(previous, settingsStore.settings.keybind_toggle_canvas)) {
+			void invoke('update_global_shortcut', {
+				keybind: settingsStore.settings.keybind_toggle_canvas
+			});
+		}
+	}
+
+	async function applyAiLayout(next: { icons: CanvasIcon[]; settings: CanvasLayout['settings'] }) {
+		const before = $state.snapshot(settingsStore.settings) as CanvasLayout['settings'];
+		const after = JSON.parse(JSON.stringify(next.settings)) as CanvasLayout['settings'];
+		const settingsChanged = JSON.stringify(before) !== JSON.stringify(after);
+		// In edit mode, undo and cancel must also roll back the AI's settings
+		// changes; icons are covered by the snapshot itself.
+		editSession.pushHistory(
+			icons,
+			settingsChanged && isEditMode
+				? () => {
+						const previous = settingsStore.settings.keybind_toggle_canvas;
+						settingsStore.updateSettings(
+							revertSettings(
+								before,
+								after,
+								$state.snapshot(settingsStore.settings) as CanvasLayout['settings']
+							)
+						);
+						syncToggleShortcut(previous);
+					}
+				: undefined
+		);
+		const previousToggle = settingsStore.settings.keybind_toggle_canvas;
+		settingsStore.updateSettings(next.settings);
+		icons = normalizeZ(next.icons);
+		syncToggleShortcut(previousToggle);
+		if (isEditMode) {
+			editSession.markDirty();
+			await refreshIconShortcuts(icons);
+		} else {
+			await saveLayout();
+		}
+	}
 
 	async function loadLayout() {
 		try {
@@ -190,11 +244,15 @@
 	}
 
 	export async function cancelEditMode() {
+		const settingsBefore = JSON.stringify(settingsStore.settings);
 		const restored = editSession.cancel();
 		if (restored) {
 			icons = restored;
 
 			await refreshIconShortcuts(restored);
+		}
+		if (JSON.stringify(settingsStore.settings) !== settingsBefore) {
+			await settingsStore.saveSettings();
 		}
 		selectedIds = new Set();
 	}

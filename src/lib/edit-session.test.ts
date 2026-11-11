@@ -132,4 +132,40 @@ describe('createEditSession', () => {
 		// Only the most recent 50 pushes are kept.
 		expect(session.undo()![0].x).toBe(100 + 99);
 	});
+
+	it('undo runs the revert recorded with that step', () => {
+		const session = createEditSession<{ id: string }>();
+		session.enter([{ id: 'a' }]);
+		let reverted = 0;
+		session.pushHistory([{ id: 'a' }], () => reverted++);
+		session.pushHistory([{ id: 'b' }]);
+		session.undo();
+		expect(reverted).toBe(0);
+		session.undo();
+		expect(reverted).toBe(1);
+	});
+
+	it('cancel runs pending reverts newest first, but not ones already undone', () => {
+		const session = createEditSession<{ id: string }>();
+		session.enter([]);
+		const order: string[] = [];
+		session.pushHistory([], () => order.push('first'));
+		session.pushHistory([], () => order.push('second'));
+		session.pushHistory([], () => order.push('third'));
+		session.undo();
+		order.length = 0;
+		session.cancel();
+		expect(order).toEqual(['second', 'first']);
+	});
+
+	it('save drops pending reverts', () => {
+		const session = createEditSession<{ id: string }>();
+		session.enter([]);
+		let reverted = false;
+		session.pushHistory([], () => (reverted = true));
+		session.save();
+		session.enter([]);
+		session.cancel();
+		expect(reverted).toBe(false);
+	});
 });

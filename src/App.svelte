@@ -19,6 +19,7 @@
 		type CanvasSettings
 	} from '$lib/stores/settings.svelte';
 	import { listPresets, loadPreset, neighborPreset, switchPreset } from '$lib/presets';
+	import { setPresetSwitcher } from '$lib/ai/preset-switcher';
 	import { platformStore } from '$lib/stores/platform.svelte';
 	import { toastStore, errorMessage } from '$lib/stores/toast.svelte';
 	import { launchIcon, isLaunchable } from '$lib/launch';
@@ -67,11 +68,16 @@
 	// loads hidden; only then does the swap happen, so there is never a gap.
 	async function cyclePreset(step: 1 | -1) {
 		if (presetSwitching || isEditMode) return;
+		const name = neighborPreset(await listPresets(), step);
+		if (name) await switchToPreset(name).catch(() => {});
+	}
+
+	async function switchToPreset(name: string) {
+		if (presetSwitching) throw new Error('A preset switch is already running');
+		if (isEditMode) throw new Error('Leave edit mode before switching presets');
 		presetSwitching = true;
 		let cascade: Animation[] = [];
 		try {
-			const name = neighborPreset(await listPresets(), step);
-			if (!name) return;
 			const layout = await loadPreset(name);
 			const next = settingsStore.normalizeSettings(layout.settings);
 			await Promise.race([
@@ -101,6 +107,7 @@
 			await Promise.all([wait(PRESET_FADE_MS), ...cascade.map((a) => a.finished)]);
 		} catch (error) {
 			console.error('Failed to switch preset:', error);
+			throw error;
 		} finally {
 			for (const animation of cascade) animation.cancel();
 			panelHidden = false;
@@ -277,6 +284,8 @@
 			console.warn('Update check failed:', errorMessage(error));
 		}
 	}
+
+	setPresetSwitcher((name) => switchToPreset(name));
 
 	onMount(() => {
 		const onResize = () => layoutVersion++;

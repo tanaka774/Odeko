@@ -19,6 +19,7 @@
 	import PowerControlSettingsModal from '$lib/components/PowerControlSettingsModal.svelte';
 	import ClipboardSettingsModal from '$lib/components/ClipboardSettingsModal.svelte';
 	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
+	import AiChatSettingsModal from '$lib/components/AiChatSettingsModalLazy.svelte';
 	import Portal from '$lib/components/Portal.svelte';
 	import type { KeybindConfig } from '$lib/stores/settings.svelte';
 	import {
@@ -589,6 +590,12 @@
 			bind:isOpen={showSettings}
 			widgetId={id}
 			config={config as import('./types').CustomWidgetConfig}
+			onSave={handleConfigSave}
+		/>
+	{:else if widgetType === 'aichat'}
+		<AiChatSettingsModal
+			bind:isOpen={showSettings}
+			config={config as import('./types').AiChatWidgetConfig}
 			onSave={handleConfigSave}
 		/>
 	{/if}
