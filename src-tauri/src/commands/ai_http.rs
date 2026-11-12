@@ -80,12 +80,12 @@ fn origin_of(url: &str) -> Option<String> {
 
 fn profile_target(kind: &str, base_url: &str) -> Option<AuthTarget> {
     let default = match kind {
-        "openai" => "https://api.openai.com",
+        "openai" | "chatgpt" => "https://api.openai.com",
         "anthropic" => "https://api.anthropic.com",
         "google" => "https://generativelanguage.googleapis.com",
         _ => "",
     };
-    let base = if base_url.trim().is_empty() { default } else { base_url.trim() };
+    let base = if kind == "chatgpt" || base_url.trim().is_empty() { default } else { base_url.trim() };
     let origin = origin_of(base)?;
     let (header, bearer) = match kind {
         "anthropic" => ("x-api-key", false),
@@ -105,19 +105,27 @@ fn search_target(service: &str) -> Option<AuthTarget> {
     Some(AuthTarget { origin: origin.to_string(), header, bearer })
 }
 
+fn find_profile(id: &str) -> Option<serde_json::Value> {
+    let settings = std::fs::read_to_string(get_config_dir().join("ai.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())?;
+    settings
+        .get("profiles")?
+        .as_array()?
+        .iter()
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id))
+        .cloned()
+}
+
+fn profile_kind(id: &str) -> Option<String> {
+    find_profile(id)?.get("kind")?.as_str().map(str::to_string)
+}
+
 fn auth_target(auth: &str) -> Result<AuthTarget, String> {
     if let Some(service) = auth.strip_prefix("search:") {
         return search_target(service).ok_or_else(|| format!("unknown search service {service}"));
     }
-    let settings = std::fs::read_to_string(get_config_dir().join("ai.json"))
-        .ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-        .unwrap_or_default();
-    let profile = settings
-        .get("profiles")
-        .and_then(|p| p.as_array())
-        .and_then(|list| list.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some(auth)))
-        .ok_or("AI provider profile not found; save the settings first")?;
+    let profile = find_profile(auth).ok_or("AI provider profile not found; save the settings first")?;
     let kind = profile.get("kind").and_then(|v| v.as_str()).unwrap_or("");
     let base = profile.get("baseUrl").and_then(|v| v.as_str()).unwrap_or("");
     profile_target(kind, base).ok_or_else(|| "the profile's base URL is invalid".to_string())
@@ -166,8 +174,12 @@ async fn send(request: AiHttpRequest) -> Result<AiHttpHead, String> {
                 target.origin
             ));
         }
-        let key_id = auth.to_string();
-        if let Some(key) = secret(&key_id) {
+        let key = if profile_kind(auth).as_deref() == Some("chatgpt") {
+            Some(super::chatgpt_auth::access_token(auth).await?)
+        } else {
+            secret(auth)
+        };
+        if let Some(key) = key {
             let value = if target.bearer { format!("Bearer {key}") } else { key };
             builder = builder.header(target.header, value);
         }

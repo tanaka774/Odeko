@@ -57,9 +57,10 @@ const httpFetch = vi.hoisted(() => vi.fn());
 vi.mock('./http', () => ({ aiFetch: httpFetch, keyedFetch: () => httpFetch }));
 
 const model = { current: null as MockLanguageModelV4 | null };
+const nativeSearch = { current: null as Record<string, unknown> | null };
 vi.mock('./provider', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./provider')>()),
-	createModel: async () => model.current
+	createModelSetup: async () => ({ model: model.current, nativeSearch: nativeSearch.current })
 }));
 
 import { settingsStore } from '$lib/stores/settings.svelte';
@@ -360,6 +361,31 @@ describe('chat session', () => {
 		const [url, , auth] = httpFetch.mock.calls[0];
 		expect(url).toBe('https://api.deepseek.com/v1/tools/search');
 		expect(auth).toBe('ds');
+	});
+
+	it("uses the provider's own search tool instead of ours when native is selected", async () => {
+		await aiSettingsStore.update({
+			search: { service: 'native', deepseekProfileId: null, searxngUrl: '' }
+		});
+		const { tool, jsonSchema } = await import('ai');
+		nativeSearch.current = {
+			google_search: tool({ inputSchema: jsonSchema({ type: 'object' }), execute: async () => 'x' })
+		};
+		model.current = new MockLanguageModelV4({ doStream: [say('ok')] });
+		await session().send('news?');
+		nativeSearch.current = null;
+		const names = (model.current.doStreamCalls[0].tools ?? []).map((t) => t.name).sort();
+		expect(names).toEqual(['fetch_page', 'google_search', 'load_skill']);
+	});
+
+	it('keeps our web_search when native is selected but the provider has none', async () => {
+		await aiSettingsStore.update({
+			search: { service: 'native', deepseekProfileId: null, searxngUrl: '' }
+		});
+		model.current = new MockLanguageModelV4({ doStream: [say('ok')] });
+		await session().send('news?');
+		const names = (model.current.doStreamCalls[0].tools ?? []).map((t) => t.name);
+		expect(names).toContain('web_search');
 	});
 
 	it('hides web_search when search is off', async () => {

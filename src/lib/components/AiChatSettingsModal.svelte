@@ -25,6 +25,8 @@
 		type SearchSettings
 	} from '$lib/ai/settings.svelte';
 	import { formatResults, search } from '$lib/ai/web';
+	import * as chatgpt from '$lib/ai/chatgpt';
+	import { invoke } from '@tauri-apps/api/core';
 
 	interface Props {
 		isOpen?: boolean;
@@ -48,6 +50,74 @@
 	/** Keys typed in this dialog, written to Rust on save; '' removes a key. */
 	let pendingKeys = $state<Record<string, string>>({});
 	let saveError = $state('');
+	let chatgptAccount = $state<chatgpt.ChatGptAccount | null>(null);
+	let chatgptModels = $state<chatgpt.PlanModel[]>([]);
+	let chatgptBusy = $state(false);
+	let chatgptMessage = $state('');
+
+	$effect(() => {
+		const profile = editing;
+		chatgptAccount = null;
+		chatgptModels = [];
+		chatgptMessage = '';
+		if (!profile || profile.kind !== 'chatgpt') return;
+		const id = profile.id;
+		void chatgpt.account(id).then((info) => {
+			if (editing?.id !== id) return;
+			chatgptAccount = info;
+			if (info?.plan_enabled) void loadPlanModels(id);
+		});
+	});
+
+	async function loadPlanModels(id: string) {
+		try {
+			const models = await chatgpt.listModels(id);
+			if (editing?.id !== id) return;
+			chatgptModels = models;
+			if (editing && !models.some((m) => m.slug === editing!.model) && models[0]) {
+				editing.model = models[0].slug;
+			}
+		} catch (error) {
+			chatgptMessage = `Could not load models: ${(error as Error).message}`;
+		}
+	}
+
+	async function continueWithChatGpt() {
+		if (!editing) return;
+		const id = editing.id;
+		chatgptBusy = true;
+		chatgptMessage = 'Finish signing in in your browser…';
+		try {
+			await persist();
+			const info = await chatgpt.signIn(id);
+			chatgptAccount = info;
+			chatgptMessage = info.plan_enabled
+				? "You're using your ChatGPT plan. Manage usage in ChatGPT settings."
+				: 'Signed in, but ChatGPT plan usage was not allowed. Sign in again and allow it.';
+			if (info.plan_enabled) await loadPlanModels(id);
+		} catch (error) {
+			chatgptMessage = String(error);
+		} finally {
+			chatgptBusy = false;
+		}
+	}
+
+	async function signOutChatGpt() {
+		if (!editing) return;
+		chatgptBusy = true;
+		try {
+			const confirmed = await chatgpt.signOut(editing.id);
+			chatgptAccount = null;
+			chatgptModels = [];
+			chatgptMessage = confirmed
+				? 'Signed out.'
+				: 'Signed out here, but OpenAI did not confirm it. You can disconnect Odeko in ChatGPT settings.';
+		} catch (error) {
+			chatgptMessage = String(error);
+		} finally {
+			chatgptBusy = false;
+		}
+	}
 	let testResult = $state('');
 	let testing = $state(false);
 
@@ -276,40 +346,79 @@
 							</select>
 						</SettingRow>
 					</div>
-					<SettingRow label="Model" labelFor="ai-model">
-						<input
-							id="ai-model"
-							class="text-input"
-							type="text"
-							bind:value={editing.model}
-							spellcheck="false"
-						/>
-					</SettingRow>
-					<SettingRow label="API key" labelFor="ai-key">
-						<SecretInput
-							id="ai-key"
-							saved={hasKey(editing.id)}
-							onchange={(key) => (pendingKeys[editing.id] = key)}
-						/>
-					</SettingRow>
-					<SettingRow
-						label={editing.kind === 'openai-compatible' ? 'Base URL' : 'Base URL (optional)'}
-						labelFor="ai-base"
-					>
-						<input
-							id="ai-base"
-							class="text-input"
-							type="text"
-							bind:value={editing.baseUrl}
-							spellcheck="false"
-						/>
-						{#if editing.kind === 'openai-compatible'}
+					{#if editing.kind === 'chatgpt'}
+						<SettingRow label="ChatGPT account">
+							{#if chatgptAccount}
+								<div class="chatgpt-account">
+									<span>{chatgptAccount.email ?? 'Signed in'}</span>
+									<button class="action-btn" disabled={chatgptBusy} onclick={signOutChatGpt}>
+										Sign out
+									</button>
+								</div>
+							{:else}
+								<button
+									class="action-btn chatgpt-continue"
+									disabled={chatgptBusy}
+									onclick={continueWithChatGpt}
+								>
+									Continue with ChatGPT
+								</button>
+							{/if}
+							{#if chatgptMessage}<p class="hint">{chatgptMessage}</p>{/if}
 							<p class="hint">
-								Any OpenAI-compatible server, local or remote, e.g. http://localhost:11434/v1 or
-								http://192.168.1.10:8000/v1. The API key may stay empty for local servers.
+								Requests use your ChatGPT plan instead of an API key.
+								<button
+									class="link-btn"
+									onclick={() => invoke('open_url', { url: chatgpt.USAGE_URL })}
+									>Manage usage</button
+								>
 							</p>
+						</SettingRow>
+					{/if}
+					<SettingRow label="Model" labelFor="ai-model">
+						{#if editing.kind === 'chatgpt' && chatgptModels.length > 0}
+							<select id="ai-model" class="select-input" bind:value={editing.model}>
+								{#each chatgptModels as model (model.slug)}
+									<option value={model.slug}>{model.display_name}</option>
+								{/each}
+							</select>
+						{:else}
+							<input
+								id="ai-model"
+								class="text-input"
+								type="text"
+								bind:value={editing.model}
+								spellcheck="false"
+							/>
 						{/if}
 					</SettingRow>
+					{#if editing.kind !== 'chatgpt'}
+						<SettingRow label="API key" labelFor="ai-key">
+							<SecretInput
+								id="ai-key"
+								saved={hasKey(editing.id)}
+								onchange={(key) => (pendingKeys[editing.id] = key)}
+							/>
+						</SettingRow>
+						<SettingRow
+							label={editing.kind === 'openai-compatible' ? 'Base URL' : 'Base URL (optional)'}
+							labelFor="ai-base"
+						>
+							<input
+								id="ai-base"
+								class="text-input"
+								type="text"
+								bind:value={editing.baseUrl}
+								spellcheck="false"
+							/>
+							{#if editing.kind === 'openai-compatible'}
+								<p class="hint">
+									Any OpenAI-compatible server, local or remote, e.g. http://localhost:11434/v1 or
+									http://192.168.1.10:8000/v1. The API key may stay empty for local servers.
+								</p>
+							{/if}
+						</SettingRow>
+					{/if}
 					<div class="action-buttons">
 						<button class="action-btn danger" onclick={() => removeProfile(editing.id)}>
 							<Trash2 size={14} />Remove
@@ -362,6 +471,12 @@
 						/>
 						<p class="hint">Your own instance, with "json" enabled in search.formats.</p>
 					</SettingRow>
+				{:else if searchSettings.service === 'native'}
+					<p class="hint">
+						Uses the chat provider's own search: OpenAI, ChatGPT plan, Anthropic or Gemini. Billed
+						by that provider. Other providers (DeepSeek, custom servers) get no search with this
+						option.
+					</p>
 				{:else if searchSettings.service !== 'off'}
 					{@const keyId = searchKeyId(searchSettings.service)}
 					<SettingRow
@@ -388,7 +503,7 @@
 					</SettingRow>
 				{/if}
 
-				{#if searchSettings.service !== 'off'}
+				{#if searchSettings.service !== 'off' && searchSettings.service !== 'native'}
 					<div class="action-buttons">
 						<button class="action-btn" disabled={testing} onclick={testSearch}>
 							{testing ? 'Testing…' : 'Save and test'}
@@ -451,6 +566,35 @@
 	.error {
 		margin: 0;
 		color: #fca5a5;
+	}
+
+	.chatgpt-account {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.chatgpt-account span {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.chatgpt-continue {
+		background: #000;
+		color: #fff;
+		border-color: #000;
+	}
+
+	.link-btn {
+		border: none;
+		background: none;
+		padding: 0;
+		color: var(--modal-accent, #8ec5ff);
+		font: inherit;
+		cursor: pointer;
+		text-decoration: underline;
 	}
 
 	.test-result {

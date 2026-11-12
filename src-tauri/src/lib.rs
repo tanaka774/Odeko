@@ -1,6 +1,7 @@
 mod commands;
 mod window_effects;
 use commands::ai_snapshot::ai_canvas_snapshot;
+use commands::chatgpt_auth::{chatgpt_account, chatgpt_sign_in, chatgpt_sign_out};
 use commands::ai_http::{ai_request_cancel, ai_request_read, ai_request_send};
 use commands::ai_settings::{delete_ai_chat, load_ai_chat, load_ai_settings, prune_ai_secrets, save_ai_chat, save_ai_settings, set_ai_secret};
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
@@ -177,7 +178,8 @@ pub fn run() {
             read_text_file, text_file_modified, write_text_file,
             load_ai_settings, save_ai_settings, set_ai_secret, prune_ai_secrets,
             load_ai_chat, save_ai_chat, delete_ai_chat,
-            ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot
+            ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot,
+            chatgpt_sign_in, chatgpt_sign_out, chatgpt_account
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

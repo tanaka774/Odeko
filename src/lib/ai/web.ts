@@ -59,7 +59,7 @@ function deepseekAuth(ctx: SearchContext): string {
 
 type Searcher = (ctx: SearchContext, query: string, count: number) => Promise<SearchResult[]>;
 
-const SEARCHERS: Record<Exclude<SearchSettings['service'], 'off'>, Searcher> = {
+const SEARCHERS: Record<Exclude<SearchSettings['service'], 'off' | 'native'>, Searcher> = {
 	async deepseek(ctx, query, count) {
 		const data = await postJson<{
 			results: {
@@ -172,6 +172,11 @@ export async function search(
 	if (service === 'off') {
 		throw new WebToolError(
 			'Web search is off. The user can pick a search service in the AI Chat settings.'
+		);
+	}
+	if (service === 'native') {
+		throw new WebToolError(
+			"The model's built-in search is selected, but this provider has none. Pick another search service in the AI Chat settings."
 		);
 	}
 	return SEARCHERS[service](ctx, query, Math.min(10, Math.max(1, count)));

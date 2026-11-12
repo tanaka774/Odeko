@@ -42,6 +42,12 @@ shlex = "1"
 base64 = "0.22"
 tiny_http = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+# Sign in with ChatGPT: PKCE (sha2), ID token signature (ring), host and state ids (uuid).
+sha2 = "=0.10.9"
+ring = "=0.17.14"
+uuid = { version = "=1.17.0", features = ["v4"] }
+url = "=2.5.4"
 
 # Pinned below tauri 2.12: 2.13 / 2.4 require tauri >= 2.12 and drag wry and tao
 # forward, which needs its own testing on the transparent-window paths.
@@ -72,12 +78,18 @@ tauri-plugin-wdio = { version = "1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+# Canvas screenshots for the AI chat (same versions wry already uses).
+webview2-com = "=0.38.0"
+windows-61 = { package = "windows", version = "=0.61.3", features = ["Win32_System_Com", "Win32_UI_Shell"] }
 windows = { version = "0.54", features = ["Media_Control", "Foundation", "System", "Win32_System_Com", "Win32_Storage_FileSystem", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 windows-sys = { version = "0.52", features = ["Win32_System_Power", "Win32_System_Shutdown", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_Foundation", "Win32_System_LibraryLoader"] }
 winrt-notification = "0.5"
-image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# Canvas screenshots for the AI chat (same versions wry already uses).
+objc2-web-kit = { version = "=0.3.1", default-features = false, features = ["std", "block2", "objc2-app-kit", "WKWebView", "WKSnapshotConfiguration"] }
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSImage", "NSBitmapImageRep", "NSImageRep", "NSResponder", "NSView"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSData", "NSDictionary", "NSError", "NSGeometry"] }
 block2 = "0.6"
 objc = "0.2"
 cocoa = "0.25"

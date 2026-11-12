@@ -208,6 +208,12 @@
 		}
 	}
 
+	const USAGE_URL = 'https://chatgpt.com/settings/usage';
+
+	function openUrl(url: string) {
+		void invoke('open_url', { url });
+	}
+
 	function renderMarkdown(text: string): string {
 		return DOMPurify.sanitize(marked.parse(text, { async: false, breaks: true }) as string);
 	}
@@ -295,6 +301,12 @@
 					…
 				{:else if profile}
 					{profile.name} · {profile.model}
+					{#if profile.kind === 'chatgpt'}
+						<div>
+							Using ChatGPT plan ·
+							<button class="chat-link" onclick={() => openUrl(USAGE_URL)}>Manage usage</button>
+						</div>
+					{/if}
 				{:else}
 					Add an AI provider in this widget's settings to start.
 				{/if}
@@ -354,7 +366,12 @@
 					<div class="chat-pending">…</div>
 				{/if}
 				{#if message.error}
-					<div class="chat-error">{message.error}</div>
+					<div class="chat-error">
+						{message.error}
+						{#if /subscription_sharing_usage_limit_exceeded|usage limit/i.test(message.error)}
+							<button class="chat-link" onclick={() => openUrl(USAGE_URL)}>Manage usage</button>
+						{/if}
+					</div>
 				{/if}
 			</div>
 		{/each}
@@ -691,6 +708,16 @@
 	.chat-pending {
 		opacity: 0.5;
 		animation: aichat-pulse 1s ease-in-out infinite;
+	}
+
+	.chat-link {
+		border: none;
+		background: none;
+		padding: 0;
+		color: #8ec5ff;
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 
 	.chat-error {

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export type AiProviderKind = 'openai' | 'anthropic' | 'google' | 'openai-compatible';
+export type AiProviderKind = 'openai' | 'chatgpt' | 'anthropic' | 'google' | 'openai-compatible';
 
 export interface AiProfile {
 	id: string;
@@ -11,7 +11,7 @@ export interface AiProfile {
 	model: string;
 }
 
-export type SearchService = 'off' | 'deepseek' | 'tavily' | 'brave' | 'exa' | 'searxng';
+export type SearchService = 'off' | 'native' | 'deepseek' | 'tavily' | 'brave' | 'exa' | 'searxng';
 
 export interface SearchSettings {
 	service: SearchService;
@@ -33,6 +33,7 @@ export interface AiSettings {
 
 export const PROVIDER_LABELS: Record<AiProviderKind, string> = {
 	openai: 'OpenAI',
+	chatgpt: 'ChatGPT plan (Sign in with ChatGPT)',
 	anthropic: 'Anthropic',
 	google: 'Google Gemini',
 	'openai-compatible': 'OpenAI-compatible (custom endpoint)'
@@ -40,6 +41,7 @@ export const PROVIDER_LABELS: Record<AiProviderKind, string> = {
 
 export const SEARCH_LABELS: Record<SearchService, string> = {
 	off: 'Off',
+	native: "Model's built-in search (OpenAI, ChatGPT plan, Anthropic, Gemini)",
 	deepseek: 'DeepSeek',
 	tavily: 'Tavily',
 	brave: 'Brave Search',
@@ -48,6 +50,8 @@ export const SEARCH_LABELS: Record<SearchService, string> = {
 };
 
 export const SEARCH_KEY_SERVICES = ['tavily', 'brave', 'exa'] as const;
+
+export const NATIVE_SEARCH_KINDS: AiProviderKind[] = ['openai', 'chatgpt', 'anthropic', 'google'];
 
 export function searchKeyId(service: string): string {
 	return `search:${service}`;
@@ -60,6 +64,7 @@ export const PROVIDER_PRESETS: {
 	model: string;
 }[] = [
 	{ label: 'OpenAI', kind: 'openai', baseUrl: '', model: 'gpt-5.1' },
+	{ label: 'ChatGPT plan', kind: 'chatgpt', baseUrl: '', model: '' },
 	{ label: 'Anthropic', kind: 'anthropic', baseUrl: '', model: 'claude-sonnet-4-5' },
 	{ label: 'Google Gemini', kind: 'google', baseUrl: '', model: 'gemini-2.5-flash' },
 	{

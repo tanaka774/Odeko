@@ -62,9 +62,30 @@ pub(crate) fn secret(id: &str) -> Option<String> {
     with_secrets(|s| s.get(id).cloned()).filter(|k| !k.is_empty())
 }
 
+pub(crate) fn set_secret(id: &str, value: &str) -> Result<(), String> {
+    with_secrets(|s| s.insert(id.to_string(), value.to_string()));
+    persist_secrets()
+}
+
 /// Every stored key, so error text can be scrubbed of them.
 pub(crate) fn all_secrets() -> Vec<String> {
-    with_secrets(|s| s.values().filter(|k| k.len() >= 6).cloned().collect())
+    with_secrets(|s| {
+        let mut out = Vec::new();
+        for value in s.values() {
+            match serde_json::from_str::<serde_json::Value>(value) {
+                Ok(serde_json::Value::Object(fields)) => {
+                    for key in ["access_token", "refresh_token", "id_token"] {
+                        if let Some(token) = fields.get(key).and_then(|v| v.as_str()) {
+                            out.push(token.to_string());
+                        }
+                    }
+                }
+                _ => out.push(value.clone()),
+            }
+        }
+        out.retain(|k| k.len() >= 6);
+        out
+    })
 }
 
 /// Moves keys that older versions kept inside ai.json into the secrets file.
@@ -144,7 +165,12 @@ pub fn set_ai_secret(id: String, key: String) -> Result<(), String> {
 /// Drops secrets whose ids are not in `keep` (removed profiles).
 #[tauri::command]
 pub fn prune_ai_secrets(keep: Vec<String>) -> Result<(), String> {
-    with_secrets(|s| s.retain(|id, _| keep.contains(id)));
+    with_secrets(|s| {
+        s.retain(|id, _| {
+            let profile = id.strip_prefix("chatgpt:").unwrap_or(id);
+            keep.iter().any(|k| k == id || k == profile)
+        })
+    });
     persist_secrets()
 }
 
