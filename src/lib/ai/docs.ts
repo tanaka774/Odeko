@@ -4,22 +4,15 @@ import {
 	type CssApiItemType
 } from '$lib/widgets/custom-css';
 import { WIDGET_REGISTRY } from '$lib/widgets/types';
-import cssReadme from '../../../examples/custom-css/README.md?raw';
-import shaderReadme from '../../../examples/custom-shaders/README.md?raw';
-import htmlWidgetReadme from '../../../examples/custom-html-widgets/README.md?raw';
-import htmlBackgroundReadme from '../../../examples/custom-html-backgrounds/README.md?raw';
+import exampleFiles from 'virtual:odeko-examples';
 
-const exampleFiles = import.meta.glob('../../../examples/**/*.{css,glsl,html}', {
-	query: '?raw',
-	import: 'default',
-	eager: true
-}) as Record<string, string>;
+const cssReadme = exampleFiles['custom-css/README.md'] ?? '';
+const shaderReadme = exampleFiles['custom-shaders/README.md'] ?? '';
+const htmlWidgetReadme = exampleFiles['custom-html-widgets/README.md'] ?? '';
+const htmlBackgroundReadme = exampleFiles['custom-html-backgrounds/README.md'] ?? '';
 
 const EXAMPLES: Record<string, string> = Object.fromEntries(
-	Object.entries(exampleFiles).map(([path, content]) => [
-		path.replace(/^.*examples\//, ''),
-		content
-	])
+	Object.entries(exampleFiles).filter(([file]) => !file.endsWith('.md'))
 );
 
 export const DOC_TOPICS = [
