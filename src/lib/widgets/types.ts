@@ -332,9 +332,18 @@ export interface MusicWidgetConfig extends WidgetConfig {
 }
 
 // TextBox widget config
+export type TextEffect = 'none' | 'shadow' | 'glow' | 'outline';
+
 export interface TextBoxWidgetConfig extends WidgetConfig {
 	content?: string;
 	textAlign?: 'left' | 'center' | 'right' | 'justify';
+	verticalAlign?: 'top' | 'middle' | 'bottom';
+	fontWeight?: number;
+	lineHeight?: number;
+	/** In em, so it scales with the font size. */
+	letterSpacing?: number;
+	textEffect?: TextEffect;
+	textEffectColor?: string;
 	showBorderTop?: boolean;
 	showBorderRight?: boolean;
 	showBorderBottom?: boolean;
@@ -728,6 +737,12 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			return {
 				content: '',
 				textAlign: 'left',
+				verticalAlign: 'top',
+				fontWeight: 400,
+				lineHeight: 1.5,
+				letterSpacing: 0,
+				textEffect: 'none',
+				textEffectColor: '#000000',
 				showBorderTop: true,
 				showBorderRight: true,
 				showBorderBottom: true,

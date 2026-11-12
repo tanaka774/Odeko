@@ -5,7 +5,8 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import type { TextBoxWidgetConfig } from '$lib/widgets/types';
+	import type { TextBoxWidgetConfig, TextEffect } from '$lib/widgets/types';
+	import { getTextEffectShadow, getVerticalJustify } from '$lib/widgets/text-style';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
 
 	interface Props {
@@ -21,6 +22,12 @@
 	let localConfig = $state<TextBoxWidgetConfig>({
 		content: '',
 		textAlign: 'left',
+		verticalAlign: 'top',
+		fontWeight: 400,
+		lineHeight: 1.5,
+		letterSpacing: 0,
+		textEffect: 'none',
+		textEffectColor: '#000000',
 		showBorderTop: true,
 		showBorderRight: true,
 		showBorderBottom: true,
@@ -33,6 +40,27 @@
 		{ value: 'center', label: 'Center', icon: '\u2b06\ufe0f' },
 		{ value: 'right', label: 'Right', icon: '\u27a1\ufe0f' },
 		{ value: 'justify', label: 'Justify', icon: '\u2194\ufe0f' }
+	];
+
+	const verticalOptions = [
+		{ value: 'top', label: 'Top' },
+		{ value: 'middle', label: 'Middle' },
+		{ value: 'bottom', label: 'Bottom' }
+	] as const;
+
+	const weightOptions = [
+		{ value: 300, label: 'Light' },
+		{ value: 400, label: 'Regular' },
+		{ value: 600, label: 'Semibold' },
+		{ value: 700, label: 'Bold' },
+		{ value: 900, label: 'Black' }
+	];
+
+	const effectOptions: { value: TextEffect; label: string }[] = [
+		{ value: 'none', label: 'None' },
+		{ value: 'shadow', label: 'Shadow' },
+		{ value: 'glow', label: 'Glow' },
+		{ value: 'outline', label: 'Outline' }
 	];
 
 	const previewAppearance = $derived(
@@ -103,6 +131,84 @@
 				</SettingRow>
 			</SettingSection>
 
+			<SettingSection title="Text Style">
+				<SettingRow label="Vertical Align">
+					<div class="radio-group">
+						{#each verticalOptions as opt (opt.value)}
+							<label class="radio-label">
+								<input
+									type="radio"
+									name="textbox-vertical"
+									value={opt.value}
+									bind:group={localConfig.verticalAlign}
+								/>
+								<span>{opt.label}</span>
+							</label>
+						{/each}
+					</div>
+				</SettingRow>
+
+				<SettingRow label="Weight" labelFor="textbox-weight">
+					<select id="textbox-weight" class="select-input" bind:value={localConfig.fontWeight}>
+						{#each weightOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</SettingRow>
+
+				<SettingRow label="Line Height: {localConfig.lineHeight}" labelFor="textbox-line-height">
+					<input
+						id="textbox-line-height"
+						class="range-input"
+						type="range"
+						min="0.8"
+						max="3"
+						step="0.1"
+						bind:value={localConfig.lineHeight}
+					/>
+				</SettingRow>
+
+				<SettingRow
+					label="Letter Spacing: {localConfig.letterSpacing}em"
+					labelFor="textbox-letter-spacing"
+				>
+					<input
+						id="textbox-letter-spacing"
+						class="range-input"
+						type="range"
+						min="-0.1"
+						max="0.5"
+						step="0.01"
+						bind:value={localConfig.letterSpacing}
+					/>
+				</SettingRow>
+
+				<SettingRow label="Effect" labelFor="textbox-effect">
+					<select id="textbox-effect" class="select-input" bind:value={localConfig.textEffect}>
+						{#each effectOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</SettingRow>
+
+				{#if localConfig.textEffect && localConfig.textEffect !== 'none'}
+					<SettingRow label="Effect Color" labelFor="textbox-effect-color">
+						<div class="color-control">
+							<input
+								type="color"
+								id="textbox-effect-color"
+								bind:value={localConfig.textEffectColor}
+							/>
+							<input
+								type="text"
+								aria-label="Effect color value"
+								bind:value={localConfig.textEffectColor}
+							/>
+						</div>
+					</SettingRow>
+				{/if}
+			</SettingSection>
+
 			<SettingSection title="Border Edges">
 				<SettingRow label="Visible Edges">
 					<div class="edge-checkboxes">
@@ -142,6 +248,11 @@
 					color: {previewAppearance.textColor};
 					background: {previewBackground};
 					text-align: {localConfig.textAlign};
+					font-weight: {localConfig.fontWeight};
+					line-height: {localConfig.lineHeight};
+					letter-spacing: {localConfig.letterSpacing}em;
+					text-shadow: {getTextEffectShadow(localConfig)};
+					justify-content: {getVerticalJustify(localConfig)};
 					border-top: {previewAppearance.borderWidth === 0 ||
 				previewAppearance.borderStyle === 'none' ||
 				!localConfig.showBorderTop
@@ -212,8 +323,9 @@
 		border-radius: 8px;
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		min-height: calc(5.7143 * var(--modal-font-size));
+		display: flex;
+		flex-direction: column;
 		color: white;
-		line-height: 1.5;
 		transition: all 0.2s ease;
 	}
 </style>
