@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import { onMount, onDestroy } from 'svelte';
 	import { readText, readImage, writeText, writeImage } from '@tauri-apps/plugin-clipboard-manager';
 	import Search from '@lucide/svelte/icons/search';
@@ -213,6 +214,7 @@
 
 <div
 	class="clipboard-widget"
+	data-empty={flag(history.length === 0)}
 	style="
 			--appearance-background: {widgetBackground};
 			--appearance-border: {widgetBorder};

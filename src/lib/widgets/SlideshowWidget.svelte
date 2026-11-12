@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { SlideshowWidgetConfig, WidgetComponentProps } from './types';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
@@ -112,6 +113,7 @@
 
 <div
 	class="slideshow-widget"
+	data-empty={flag(images.length === 0)}
 	style="
 		--appearance-background: {widgetBackground};
 		--appearance-border: {widgetBorder};

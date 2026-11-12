@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag, ratio } from './widget-state';
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import {
@@ -248,6 +249,10 @@
 
 <div
 	class="music-widget"
+	data-playing={flag(mediaInfo.is_playing)}
+	data-has-player={flag(mediaInfo.has_player)}
+	data-has-art={flag(Boolean(mediaInfo.art_url))}
+	style:--progress={ratio(mediaInfo.position, mediaInfo.duration)}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"

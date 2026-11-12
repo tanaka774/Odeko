@@ -321,6 +321,9 @@
 	class:image-type={icon.icon_type === 'image'}
 	class:no-click-action={!isEditMode && !hasClickAction}
 	data-item-id={icon.id}
+	data-type={icon.icon_type}
+	data-has-url={icon.url ? '' : undefined}
+	data-has-image={imageDataUrl ? '' : undefined}
 	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-font-family: {appearance.fontFamily}; --appearance-font-size: {appearance.fontSize}px; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
 	style:--appearance-shadow={getAppearanceShadow(appearance)}
 	style:--appearance-backdrop={getAppearanceBackdrop(appearance)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dayPeriod } from './widget-state';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import {
 		WIDGET_TYPE_APPEARANCE_DEFAULTS,
@@ -136,6 +137,9 @@
 
 <div
 	class="clock-widget"
+	data-period={dayPeriod(clockParts.hours)}
+	data-hour={clockParts.hours}
+	data-mode={displayMode}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"

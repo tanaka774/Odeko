@@ -158,6 +158,14 @@
 								<code>{cssClass}</code>
 							{/each}
 						</div>
+						{#if customCssApi.states?.length}
+							<p>States on the root, for rules that react to what the item shows:</p>
+							<div class="css-ref-classes">
+								{#each customCssApi.states as state (state)}
+									<code>{state}</code>
+								{/each}
+							</div>
+						{/if}
 						<p>Shared variables, set on the widget root:</p>
 						<div class="css-ref-classes">
 							{#each SHARED_APPEARANCE_VARIABLES as variable (variable)}

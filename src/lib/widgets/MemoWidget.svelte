@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
 	import type { MemoWidgetConfig, WidgetComponentProps } from './types';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
@@ -59,6 +60,7 @@
 
 <div
 	class="memo-widget"
+	data-empty={flag(!currentContent.trim())}
 	style="
 			--appearance-text-color: {appearance.textColor};
 			--appearance-font-family: {appearance.fontFamily};

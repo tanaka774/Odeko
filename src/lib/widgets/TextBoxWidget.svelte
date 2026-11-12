@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import { getAppearanceBackground, getWidgetAppearance } from './appearance';
 	import type { TextBoxWidgetConfig, WidgetComponentProps } from './types';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
@@ -63,6 +64,7 @@
 
 <div
 	class="textbox-widget"
+	data-empty={flag(!content.trim())}
 	style="
 			--appearance-text-color: {appearance.textColor};
 			--appearance-font-family: {appearance.fontFamily};

@@ -85,7 +85,7 @@ function cssDoc(): string {
 	const api = (Object.keys(WIDGET_CSS_API) as CssApiItemType[])
 		.map((type) => {
 			const entry = WIDGET_CSS_API[type];
-			return `## ${type}\nclasses: ${entry.classes.join(' ')}${entry.note ? `\nnote: ${entry.note}` : ''}`;
+			return `## ${type}\nclasses: ${entry.classes.join(' ')}${entry.states ? `\nstates on the root: ${entry.states.join(' ')}` : ''}${entry.note ? `\nnote: ${entry.note}` : ''}`;
 		})
 		.join('\n\n');
 	return `${cssReadme}\n\n# Stable class names per item type\nShared variables: ${SHARED_APPEARANCE_VARIABLES.join(', ')}\n\n${api}\n\nFull themes: read examples like "custom-css/clock.css" with get_docs.`;

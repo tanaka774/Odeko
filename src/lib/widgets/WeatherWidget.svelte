@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { fetchWeather } from '$lib/weather/open-meteo';
 	import { getWeatherIcon } from '$lib/weather/icons';
@@ -95,6 +96,10 @@
 
 <div
 	class="weather-widget"
+	data-condition={weather?.condition}
+	data-status={errorMessage ? 'error' : weather ? 'ready' : 'loading'}
+	data-refreshing={flag(isLoading && weather !== null)}
+	style:--temperature={weather?.temperature}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"

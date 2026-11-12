@@ -35,9 +35,14 @@ export const SHARED_APPEARANCE_VARIABLES = [
  */
 export const WIDGET_CSS_API: Record<
 	CssApiItemType,
-	{ classes: string[]; example: string; note?: string }
+	{ classes: string[]; example: string; note?: string; states?: string[] }
 > = {
 	clock: {
+		states: [
+			"[data-period='morning|afternoon|evening|night']",
+			"[data-hour='0'…'23']",
+			"[data-mode='digital|analog']"
+		],
 		classes: [
 			'.clock-widget',
 			'.analog-clock',
@@ -58,6 +63,12 @@ export const WIDGET_CSS_API: Record<
 			'.clock-widget { background: linear-gradient(160deg, #1b1035, #0b0718); border: 1px solid #ff2fb9; }\n.time-display { color: #4df3ff; text-shadow: 0 0 14px rgba(77, 243, 255, 0.8); }'
 	},
 	system: {
+		states: [
+			"[data-cpu-level='low|mid|high']",
+			"[data-memory-level='low|mid|high']",
+			"[data-disk-level='low|mid|high']",
+			'--cpu, --memory, --disk (0–1)'
+		],
 		classes: [
 			'.system-widget',
 			'.stats-container',
@@ -71,6 +82,12 @@ export const WIDGET_CSS_API: Record<
 			'.system-widget { background: #04090a; border: 1px solid #1f6f4a; }\n.stat-value { color: #35ff9b; font-family: "Courier New", monospace; }'
 	},
 	weather: {
+		states: [
+			"[data-condition='clear|partlyCloudy|cloudy|drizzle|rain|snow|storm|fog|unknown']",
+			"[data-status='loading|error|ready']",
+			'[data-refreshing]',
+			'--temperature'
+		],
 		classes: [
 			'.weather-widget',
 			'.current-summary',
@@ -98,6 +115,7 @@ export const WIDGET_CSS_API: Record<
 		note: 'Terminal text colors are drawn on a canvas by xterm.js and cannot be changed with CSS — use the terminal theme settings instead.'
 	},
 	tasklist: {
+		states: ['[data-empty]', '[data-all-done]', "[data-remaining='0'…]", '--done-ratio (0–1)'],
 		classes: [
 			'.tasklist-widget',
 			'.tab-bar-container',
@@ -124,6 +142,7 @@ export const WIDGET_CSS_API: Record<
 			'.tasklist-widget { background: linear-gradient(180deg, #1e1b4b, #312e81); }\n.task-item { background: rgba(255, 255, 255, 0.07); border-radius: 10px; }\n.task-item.completed .task-text { opacity: 0.5; text-decoration: line-through; }'
 	},
 	music: {
+		states: ['[data-playing]', '[data-has-player]', '[data-has-art]', '--progress (0–1)'],
 		classes: [
 			'.music-widget',
 			'.album-art',
@@ -155,11 +174,13 @@ export const WIDGET_CSS_API: Record<
 		note: 'The album art, progress fill and play button carry inline theme-color styles — recolor them with filter (or the music settings) instead of background.'
 	},
 	textbox: {
+		states: ['[data-empty]'],
 		classes: ['.textbox-widget', '.textbox-content'],
 		example:
 			'.textbox-widget { background: #fdf6e3; border: 1px solid #d8c9a3; color: #3b3226; }\n.textbox-content { font-family: Georgia, serif; line-height: 1.6; }'
 	},
 	memo: {
+		states: ['[data-empty]'],
 		classes: ['.memo-widget', '.memo-content'],
 		example:
 			'.memo-widget { background: linear-gradient(180deg, #ffe066, #ffd43b); color: #4a3b00; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }\n.memo-content { font-family: "Segoe Print", "Comic Sans MS", cursive; }'
@@ -185,6 +206,7 @@ export const WIDGET_CSS_API: Record<
 			'.drawing-widget { background: #0b2545; }\n.canvas-wrapper { background-image: linear-gradient(rgba(120, 190, 255, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(120, 190, 255, 0.12) 1px, transparent 1px); background-size: 24px 24px; }\n.drawing-toolbar { background: rgba(6, 20, 40, 0.85); border-radius: 12px; }'
 	},
 	slideshow: {
+		states: ['[data-empty]'],
 		classes: [
 			'.slideshow-widget',
 			'.image-stack',
@@ -202,21 +224,25 @@ export const WIDGET_CSS_API: Record<
 			'.slideshow-widget { background: #050505; }\n.slide-img { border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7); }\n.nav-btn { background: rgba(255, 255, 255, 0.12); border-radius: 999px; }'
 	},
 	sleep: {
+		states: ['[data-confirm]'],
 		classes: ['.power-widget', '.default-icon', '.custom-icon', '.label'],
 		example:
 			'.power-widget { background: radial-gradient(circle at 50% 30%, #2b3a8f, #0b1030 70%); border: 1px solid rgba(160, 180, 255, 0.35); }\n.label { letter-spacing: 0.14em; text-transform: uppercase; }'
 	},
 	restart: {
+		states: ['[data-confirm]'],
 		classes: ['.power-widget', '.default-icon', '.custom-icon', '.label'],
 		example:
 			'.power-widget { background: linear-gradient(160deg, #3a2408, #120b02); border: 1px solid #ffb703; }\n.default-icon { filter: drop-shadow(0 0 10px rgba(255, 183, 3, 0.75)); }'
 	},
 	shutdown: {
+		states: ['[data-confirm]'],
 		classes: ['.power-widget', '.default-icon', '.custom-icon', '.label'],
 		example:
 			'.power-widget { background: #160607; border: 1px solid #ff4d4d; box-shadow: 0 0 22px rgba(255, 77, 77, 0.4); }\n.label { color: #ff8080; letter-spacing: 0.14em; text-transform: uppercase; }'
 	},
 	clipboard: {
+		states: ['[data-empty]'],
 		classes: [
 			'.clipboard-widget',
 			'.toolbar',
@@ -258,6 +284,7 @@ export const WIDGET_CSS_API: Record<
 		note: 'Class names inside your HTML are your own — they are not part of the stable API. Prefer element selectors scoped under .html-content. The iframe document itself cannot be reached from here.'
 	},
 	aichat: {
+		states: ['[data-busy]'],
 		classes: [
 			'.aichat-widget',
 			'.chat-tab-bar',
@@ -291,6 +318,7 @@ export const WIDGET_CSS_API: Record<
 		note: 'The line color, style and thickness come from the divider settings; override border-color (or background for the Fade style) to recolor it here.'
 	},
 	icon: {
+		states: ["[data-type='app|image']", '[data-has-url]', '[data-has-image]'],
 		classes: [
 			'.app-icon',
 			'.icon-content',

@@ -60,6 +60,7 @@
 
 <button
 	class="power-widget"
+	data-confirm={requireConfirmation ? '' : undefined}
 	class:edit-mode={isEditMode}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}

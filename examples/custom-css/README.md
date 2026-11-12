@@ -140,6 +140,71 @@ Small tweaks that mix well with any theme:
 }
 ```
 
+## Reacting to state
+
+Widgets mark what they currently show on their root element, so a rule can
+change the look when the weather turns, the CPU gets busy or the music
+pauses. **What can I style?** lists the states of each item.
+
+- **Attributes** describe a choice: `[data-condition='rain']`,
+  `[data-playing]`, `[data-cpu-level='high']`. Write them on the root class.
+- **Variables** carry a number: `--cpu`, `--progress`, `--done-ratio` (0–1),
+  `--temperature`. CSS cannot compare them, but it can compute with them.
+
+```css
+/* Weather: blue glass while it rains, warm while it is clear */
+.weather-widget[data-condition='rain'],
+.weather-widget[data-condition='drizzle'],
+.weather-widget[data-condition='storm'] {
+	background: linear-gradient(180deg, rgba(37, 99, 235, 0.45), rgba(15, 23, 42, 0.9));
+	backdrop-filter: blur(12px);
+}
+.weather-widget[data-condition='clear'] {
+	background: linear-gradient(160deg, rgba(251, 191, 36, 0.4), rgba(15, 23, 42, 0.85));
+}
+
+/* System: a red pulsing border when the CPU is busy */
+@keyframes odeko-alert {
+	50% {
+		box-shadow: 0 0 22px rgba(239, 68, 68, 0.8);
+	}
+}
+.system-widget[data-cpu-level='high'] {
+	border: 1px solid #ef4444;
+	animation: odeko-alert 1.2s ease-in-out infinite;
+}
+
+/* System: the border turns from green to red with the CPU load */
+.system-widget {
+	border: 2px solid hsl(calc(120 - var(--cpu) * 120) 80% 50%);
+}
+
+/* Music: fade out while paused */
+.music-widget:not([data-playing]) {
+	opacity: 0.45;
+	filter: grayscale(1);
+}
+
+/* Clock: dim at night */
+.clock-widget[data-period='night'] {
+	opacity: 0.6;
+}
+
+/* Task list: celebrate when everything is done */
+.tasklist-widget[data-all-done] {
+	border: 1px solid #22c55e;
+	box-shadow: 0 0 18px rgba(34, 197, 94, 0.45);
+}
+
+/* Text box / memo: hide an empty box in view mode */
+.textbox-widget[data-empty] {
+	opacity: 0;
+}
+```
+
+The attributes sit on the root itself, so put them right after the root class
+(`.weather-widget[data-condition='rain']`), not after a space.
+
 ## Troubleshooting
 
 | Symptom                                             | Likely cause                                                                                                                          |

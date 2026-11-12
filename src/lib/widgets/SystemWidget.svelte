@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ratio, usageLevel } from './widget-state';
 	import { invoke } from '@tauri-apps/api/core';
 	import {
 		colorWithOpacity,
@@ -91,6 +92,12 @@
 
 <div
 	class="system-widget"
+	data-cpu-level={usageLevel(stats.cpu_usage)}
+	data-memory-level={usageLevel(stats.memory_usage_percent)}
+	data-disk-level={usageLevel(stats.disk_usage_percent)}
+	style:--cpu={ratio(stats.cpu_usage, 100)}
+	style:--memory={ratio(stats.memory_usage_percent, 100)}
+	style:--disk={ratio(stats.disk_usage_percent, 100)}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"

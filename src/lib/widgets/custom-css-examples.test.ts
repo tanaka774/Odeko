@@ -145,6 +145,20 @@ describe('custom CSS examples', () => {
 		expect(unknown).toEqual([]);
 	});
 
+	it.each(TYPES)('%s documented states exist in the component markup', (type) => {
+		const markup = [MARKUP_SOURCES[type]]
+			.flat()
+			.map((file) => markupOf(readFileSync(`${REPO_ROOT}/${file}`, 'utf8')))
+			.join('\n');
+		const names = (WIDGET_CSS_API[type].states ?? []).flatMap((state) =>
+			[...state.matchAll(/(data-[a-z-]+|--[a-z-]+)/g)].map((match) => match[1])
+		);
+		const missing = names.filter((name) =>
+			name.startsWith('--') ? !markup.includes(`style:${name}=`) : !markup.includes(`${name}=`)
+		);
+		expect(missing).toEqual([]);
+	});
+
 	it.each(TYPES)('%s curated classes still exist in the component markup', (type) => {
 		const markup = [MARKUP_SOURCES[type]]
 			.flat()

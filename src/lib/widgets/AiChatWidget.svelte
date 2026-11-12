@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag } from './widget-state';
 	import { invoke } from '@tauri-apps/api/core';
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
@@ -250,6 +251,7 @@
 
 <div
 	class="aichat-widget"
+	data-busy={flag(busyTabs.size > 0)}
 	class:editing={isEditMode}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}

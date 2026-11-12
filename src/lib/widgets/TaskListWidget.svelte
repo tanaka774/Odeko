@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flag, ratio } from './widget-state';
 	import {
 		colorWithOpacity,
 		getAppearanceBackground,
@@ -111,6 +112,10 @@
 		return { uncompletedTasks: uncompleted, completedTasks: completed };
 	});
 
+	const taskCount = $derived(
+		taskSections.uncompletedTasks.length + taskSections.completedTasks.length
+	);
+
 	// Generate unique ID
 	function generateId(): string {
 		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -209,6 +214,10 @@
 
 <div
 	class="tasklist-widget"
+	data-empty={flag(taskCount === 0)}
+	data-all-done={flag(taskCount > 0 && taskSections.uncompletedTasks.length === 0)}
+	data-remaining={taskSections.uncompletedTasks.length}
+	style:--done-ratio={ratio(taskSections.completedTasks.length, taskCount)}
 	style:--appearance-background={widgetBackground}
 	style:--appearance-border={widgetBorder}
 	style:--appearance-border-radius="{appearance.borderRadius}px"

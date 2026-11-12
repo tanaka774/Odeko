@@ -35,3 +35,15 @@ describe('getTextEffectShadow', () => {
 		expect(getTextEffectShadow({ textEffect: 'outline' }).match(/rgba/g)).toHaveLength(8);
 	});
 });
+
+describe('TextBoxWidget state', () => {
+	it('marks an empty box', () => {
+		const { container } = render(TextBoxWidget, { config: { content: '  ' } });
+		expect(container.querySelector('.textbox-widget')?.hasAttribute('data-empty')).toBe(true);
+	});
+
+	it('drops the mark once there is text', () => {
+		const { container } = render(TextBoxWidget, { config: { content: 'Hi' } });
+		expect(container.querySelector('.textbox-widget')?.hasAttribute('data-empty')).toBe(false);
+	});
+});
