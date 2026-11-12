@@ -43,7 +43,7 @@ pub async fn widget_fetch(url: String, allow_local: bool) -> Result<FetchResult,
             .get(current.clone())
             .send()
             .await
-            .map_err(|e| format!("request failed: {e}"))?;
+            .map_err(|e| format!("request failed: {}", error_chain(&e)))?;
 
         let status = response.status();
         if status.is_redirection() {
@@ -86,7 +86,7 @@ pub(crate) async fn fetch_public_bytes(
             .get(current.clone())
             .send()
             .await
-            .map_err(|e| format!("request failed: {e}"))?;
+            .map_err(|e| format!("request failed: {}", error_chain(&e)))?;
         let status = response.status();
         if status.is_redirection() {
             let location = response
@@ -113,7 +113,10 @@ pub(crate) async fn fetch_public_bytes(
             .await
             .map_err(|e| format!("failed to read response body: {e}"))?;
         if bytes.len() > max_bytes {
-            return Err(format!("file is larger than {} MB", max_bytes / (1024 * 1024)));
+            return Err(format!(
+                "file is larger than {} MB",
+                max_bytes / (1024 * 1024)
+            ));
         }
         return Ok((bytes.to_vec(), content_type));
     }
@@ -132,10 +135,13 @@ pub async fn ai_fetch_page(url: String) -> Result<FetchResult, String> {
         let client = client_for_url(&current, false).await?;
         let response = client
             .get(current.clone())
-            .header("Accept", "text/html,text/plain,application/json;q=0.9,*/*;q=0.5")
+            .header(
+                "Accept",
+                "text/html,text/plain,application/json;q=0.9,*/*;q=0.5",
+            )
             .send()
             .await
-            .map_err(|e| format!("request failed: {e}"))?;
+            .map_err(|e| format!("request failed: {}", error_chain(&e)))?;
         let status = response.status();
         if status.is_redirection() {
             let location = response
@@ -169,10 +175,28 @@ pub async fn ai_fetch_page(url: String) -> Result<FetchResult, String> {
     Err(format!("too many redirects (more than {MAX_REDIRECTS})"))
 }
 
+/// reqwest's message alone hides the cause ("error sending request");
+/// append the sources (connect refused, timed out, TLS…).
+fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        let cause_text = cause.to_string();
+        if !text.contains(&cause_text) {
+            text.push_str(": ");
+            text.push_str(&cause_text);
+        }
+        source = cause.source();
+    }
+    text
+}
+
 fn ensure_http_scheme(scheme: &str) -> Result<(), String> {
     match scheme {
         "http" | "https" => Ok(()),
-        other => Err(format!("scheme \"{other}\" is not allowed (http/https only)")),
+        other => Err(format!(
+            "scheme \"{other}\" is not allowed (http/https only)"
+        )),
     }
 }
 
@@ -209,11 +233,11 @@ async fn client_for_url(url: &Url, allow_local: bool) -> Result<Client, String> 
         .timeout(Duration::from_secs(TIMEOUT_SECS))
         .user_agent(USER_AGENT);
 
-    // Pin to the first validated address so a second DNS lookup (a rebinding
+    // Pin to the validated addresses so a second DNS lookup (a rebinding
     // attack) cannot redirect the connection to a different, private IP.
-    if let Some(addr) = addrs.first() {
-        builder = builder.resolve(&host, *addr);
-    }
+    // All of them, so an unreachable one (e.g. IPv6 without a route) falls
+    // back to the next.
+    builder = builder.resolve_to_addrs(&host, &addrs);
 
     builder
         .build()
@@ -254,8 +278,8 @@ async fn read_body(response: reqwest::Response) -> Result<(String, Option<String
         .await
         .map_err(|e| format!("failed to read response body: {e}"))?;
 
-    let body =
-        String::from_utf8(bytes.to_vec()).map_err(|_| "response is not valid UTF-8 text".to_string())?;
+    let body = String::from_utf8(bytes.to_vec())
+        .map_err(|_| "response is not valid UTF-8 text".to_string())?;
     Ok((body, content_type))
 }
 
