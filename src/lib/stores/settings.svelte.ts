@@ -140,6 +140,8 @@ export interface CanvasSettings {
 	slide_edge: SlideEdge;
 	/** Tiles sweep in one after another on open and on preset switches. */
 	tile_cascade: boolean;
+	/** Hide the canvas after a link inside an HTML widget or background opens. */
+	hide_on_link_open: boolean;
 	animation_duration_ms: number;
 	position_x: number;
 	position_y: number;
@@ -153,7 +155,7 @@ export interface CanvasSettings {
 	keybind_undo: KeybindConfig;
 	keybind_prev_preset: KeybindConfig;
 	keybind_next_preset: KeybindConfig;
-	/** App-wide allowed hostnames for Custom HTML widgets (see network-bridge). */
+	/** App-wide allowed hostnames for Custom HTML widgets (see page-bridge). */
 	network_grants: string[];
 	/** Allow Custom HTML widgets to fetch from private/LAN addresses. */
 	allow_local_network: boolean;
@@ -189,6 +191,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
 	close_animation: 'fade',
 	slide_edge: 'bottom',
 	tile_cascade: false,
+	hide_on_link_open: true,
 	animation_duration_ms: 220,
 	position_x: 50,
 	position_y: 50,

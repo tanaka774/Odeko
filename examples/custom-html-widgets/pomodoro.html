@@ -1,26 +1,76 @@
-<iframe sandbox="allow-scripts" srcdoc="<style>
-    body { font-family: system-ui; text-align: center; color: #222; background: #fff; margin: 0; padding: 16px; }
-    #t { font-size: 2.4em; font-weight: 700; font-variant-numeric: tabular-nums; }
-    button { margin: 4px; padding: 6px 12px; }
-  </style>
-  <div id='t'>25:00</div>
-  <div>
-    <button id='b-focus'>Focus</button>
-    <button id='b-break'>Break</button>
-    <button id='b-stop'>Stop</button>
-  </div>
-  <script>
-    let left = 0, timer = null;
-    function go(m) { stop(); left = m * 60; tick(); timer = setInterval(tick, 1000); }
-    function stop() { clearInterval(timer); timer = null; }
-    function tick() {
-      if (left <= 0) return stop();
-      const m = String(Math.floor(left / 60)).padStart(2, '0');
-      const s = String(left % 60).padStart(2, '0');
-      document.getElementById('t').textContent = m + ':' + s;
-      left--;
-    }
-    document.getElementById('b-focus').addEventListener('click', function () { go(25); });
-    document.getElementById('b-break').addEventListener('click', function () { go(5); });
-    document.getElementById('b-stop').addEventListener('click', stop);
-  </script>"></iframe>
+<style>
+	body { display: grid; place-content: center; gap: 8px; height: 100vh; text-align: center; }
+	#time { font-size: 2.6em; font-weight: 700; font-variant-numeric: tabular-nums; }
+	#done { font-size: 0.8em; opacity: 0.6; }
+	button { font: inherit; font-size: 0.85em; padding: 4px 10px; margin: 0 2px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: inherit; cursor: pointer; }
+</style>
+<div id="time">25:00</div>
+<div>
+	<button id="focus">Focus</button>
+	<button id="break">Break</button>
+	<button id="stop">Stop</button>
+</div>
+<div id="done"></div>
+<script>
+	// The end time and the finished count are saved, so the timer keeps
+	// running across reloads and restarts.
+	const timeEl = document.getElementById('time');
+	const doneEl = document.getElementById('done');
+	let endsAt = null;
+	let mode = 'focus';
+	let done = 0;
+
+	function show(seconds) {
+		const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+		const s = String(seconds % 60).padStart(2, '0');
+		timeEl.textContent = `${m}:${s}`;
+	}
+
+	function showDone() {
+		doneEl.textContent = `${done} focus session${done === 1 ? '' : 's'} today`;
+	}
+
+	function tick() {
+		if (!endsAt) return;
+		const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+		show(left);
+		if (left === 0) {
+			if (mode === 'focus') {
+				done++;
+				odeko.storage.set('done', { day: new Date().toDateString(), count: done });
+				showDone();
+			}
+			stop();
+		}
+	}
+
+	function start(minutes, nextMode) {
+		mode = nextMode;
+		endsAt = Date.now() + minutes * 60 * 1000;
+		odeko.storage.set('timer', { endsAt, mode });
+		tick();
+	}
+
+	function stop() {
+		endsAt = null;
+		odeko.storage.remove('timer');
+		show(25 * 60);
+	}
+
+	document.getElementById('focus').addEventListener('click', () => start(25, 'focus'));
+	document.getElementById('break').addEventListener('click', () => start(5, 'break'));
+	document.getElementById('stop').addEventListener('click', stop);
+	setInterval(tick, 1000);
+
+	(async () => {
+		const timer = await odeko.storage.get('timer');
+		if (timer && timer.endsAt > Date.now()) {
+			endsAt = timer.endsAt;
+			mode = timer.mode;
+		}
+		const saved = await odeko.storage.get('done');
+		done = saved && saved.day === new Date().toDateString() ? saved.count : 0;
+		showDone();
+		tick();
+	})();
+</script>

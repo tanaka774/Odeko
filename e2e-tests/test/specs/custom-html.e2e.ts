@@ -1,8 +1,19 @@
 import { $, $$, browser, expect } from '@wdio/globals';
 import { enterEditMode } from '../helpers';
 
-const USER_HTML =
-	'<h1>Hello E2E</h1><p>body text</p><script>window.__e2ePwned = true;</script><a href="https://example.com/page">external</a><iframe sandbox="allow-scripts" srcdoc="<style>body { color: #222; }</style><div id=\'t\'>25:00</div><button onclick=\'go(25)\'>Focus</button><script>function go(m) {}</script>"></iframe>';
+// Reports to the test through the parent; the page's own messages carry a
+// token, so these plain strings never reach the app's bridge.
+const PAGE_HTML = `<h1 id="h">Hello E2E</h1>
+<script>
+	parent.postMessage('script-ran', '*');
+	try { parent.document.title; parent.postMessage('escaped', '*'); } catch (e) {}
+	odeko.storage.get('runs').then(function (runs) {
+		var next = (runs || 0) + 1;
+		odeko.storage.set('runs', next).then(function () {
+			parent.postMessage('runs:' + next, '*');
+		});
+	});
+</script>`;
 const USER_CSS = '.custom-widget { background: rgb(10, 20, 30); }';
 /** Open the settings modal of the (first) custom widget via a synthetic right-click. */
 async function openCustomWidgetSettings() {
@@ -45,183 +56,41 @@ async function setTextareaValue(selector: string, value: string) {
 	);
 }
 
-describe('Custom HTML widget', () => {
-	it('renders sanitized HTML and applies scoped custom CSS', async () => {
-		await browser.waitUntil(async () => (await browser.getTitle()) === 'Odeko', {
-			timeout: 15000
-		});
-
-		// Add a Custom HTML widget through the picker.
-		await enterEditMode();
-		await (await $('button=Add Widget')).click();
-		const row = await $('button[title="Custom HTML"]');
-		await row.waitForExist({ timeout: 10000 });
-		await row.click();
-		await (await $('.custom-widget')).waitForExist({ timeout: 15000 });
-
-		// Edit its HTML + enable custom CSS.
-		await openCustomWidgetSettings();
-		await setTextareaValue('#widget-custom-html', USER_HTML);
-
-		// The live preview in the settings modal renders the typed HTML
-		// sanitized, before anything is saved.
-		const previewState = await browser.execute(() => {
-			const surface = document.querySelector<HTMLElement>('.preview-surface');
-			if (!surface) throw new Error('preview surface not found');
-			return {
-				h1: surface.querySelector('h1')?.textContent ?? '',
-				scripts: surface.querySelectorAll('script').length,
-				pwned: (window as unknown as { __e2ePwned?: boolean }).__e2ePwned ?? false
-			};
-		});
-		expect(previewState.h1).toBe('Hello E2E');
-		expect(previewState.scripts).toBe(0);
-		expect(previewState.pwned).toBe(false);
-
-		await (await $('button=Appearance')).click();
-		await (await $('#widget-custom-css-enabled')).click();
-		await setTextareaValue('#widget-custom-css', USER_CSS);
-
-		await (await $('button=Save Changes')).click();
-
-		// The settings modal must close before we interact with the grid again.
-		await browser.waitUntil(
-			async () =>
-				!(await browser.execute(
-					() => document.querySelector('[role="dialog"][aria-modal="true"]') !== null
-				)),
-			{ timeout: 10000, timeoutMsg: 'settings modal did not close after save' }
-		);
-
-		// Wait for the saved HTML to render in the widget itself — the actual
-		// outcome — rather than any intermediate DOM state.
-		await browser.waitUntil(
-			async () =>
-				(await browser.execute(() => document.querySelector('.custom-widget h1')?.textContent)) ===
-				'Hello E2E',
-			{ timeout: 10000, timeoutMsg: 'saved HTML never rendered in the widget' }
-		);
-		// The live DOM must contain the safe structure and none of the script.
-		const state = await browser.execute(() => {
-			const widget = document.querySelector<HTMLElement>('.custom-widget');
-			if (!widget) throw new Error('custom widget not found');
-			const frame = widget.querySelector('iframe');
-			// The sanitized-away script would set this flag if it ever ran.
-			const e2eWindow = window as unknown as { __e2ePwned?: boolean };
-			return {
-				h1: widget.querySelector('h1')?.textContent ?? '',
-				p: widget.querySelector('p')?.textContent ?? '',
-				scripts: widget.querySelectorAll('script').length,
-				pwned: e2eWindow.__e2ePwned ?? false,
-				linkTarget: widget.querySelector('a')?.getAttribute('target') ?? '',
-				linkRel: widget.querySelector('a')?.getAttribute('rel') ?? '',
-				iframeSandbox: frame?.getAttribute('sandbox') ?? '',
-				iframeSrcdoc: frame?.getAttribute('srcdoc') ?? ''
-			};
-		});
-		expect(state.h1).toBe('Hello E2E');
-		expect(state.p).toBe('body text');
-		expect(state.scripts).toBe(0);
-		expect(state.pwned).toBe(false);
-		expect(state.linkTarget).toBe('_blank');
-		expect(state.linkRel).toContain('noopener');
-		expect(state.iframeSandbox).toBe('allow-scripts');
-		expect(state.iframeSrcdoc).toContain('</style>');
-		expect(state.iframeSrcdoc).toContain('</script>');
-
-		// Cascade check: the user CSS must win over the built-in styles,
-		// scoped to this widget only.
-		const backgroundColor = await browser.execute(() => {
-			const el = document.querySelector<HTMLElement>('.custom-widget');
-			return el ? getComputedStyle(el).backgroundColor : '';
-		});
-		expect(backgroundColor).toBe('rgb(10, 20, 30)');
-
-		// Clean up: remove the widget (and any leftovers from interrupted runs)
-		// and persist the edit session so the test never leaves a Custom HTML
-		// widget in the user's layout. Removal lives in the right-click menu,
-		// so select each remaining widget via a synthetic right-click and
-		// click the Remove item — retrying until none remain.
-		for (let attempt = 0; attempt < 8; attempt++) {
-			const remaining = await $$('.custom-widget').length;
-			if (remaining === 0) break;
-			await browser.execute(() => {
-				const widget = document.querySelector('.custom-widget')?.closest('.draggable-widget') as
-					| HTMLElement
-					| undefined;
-				widget?.dispatchEvent(
-					new MouseEvent('contextmenu', {
-						bubbles: true,
-						cancelable: true,
-						clientX: 200,
-						clientY: 200
-					})
-				);
-			});
-			await browser.execute(() => {
-				(
-					[...document.querySelectorAll<HTMLElement>('.context-menu-item')].find(
-						(el) => el.textContent?.trim() === 'Remove'
-					) as HTMLElement | undefined
-				)?.click();
-			});
-			await browser.pause(150);
-		}
-		await (await $('button=Save & Exit')).click();
-		await browser.waitUntil(async () => (await $$('.custom-widget').length) === 0, {
-			timeout: 10000
+async function collectMessages() {
+	await browser.execute(() => {
+		const w = window as unknown as { __pageMessages: string[] };
+		w.__pageMessages = [];
+		window.addEventListener('message', (event) => {
+			if (typeof event.data === 'string') w.__pageMessages.push(event.data);
 		});
 	});
-	it('runs scripts inside sandboxed iframes (addEventListener, not inline onclick)', async () => {
-		await browser.waitUntil(async () => (await browser.getTitle()) === 'Odeko', {
-			timeout: 15000
-		});
-		await enterEditMode();
-		await (await $('button=Add Widget')).click();
-		await (await $('button[title="Custom HTML"]')).click();
-		await (await $('.custom-widget')).waitForExist({ timeout: 15000 });
+}
 
-		// Collect postMessages from the sandboxed frame.
-		await browser.execute(() => {
-			(window as unknown as { __sandboxMessages: string[] }).__sandboxMessages = [];
-			window.addEventListener('message', (event) => {
-				if (typeof event.data === 'string') {
-					(window as unknown as { __sandboxMessages: string[] }).__sandboxMessages.push(event.data);
-				}
-			});
-		});
+async function messages(): Promise<string[]> {
+	return browser.execute(() => (window as unknown as { __pageMessages: string[] }).__pageMessages);
+}
 
-		const frameHtml =
-			"<iframe sandbox='allow-scripts' srcdoc=\"<button id='b' onclick='parent.postMessage(&#39;inline-click&#39;, &#39;*&#39;)'>GO</button><script>parent.postMessage('script-ran', '*');document.getElementById('b').addEventListener('click', function () { parent.postMessage('listener-click', '*'); });document.getElementById('b').click();</script>\"></iframe>";
+async function waitForMessage(text: string, timeoutMsg: string) {
+	await browser.waitUntil(async () => (await messages()).includes(text), {
+		timeout: 15000,
+		timeoutMsg
+	});
+}
 
-		await openCustomWidgetSettings();
-		await setTextareaValue('#widget-custom-html', frameHtml);
-		await (await $('button=Save Changes')).click();
-		await browser.waitUntil(
-			async () =>
-				(await browser.execute(() => document.querySelector('.custom-widget iframe') !== null)) ===
-				true,
-			{ timeout: 10000 }
-		);
-		await browser.waitUntil(
-			async () =>
-				(await browser.execute(() =>
-					(window as unknown as { __sandboxMessages: string[] }).__sandboxMessages.includes(
-						'script-ran'
-					)
-				)) === true,
-			{ timeout: 10000, timeoutMsg: 'sandboxed iframe script never executed' }
-		);
+async function saveSettings() {
+	await (await $('button=Save Changes')).click();
+	await browser.waitUntil(
+		async () =>
+			!(await browser.execute(
+				() => document.querySelector('[role="dialog"][aria-modal="true"]') !== null
+			)),
+		{ timeout: 10000, timeoutMsg: 'settings modal did not close after save' }
+	);
+}
 
-		const messages = await browser.execute(
-			() => (window as unknown as { __sandboxMessages: string[] }).__sandboxMessages
-		);
-		expect(messages).toContain('listener-click');
-		// WebKitGTK does not execute inline handlers in sandboxed frames — the
-		// docs tell users to use addEventListener; guard that claim.
-		expect(messages).not.toContain('inline-click');
-
-		// Clean up.
+async function removeAllCustomWidgets() {
+	for (let attempt = 0; attempt < 8; attempt++) {
+		if ((await $$('.custom-widget').length) === 0) break;
 		await browser.execute(() => {
 			const widget = document.querySelector('.custom-widget')?.closest('.draggable-widget') as
 				| HTMLElement
@@ -242,7 +111,96 @@ describe('Custom HTML widget', () => {
 				) as HTMLElement | undefined
 			)?.click();
 		});
+		await browser.pause(150);
+	}
+}
+
+describe('Custom HTML widget', () => {
+	it('runs the page sandboxed, keeps its storage and applies scoped CSS', async () => {
+		await browser.waitUntil(async () => (await browser.getTitle()) === 'Odeko', {
+			timeout: 15000
+		});
+		await collectMessages();
+
+		await enterEditMode();
+		await (await $('button=Add Widget')).click();
+		const row = await $('button[title="Custom HTML"]');
+		await row.waitForExist({ timeout: 10000 });
+		await row.click();
+		await (await $('.custom-widget')).waitForExist({ timeout: 15000 });
+
+		await openCustomWidgetSettings();
+		await setTextareaValue('#widget-custom-html', PAGE_HTML);
+		await (await $('button=Appearance')).click();
+		await (await $('#widget-custom-css-enabled')).click();
+		await setTextareaValue('#widget-custom-css', USER_CSS);
+		await saveSettings();
+
+		await waitForMessage('script-ran', 'page script never ran');
+		await waitForMessage('runs:1', 'storage never saved the first run');
+		expect(await messages()).not.toContain('escaped');
+
+		const frame = await browser.execute(() => {
+			const iframe = document.querySelector('.custom-widget iframe');
+			return {
+				sandbox: iframe?.getAttribute('sandbox') ?? '',
+				hasPage: (iframe?.getAttribute('srcdoc') ?? '').includes('Hello E2E')
+			};
+		});
+		expect(frame.sandbox).toBe('allow-scripts');
+		expect(frame.hasPage).toBe(true);
+
+		const backgroundColor = await browser.execute(() => {
+			const el = document.querySelector<HTMLElement>('.custom-widget');
+			return el ? getComputedStyle(el).backgroundColor : '';
+		});
+		expect(backgroundColor).toBe('rgb(10, 20, 30)');
+
+		// The preview's Run reloads the page under the same widget id; the count carries over.
+		await openCustomWidgetSettings();
+		await (await $('button=Run')).click();
+		await waitForMessage('runs:2', 'storage did not survive a reload');
 		await (await $('button=Cancel')).click();
+
+		await removeAllCustomWidgets();
+		await (await $('button=Save & Exit')).click();
+		await browser.waitUntil(async () => (await $$('.custom-widget').length) === 0, {
+			timeout: 10000
+		});
+	});
+
+	it('blocks page scripts when Run JavaScript is off', async () => {
+		await collectMessages();
+		await enterEditMode();
+		await (await $('button=Add Widget')).click();
+		await (await $('button[title="Custom HTML"]')).click();
+		await (await $('.custom-widget')).waitForExist({ timeout: 15000 });
+
+		await openCustomWidgetSettings();
+		await setTextareaValue('#widget-custom-html', PAGE_HTML);
+		await browser.execute(() => {
+			(
+				[...document.querySelectorAll<HTMLLabelElement>('label')]
+					.find((el) => el.textContent?.includes('Run JavaScript'))
+					?.querySelector('input') as HTMLInputElement | undefined
+			)?.click();
+		});
+		await saveSettings();
+
+		await browser.waitUntil(
+			async () =>
+				await browser.execute(() =>
+					(document.querySelector('.custom-widget iframe')?.getAttribute('srcdoc') ?? '').includes(
+						'Content-Security-Policy'
+					)
+				),
+			{ timeout: 10000, timeoutMsg: 'scripts-off page never rendered' }
+		);
+		await browser.pause(1500);
+		expect(await messages()).not.toContain('script-ran');
+
+		await removeAllCustomWidgets();
+		await (await $('button=Save & Exit')).click();
 		await browser.waitUntil(async () => (await $$('.custom-widget').length) === 0, {
 			timeout: 10000
 		});

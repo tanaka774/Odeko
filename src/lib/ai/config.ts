@@ -274,6 +274,11 @@ export function sensitiveChanges(before: LayoutState, after: LayoutState): strin
 		if ((icon.url ?? '') !== (old?.url ?? '') && !safeUrl(icon.url)) {
 			reasons.push(`"${label}" opens a non-web link: ${icon.url}`);
 		}
+		if (icon.widget_type === 'custom') {
+			const file = (icon.widget_config as { file?: string | null } | undefined)?.file;
+			const oldFile = (old?.widget_config as { file?: string | null } | undefined)?.file;
+			if (file && file !== oldFile) reasons.push(`"${label}" loads the local file: ${file}`);
+		}
 		if (icon.keybind_global && !old?.keybind_global) {
 			reasons.push(`"${label}" gets a system-wide shortcut`);
 		}

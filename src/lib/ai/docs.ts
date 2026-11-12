@@ -34,6 +34,7 @@ const SETTINGS_DOC = `# Canvas settings (/settings)
 - backdrop_blur: native blur behind the window; blur_strength "light" (panel only) | "full" (whole screen)
 - open_animation, close_animation: "none" | "fade" | "zoom" | "slide"; slide_edge "top" | "bottom" | "left" | "right"
 - animation_duration_ms; tile_cascade: tiles sweep in one after another
+- hide_on_link_open: hide the canvas after a link in an HTML widget/background opens (default true)
 - magnetic_snap, grid_size (px); grid_line_color is "R, G, B" (no hex, no rgb())
 - keybind_*: { key, ctrl, alt, shift, meta }. Only change when asked.
 - default_appearance: appearance template stamped onto NEW icons/widgets only (does not restyle existing ones; custom CSS is stripped here)
@@ -77,7 +78,7 @@ function widgetsDoc(): string {
 	return `# Widget types\n${rows}
 
 Adding a widget: add /icons/widget-ai-<something> with icon_type "widget", widget_type, x, y (width/height/widget_config default when left out).
-Custom HTML widget content lives in widget_config.content (see the html-widget topic).
+Custom HTML widget: widget_config { content (a full HTML page), scripts (run JavaScript), file null, watch false } (see the html-widget topic).
 Widget-specific widget_config fields (besides appearance) are best learned by reading an existing widget with get_config.`;
 }
 

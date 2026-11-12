@@ -81,9 +81,10 @@ describe('createDefaultWidgetConfig', () => {
 		expect(cfg.captureImages).toBe(true);
 	});
 
-	it('creates custom defaults with placeholder HTML', () => {
+	it('creates custom defaults with a starter page that uses storage', () => {
 		const cfg = createDefaultWidgetConfig('custom') as CustomWidgetConfig;
-		expect(cfg.content).toContain('<h1>My widget</h1>');
+		expect(cfg.content).toContain('odeko.storage');
+		expect(cfg.scripts).toBe(true);
 		expect(cfg.appearance).toBeUndefined();
 	});
 

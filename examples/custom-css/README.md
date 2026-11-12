@@ -38,7 +38,7 @@ another item (or duplicate the item first).
 | `restart.css`   | Restart        | Sunrise Amber — warm gradient, glowing icon that turns on hover             |
 | `shutdown.css`  | Shutdown       | Red Alert — charcoal panel with a pulsing red glow                          |
 | `clipboard.css` | Clipboard      | Frosted Glass — translucent panel, card entries, accent badge               |
-| `custom.css`    | Custom HTML    | Poster — bold frame plus typography for the HTML inside                     |
+| `custom.css`    | Custom HTML    | Poster — bold gradient frame around the page                                |
 | `divider.css`   | Divider        | Neon Rule — glowing pink line with a spaced uppercase label                 |
 | `aichat.css`    | AI chat        | Midnight Terminal — indigo glass, monospace transcript, violet bubbles      |
 | `icon.css`      | Canvas icon    | Glossy Tile — vivid gradient tile, inner highlight, uppercase label         |
@@ -213,7 +213,7 @@ The attributes sit on the root itself, so put them right after the root class
 | One rule is ignored                                 | Class name typo — check the "What can I style?" list                                                                                  |
 | Recoloring `--appearance-*` did nothing             | The variable is set inline; override the concrete property or add `!important`                                                        |
 | Terminal text keeps its colors                      | xterm.js paints on a canvas — use the terminal theme settings for text                                                                |
-| Custom HTML body is unstyled                        | Only the widget chrome and elements under `.html-content` are reachable; content inside an embedded `<iframe>` is a separate document |
+| Custom HTML page content is unstyled                | The page is its own document: style it with a `<style>` block in the HTML. Custom CSS reaches only the frame around it              |
 | Can't restyle the edit-mode outline or context menu | Edit-mode chrome (`.draggable-widget`, `.context-menu*`, `.floating-toolbar`) is not part of the public class API                     |
 | Music progress bar / play button keeps its color    | Those elements carry inline theme-color styles; the `music.css` theme re-tints them with `filter` instead of `background`             |
 | Terminal background stays grey while loading        | The loading overlay's background is inline; only its border and text are stylable                                                     |

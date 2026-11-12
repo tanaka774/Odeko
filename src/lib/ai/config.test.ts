@@ -287,6 +287,14 @@ describe('sensitiveChanges', () => {
 		expect(add({ ...base, url: 'file:///etc/passwd' })[0]).toContain('non-web link');
 	});
 
+	it('flags Custom HTML widgets that load a local file', () => {
+		const base = { icon_type: 'widget', widget_type: 'custom', x: 0, y: 0 };
+		expect(add({ ...base, widget_config: { content: '<p>x</p>' } })).toEqual([]);
+		expect(add({ ...base, widget_config: { content: '', file: '/home/me/w.html' } })[0]).toContain(
+			'loads the local file: /home/me/w.html'
+		);
+	});
+
 	it('flags global shortcuts and disabled power confirmation', () => {
 		const state = makeState();
 		state.icons.push({

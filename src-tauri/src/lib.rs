@@ -14,6 +14,7 @@ use commands::text_files::{read_text_file, text_file_modified, write_text_file};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
 use commands::system_stats::get_system_stats;
 use commands::terminal::{TerminalState, terminal_create_shell, terminal_write, terminal_resize, terminal_start_reader};
+use commands::widget_data::{widget_data_clear, widget_data_load, widget_data_prune, widget_data_set};
 use commands::widget_fetch::{ai_fetch_page, widget_fetch};
 use tauri::{Emitter, Manager};
 use tauri::utils::config::Color;
@@ -181,7 +182,8 @@ pub fn run() {
             load_ai_chat, save_ai_chat, delete_ai_chat,
             ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot,
             chatgpt_sign_in, chatgpt_sign_out, chatgpt_account,
-            list_system_fonts, list_user_fonts, import_font, remove_font
+            list_system_fonts, list_user_fonts, import_font, remove_font,
+            widget_data_load, widget_data_set, widget_data_clear, widget_data_prune
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

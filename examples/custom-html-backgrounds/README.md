@@ -33,7 +33,8 @@ add an **HTML** layer and paste the content into its editor.
   clicks, hover, scrolling and typing wherever no icon covers it, like a
   normal web page. Icons stay on top and clickable, and edit mode turns it
   off while you arrange them. Turn it off for pure wallpapers. The page has
-  no storage, so its state resets when it reloads.
+  no storage, so its state resets when it reloads; use a Custom HTML widget
+  when you need `odeko.storage`.
 - **Run JavaScript** can be turned off per layer; the page then renders as
   static HTML/CSS. Layers from an imported preset or layer file start with it
   off.

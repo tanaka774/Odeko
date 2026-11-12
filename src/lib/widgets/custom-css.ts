@@ -269,19 +269,21 @@ export const WIDGET_CSS_API: Record<
 			'.clipboard-widget { background: rgba(17, 24, 39, 0.78); }\n.entry { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }\n.entry-preview { color: #cbd5e1; }'
 	},
 	custom: {
+		states: ['[data-scripts]', '[data-linked]'],
 		classes: [
 			'.custom-widget',
-			'.html-content',
+			'.html-frame',
+			'.edit-cover',
+			'.file-error',
 			'.net-prompt',
 			'.net-prompt-text',
 			'.net-prompt-actions',
 			'.net-prompt-allow',
-			'.net-prompt-deny',
-			'.placeholder-text'
+			'.net-prompt-deny'
 		],
 		example:
-			'.custom-widget { background: linear-gradient(140deg, #111827, #4c1d95); border: 1px solid rgba(196, 181, 253, 0.4); }\n.html-content h1 { color: #f0abfc; letter-spacing: 0.04em; }\n.html-content a { color: #67e8f9; }',
-		note: 'Class names inside your HTML are your own — they are not part of the stable API. Prefer element selectors scoped under .html-content. The iframe document itself cannot be reached from here.'
+			'.custom-widget { background: linear-gradient(140deg, #111827, #4c1d95); border: 1px solid rgba(196, 181, 253, 0.4); }\n.html-frame { border-radius: 10px; }',
+		note: 'The page inside is its own document: style it with a <style> block in the HTML. Custom CSS here styles the frame around it.'
 	},
 	aichat: {
 		states: ['[data-busy]'],

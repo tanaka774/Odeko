@@ -426,7 +426,14 @@ export interface ClipboardWidgetConfig extends WidgetConfig {
 // render time (see custom-html.ts), so the user's original text is kept
 // intact for editing.
 export interface CustomWidgetConfig extends WidgetConfig {
+	/** A full HTML page. */
 	content?: string;
+	/** Off: the page renders as static HTML/CSS. */
+	scripts?: boolean;
+	/** HTML file the page is loaded from. */
+	file?: string | null;
+	/** Re-read `file` whenever it changes on disk. */
+	watch?: boolean;
 }
 
 // AI chat widget config. Provider profiles (with API keys) live outside the
@@ -680,6 +687,26 @@ export const WIDGET_REGISTRY: WidgetMeta[] = [
 	}
 ];
 
+export const CUSTOM_WIDGET_STARTER = `<style>
+	body { display: grid; place-items: center; height: 100vh; font-size: 1.4em; }
+	button { font: inherit; padding: 2px 12px; }
+</style>
+<button id="count">Clicked 0 times</button>
+<script>
+	const button = document.getElementById('count');
+	let clicks = 0;
+	odeko.storage.get('clicks').then((saved) => {
+		clicks = saved ?? 0;
+		button.textContent = \`Clicked \${clicks} times\`;
+	});
+	button.addEventListener('click', () => {
+		clicks++;
+		button.textContent = \`Clicked \${clicks} times\`;
+		odeko.storage.set('clicks', clicks);
+	});
+</script>
+`;
+
 // Helper to get widget metadata
 export function getWidgetMeta(type: WidgetType): WidgetMeta | undefined {
 	return WIDGET_REGISTRY.find((w) => w.type === type);
@@ -813,7 +840,10 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			return { profileId: null, instructions: '' };
 		case 'custom':
 			return {
-				content: '<h1>My widget</h1>\n<p>Edit the HTML in the widget settings.</p>'
+				content: CUSTOM_WIDGET_STARTER,
+				scripts: true,
+				file: null,
+				watch: false
 			};
 		default:
 			return {};

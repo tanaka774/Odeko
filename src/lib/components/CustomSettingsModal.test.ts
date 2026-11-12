@@ -1,62 +1,59 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/svelte';
+import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/svelte';
+
+const invokeMock = vi.fn(async () => null);
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: (...args: unknown[]) => invokeMock(...(args as [])),
+	convertFileSrc: (path: string) => path
+}));
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
+
 import CustomSettingsModal from './CustomSettingsModal.svelte';
 
-vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn()
-}));
+afterEach(() => {
+	cleanup();
+	invokeMock.mockClear();
+});
 
-afterEach(cleanup);
+function previewDoc() {
+	return document.querySelector('.preview-surface iframe')?.getAttribute('srcdoc') ?? '';
+}
 
-describe('CustomSettingsModal live preview', () => {
-	it('renders the typed HTML in the preview as you type', async () => {
+describe('CustomSettingsModal', () => {
+	it('previews the page and updates it on Run', async () => {
 		render(CustomSettingsModal, {
 			isOpen: true,
-			config: { content: '<h1>Initial</h1>' },
+			config: { content: '<h1>Initial</h1>', scripts: false },
 			onSave: vi.fn()
 		});
-
-		// The preview starts with the current content.
-		expect(document.querySelector('.preview-surface h1')?.textContent).toBe('Initial');
-
-		// Typing updates the preview without saving.
-		await fireEvent.input(document.querySelector('#widget-custom-html') as HTMLTextAreaElement, {
-			target: { value: '<h1>Live</h1><p>typed</p>' }
-		});
-		expect(document.querySelector('.preview-surface h1')?.textContent).toBe('Live');
-		expect(document.querySelector('.preview-surface p')?.textContent).toBe('typed');
-	});
-
-	it('preview is sanitized exactly like the widget', async () => {
-		render(CustomSettingsModal, { isOpen: true, config: {}, onSave: vi.fn() });
+		await waitFor(() => expect(previewDoc()).toContain('<h1>Initial</h1>'));
 
 		await fireEvent.input(document.querySelector('#widget-custom-html') as HTMLTextAreaElement, {
-			target: { value: '<p>safe</p><script>window.__pwned = true;</script>' }
+			target: { value: '<h1>Live</h1>' }
 		});
-
-		expect(document.querySelector('.preview-surface p')?.textContent).toBe('safe');
-		expect(document.querySelector('.preview-surface script')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+		await waitFor(() => expect(previewDoc()).toContain('<h1>Live</h1>'));
 	});
 
-	it('shows the empty placeholder when the content is blank', async () => {
-		render(CustomSettingsModal, { isOpen: true, config: {}, onSave: vi.fn() });
-
-		expect(document.querySelector('.preview-surface .placeholder-text')).not.toBeNull();
+	it('saves the edited page and the scripts switch', async () => {
+		const onSave = vi.fn();
+		render(CustomSettingsModal, { isOpen: true, config: { content: '' }, onSave });
 
 		await fireEvent.input(document.querySelector('#widget-custom-html') as HTMLTextAreaElement, {
-			target: { value: '   ' }
+			target: { value: '<p>x</p>' }
 		});
-		expect(document.querySelector('.preview-surface .placeholder-text')).not.toBeNull();
+		await fireEvent.click(screen.getByLabelText('Run JavaScript'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({ content: '<p>x</p>', scripts: false })
+		);
 	});
 
-	it('keeps the editor and preview on the HTML tab', () => {
-		const { container } = render(CustomSettingsModal, {
-			isOpen: true,
-			config: {},
-			onSave: vi.fn()
-		});
-
-		expect(screen.getByLabelText('HTML')).toBeTruthy();
-		expect(container.querySelector('.preview-surface')).not.toBeNull();
+	it('clears the widget data from the Network & Data tab', async () => {
+		render(CustomSettingsModal, { isOpen: true, config: {}, widgetId: 'w1', onSave: vi.fn() });
+		await fireEvent.click(screen.getByRole('tab', { name: 'Network & Data' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+		expect(invokeMock).toHaveBeenCalledWith('widget_data_clear', { widgetId: 'w1' });
 	});
 });

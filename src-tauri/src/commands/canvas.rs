@@ -116,6 +116,9 @@ pub struct CanvasSettings {
     /// Tiles sweep in one after another on open and on preset switches.
     #[serde(default)]
     pub tile_cascade: bool,
+    /// Hide the canvas after a link inside an HTML widget or background opens.
+    #[serde(default = "default_true")]
+    pub hide_on_link_open: bool,
     #[serde(default = "default_animation_duration_ms")]
     pub animation_duration_ms: f32,
     #[serde(default)]
@@ -171,6 +174,7 @@ impl Default for CanvasSettings {
             close_animation: default_fade_animation(),
             slide_edge: default_slide_edge(),
             tile_cascade: false,
+            hide_on_link_open: true,
             animation_duration_ms: default_animation_duration_ms(),
             magnetic_snap: true,
             grid_size: 40.0,
@@ -284,6 +288,8 @@ pub struct ImportResult {
     pub forced_power_confirmation: usize,
     /// HTML background layers whose scripts were turned off.
     pub disabled_script_layers: usize,
+    /// Custom HTML widgets whose scripts were turned off.
+    pub disabled_script_widgets: usize,
 }
 
 fn is_power_widget_icon(icon: &AppIcon) -> bool {
@@ -386,6 +392,27 @@ fn neutralize_background_layers(data: &mut PresetData) -> usize {
             }
             fields.insert("scripts".to_string(), serde_json::Value::Bool(false));
         }
+    }
+    disabled
+}
+
+/// Imported Custom HTML widgets never run scripts or read a local file until
+/// the user turns that on. Returns how many widgets had scripts on.
+fn neutralize_custom_widgets(data: &mut PresetData) -> usize {
+    let mut disabled = 0;
+    for icon in &mut data.icons {
+        if icon.widget_type.as_deref() != Some("custom") {
+            continue;
+        }
+        let Some(serde_json::Value::Object(config)) = icon.widget_config.as_mut() else {
+            continue;
+        };
+        if config.get("scripts") != Some(&serde_json::Value::Bool(false)) {
+            disabled += 1;
+        }
+        config.insert("scripts".to_string(), serde_json::Value::Bool(false));
+        config.insert("file".to_string(), serde_json::Value::Null);
+        config.insert("watch".to_string(), serde_json::Value::Bool(false));
     }
     disabled
 }
@@ -496,7 +523,7 @@ pub(crate) fn get_config_dir() -> PathBuf {
     config_dir.join("odeko")
 }
 
-fn get_presets_dir() -> PathBuf {
+pub(crate) fn get_presets_dir() -> PathBuf {
     get_config_dir().join("presets")
 }
 
@@ -1282,6 +1309,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
     let (cleared_network_grants, cleared_local_network, cleared_global_shortcuts, forced_power_confirmation) =
         neutralize_preset(&mut data);
     let disabled_script_layers = neutralize_background_layers(&mut data);
+    let disabled_script_widgets = neutralize_custom_widgets(&mut data);
 
     let presets_dir = get_presets_dir();
     if let Err(e) = std::fs::create_dir_all(&presets_dir) {
@@ -1323,6 +1351,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
         cleared_global_shortcuts,
         forced_power_confirmation,
         disabled_script_layers,
+        disabled_script_widgets,
     })
 }
 
@@ -1663,6 +1692,7 @@ mod tests {
             close_animation: "slide".to_string(),
             slide_edge: "left".to_string(),
             tile_cascade: true,
+            hide_on_link_open: false,
             animation_duration_ms: 400.0,
             magnetic_snap: false,
             grid_size: 64.0,
@@ -1745,6 +1775,31 @@ mod tests {
     }
 
     #[test]
+    fn imported_custom_widgets_lose_scripts_and_files() {
+        let mut data: PresetData = serde_json::from_value(serde_json::json!({
+            "icons": [
+                { "id": "a", "name": "", "path": "", "icon_path": null, "icon_type": "widget",
+                  "widget_type": "custom", "url": null, "x": 0, "y": 0, "width": 1, "height": 1,
+                  "widget_config": { "content": "<p>x</p>", "scripts": true, "file": "/tmp/w.html", "watch": true } },
+                { "id": "b", "name": "", "path": "", "icon_path": null, "icon_type": "widget",
+                  "widget_type": "custom", "url": null, "x": 0, "y": 0, "width": 1, "height": 1,
+                  "widget_config": { "content": "", "scripts": false } },
+                { "id": "c", "name": "", "path": "", "icon_path": null, "icon_type": "widget",
+                  "widget_type": "memo", "url": null, "x": 0, "y": 0, "width": 1, "height": 1,
+                  "widget_config": { "content": "" } }
+            ],
+            "settings": serde_json::to_value(CanvasSettings::default()).unwrap()
+        }))
+        .unwrap();
+        assert_eq!(neutralize_custom_widgets(&mut data), 1);
+        let first = data.icons[0].widget_config.as_ref().unwrap();
+        assert_eq!(first["scripts"], false);
+        assert_eq!(first["file"], serde_json::Value::Null);
+        assert_eq!(first["watch"], false);
+        assert!(data.icons[2].widget_config.as_ref().unwrap().get("scripts").is_none());
+    }
+
+    #[test]
     fn every_settings_field_round_trips_through_disk() {
         with_fake_config_dir(|| {
             let modified = modified_settings();
@@ -1764,6 +1819,7 @@ mod tests {
             assert_eq!(got.close_animation, "slide");
             assert_eq!(got.slide_edge, "left");
             assert!(got.tile_cascade);
+            assert!(!got.hide_on_link_open);
             assert_eq!(got.animation_duration_ms, 400.0);
             assert!(!got.magnetic_snap);
             assert_eq!(got.grid_size, 64.0);

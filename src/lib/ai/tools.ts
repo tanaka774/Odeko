@@ -2,7 +2,6 @@ import { jsonSchema, tool, type ToolSet } from 'ai';
 import type { Operation } from 'fast-json-patch';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { checkShader } from '$lib/background-shaders';
-import { sanitizeCustomHtml } from '$lib/widgets/custom-html';
 import { applyConfigPatch, PatchRejected, readView } from './config';
 import { DOC_TOPICS, exampleNames, getDocs } from './docs';
 import { applyLayout, layoutBridge } from './layout-bridge';
@@ -52,7 +51,6 @@ export const CONFIG_TOOLS = [
 	'get_docs',
 	'list_examples',
 	'check_shader',
-	'preview_html_sanitize',
 	'list_presets',
 	'switch_preset',
 	'save_preset_as',
@@ -432,18 +430,6 @@ ${list}`;
 				additionalProperties: false
 			}),
 			execute: async ({ source }) => checkShader(source) ?? 'OK'
-		}),
-
-		preview_html_sanitize: tool({
-			description:
-				'Show what a Custom HTML widget content becomes after the app sanitizes it, to check nothing important gets stripped.',
-			inputSchema: jsonSchema<{ html: string }>({
-				type: 'object',
-				properties: { html: { type: 'string' } },
-				required: ['html'],
-				additionalProperties: false
-			}),
-			execute: async ({ html }) => truncate(sanitizeCustomHtml(html))
 		})
 	};
 }

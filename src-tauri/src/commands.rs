@@ -13,4 +13,5 @@ pub mod power_control;
 pub mod system_stats;
 pub mod terminal;
 pub mod text_files;
+pub mod widget_data;
 pub mod widget_fetch;

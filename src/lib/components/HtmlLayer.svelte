@@ -1,65 +1,14 @@
-<script module lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
-
-	let libraryBase: Promise<string | null> | null = null;
-
-	function getLibraryBase(): Promise<string | null> {
-		libraryBase ??= invoke<string>('library_base_url').catch((error) => {
-			console.error('[HtmlLayer] library cache unavailable:', error);
-			return null;
-		});
-		return libraryBase;
-	}
-
-	// Re-fires input a frame handed back (see HELPER_SCRIPT) in the app.
-	function forwardFromFrame(event: MessageEvent) {
-		const data = event.data;
-		if (event.origin !== 'null' || typeof data?.kind !== 'string') return;
-		if (data.kind === 'odeko-key') {
-			window.dispatchEvent(new KeyboardEvent('keydown', { ...data, bubbles: true }));
-			return;
-		}
-		if (data.kind !== 'odeko-contextmenu' && data.kind !== 'odeko-pointer') return;
-		const frame = [...document.querySelectorAll<HTMLIFrameElement>('iframe.bg-html')].find(
-			(element) => element.contentWindow === event.source
-		);
-		if (!frame || typeof data.x !== 'number' || typeof data.y !== 'number') return;
-		const rect = frame.getBoundingClientRect();
-		const clientX = rect.left + data.x;
-		const clientY = rect.top + data.y;
-		if (data.kind === 'odeko-pointer') {
-			if (['pointermove', 'pointerdown', 'pointerup'].includes(data.type)) {
-				window.dispatchEvent(
-					new PointerEvent(data.type, { clientX, clientY, button: Number(data.button) || 0 })
-				);
-			}
-			return;
-		}
-		document.elementFromPoint(clientX, clientY)?.dispatchEvent(
-			new MouseEvent('contextmenu', {
-				bubbles: true,
-				cancelable: true,
-				button: 2,
-				clientX,
-				clientY
-			})
-		);
-	}
-
-	if (typeof window !== 'undefined') window.addEventListener('message', forwardFromFrame);
-</script>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { buildSrcdoc } from '$lib/background-html';
+	import HtmlPage from './HtmlPage.svelte';
 	import { createInputTracker } from '$lib/background-input';
 	import { watchWindowVisibility } from '$lib/window-visibility';
 
-	// Renders an HTML layer in a sandboxed iframe. With scripts on, the page
-	// receives `odeko-frame` messages with the shared inputs (CSS pixels,
-	// top-left origin) every animation frame, and pause/resume while the
-	// window hides and shows. An interactive page takes pointer input where
-	// no icon covers it while the panel has `interactive-bg`.
+	// Renders an HTML layer as a page. With scripts on, the page receives
+	// `odeko-frame` messages with the shared inputs (CSS pixels, top-left
+	// origin) every animation frame, and pause/resume while the window hides
+	// and shows. An interactive page takes pointer input where no icon covers
+	// it while the panel has `interactive-bg`.
 	let {
 		source,
 		scripts,
@@ -73,23 +22,19 @@
 		onready?: () => void;
 	} = $props();
 
-	let iframe: HTMLIFrameElement;
-	let srcdoc = $state<string | null>(null);
+	let iframe = $state<HTMLIFrameElement | null>(null);
 
 	onMount(() => {
-		let disposed = false;
+		if (!iframe) return;
+		const frameEl = iframe;
 		let raf = 0;
 		let running = false;
 		let last = performance.now();
 		let time = 0;
-		const input = createInputTracker(iframe);
-
-		void (scripts ? getLibraryBase() : Promise.resolve(null)).then((base) => {
-			if (!disposed) srcdoc = buildSrcdoc(source, scripts, base);
-		});
+		const input = createInputTracker(frameEl);
 
 		function post(message: unknown) {
-			iframe.contentWindow?.postMessage(message, '*');
+			frameEl.contentWindow?.postMessage(message, '*');
 		}
 
 		function frame(now: number) {
@@ -117,7 +62,6 @@
 		const stopWatching = watchWindowVisibility(setRunning);
 
 		return () => {
-			disposed = true;
 			cancelAnimationFrame(raf);
 			stopWatching();
 			input.destroy();
@@ -125,18 +69,18 @@
 	});
 </script>
 
-<iframe
-	bind:this={iframe}
-	class="bg-html"
-	class:interactive
+<HtmlPage
+	bind:iframe
+	class={interactive ? 'bg-html interactive' : 'bg-html'}
 	title="Background layer"
-	sandbox="allow-scripts"
-	{srcdoc}
-	onload={() => srcdoc !== null && onready?.()}
-></iframe>
+	kind="background"
+	{source}
+	{scripts}
+	{onready}
+/>
 
 <style>
-	.bg-html {
+	:global(.bg-html) {
 		position: absolute;
 		inset: 0;
 		width: 100%;

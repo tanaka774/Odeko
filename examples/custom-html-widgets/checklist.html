@@ -1,0 +1,61 @@
+<style>
+	body { display: flex; flex-direction: column; height: 100vh; padding: 6px; box-sizing: border-box; }
+	form { display: flex; gap: 4px; }
+	input[type='text'] { flex: 1; min-width: 0; font: inherit; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.3); color: inherit; }
+	ul { list-style: none; margin: 6px 0 0; padding: 0; overflow-y: auto; }
+	li { display: flex; align-items: center; gap: 6px; padding: 3px 2px; }
+	li.done span { opacity: 0.45; text-decoration: line-through; }
+	li span { flex: 1; }
+	li button { background: none; border: none; color: inherit; opacity: 0.4; cursor: pointer; }
+	li button:hover { opacity: 1; }
+</style>
+<form id="add"><input type="text" id="text" aria-label="New item" /></form>
+<ul id="list"></ul>
+<script>
+	// A checklist saved with odeko.storage: it survives reloads, restarts and
+	// preset switches.
+	let items = [];
+
+	function render() {
+		const list = document.getElementById('list');
+		list.replaceChildren(
+			...items.map((item, index) => {
+				const li = document.createElement('li');
+				li.className = item.done ? 'done' : '';
+				li.innerHTML = '<input type="checkbox"><span></span><button aria-label="Delete">✕</button>';
+				li.querySelector('span').textContent = item.text;
+				const box = li.querySelector('input');
+				box.checked = item.done;
+				box.addEventListener('change', () => {
+					item.done = box.checked;
+					update();
+				});
+				li.querySelector('button').addEventListener('click', () => {
+					items.splice(index, 1);
+					update();
+				});
+				return li;
+			})
+		);
+	}
+
+	function update() {
+		odeko.storage.set('items', items);
+		render();
+	}
+
+	document.getElementById('add').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const input = document.getElementById('text');
+		const text = input.value.trim();
+		if (!text) return;
+		items.push({ text, done: false });
+		input.value = '';
+		update();
+	});
+
+	odeko.storage.get('items').then((saved) => {
+		items = saved ?? [];
+		render();
+	});
+</script>

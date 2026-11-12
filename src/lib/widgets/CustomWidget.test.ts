@@ -1,42 +1,52 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
-import CustomWidget from './CustomWidget.svelte';
+import { render, cleanup, waitFor } from '@testing-library/svelte';
 
-const invokeMock = vi.fn();
+const invokeMock = vi.fn(
+	async (command: string): Promise<unknown> =>
+		command === 'library_base_url' ? 'http://127.0.0.1:1/lib/t/' : null
+);
 vi.mock('@tauri-apps/api/core', () => ({
-	invoke: (...args: unknown[]) => invokeMock(...args)
+	invoke: (command: string) => invokeMock(command),
+	convertFileSrc: (path: string) => path
 }));
+
+import CustomWidget from './CustomWidget.svelte';
 
 afterEach(() => {
 	cleanup();
 	invokeMock.mockClear();
 });
 
+function frameOf(container: HTMLElement) {
+	return container.querySelector('.custom-widget iframe') as HTMLIFrameElement;
+}
+
 describe('CustomWidget', () => {
-	it('renders the sanitized structure', () => {
+	it('renders the page in a scripts-only sandbox', async () => {
 		const { container } = render(CustomWidget, {
-			config: { content: '<h1>Hello</h1><p>World</p>' }
+			widgetId: 'w1',
+			config: { content: '<h1>Hello</h1><script>1</script>' }
 		});
-
-		const heading = container.querySelector('.custom-widget h1');
-		expect(heading?.textContent).toBe('Hello');
-		expect(container.querySelector('.custom-widget p')?.textContent).toBe('World');
+		const frame = frameOf(container);
+		expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
+		await waitFor(() => expect(frame.getAttribute('srcdoc')).toContain('<h1>Hello</h1>'));
+		expect(frame.getAttribute('srcdoc')).toContain('window.odeko');
+		expect(frame.getAttribute('srcdoc')).not.toContain('Content-Security-Policy');
 	});
 
-	it('strips script tags from the rendered DOM', () => {
+	it('blocks page scripts when scripts are off', async () => {
 		const { container } = render(CustomWidget, {
-			config: { content: '<p>safe</p><script>window.hacked = true</script>' }
+			config: { content: '<p>x</p>', scripts: false }
 		});
-
-		expect(container.querySelector('.custom-widget p')?.textContent).toBe('safe');
-		expect(container.querySelector('.custom-widget script')).toBeNull();
+		await waitFor(() =>
+			expect(frameOf(container).getAttribute('srcdoc')).toContain('Content-Security-Policy')
+		);
+		expect(container.querySelector('.custom-widget')?.hasAttribute('data-scripts')).toBe(false);
 	});
 
-	it('shows a placeholder when the content is empty', () => {
-		const { container } = render(CustomWidget, { config: { content: '' } });
-
-		expect(container.querySelector('.placeholder-text')).not.toBeNull();
-		expect(container.querySelector('.html-content')).toBeNull();
+	it('covers the page in edit mode so it can be dragged', () => {
+		const { container } = render(CustomWidget, { config: { content: '' }, isEditMode: true });
+		expect(container.querySelector('.edit-cover')).not.toBeNull();
 	});
 
 	it('applies the appearance variables on the root', () => {
@@ -46,95 +56,27 @@ describe('CustomWidget', () => {
 				appearance: {
 					backgroundColor: 'rgba(10, 20, 30, 0.5)',
 					backgroundOpacity: 0.5,
-					textColor: 'rgb(200, 210, 220)',
-					fontSize: 22,
-					fontFamily: 'Georgia, serif',
-					borderRadius: 18,
-					padding: 14,
-					opacity: 0.8
+					padding: 14
 				}
 			}
 		});
-
 		const root = container.querySelector('.custom-widget') as HTMLElement;
 		expect(root.style.getPropertyValue('--appearance-background')).toBe('rgba(10, 20, 30, 0.5)');
-		expect(root.style.getPropertyValue('--appearance-text-color')).toBe('rgb(200, 210, 220)');
-		expect(root.style.getPropertyValue('--appearance-font-size')).toBe('22px');
-		expect(root.style.getPropertyValue('--appearance-font-family')).toBe('Georgia, serif');
-		expect(root.style.getPropertyValue('--appearance-border-radius')).toBe('18px');
 		expect(root.style.getPropertyValue('--appearance-padding')).toBe('14px');
-		expect(root.style.getPropertyValue('--appearance-opacity')).toBe('0.8');
 	});
 
-	it('opens absolute links through open_url instead of navigating', async () => {
-		const { container } = render(CustomWidget, {
-			config: { content: '<a href="https://example.com/page">go</a>' }
+	it('loads a linked file instead of the stored content', async () => {
+		invokeMock.mockImplementation(async (command: string) => {
+			if (command === 'text_file_modified') return 1;
+			if (command === 'read_text_file') return { content: '<p>from file</p>', modified: 1 };
+			return null;
 		});
-
-		const anchor = container.querySelector('.custom-widget a') as HTMLAnchorElement;
-		await fireEvent.click(anchor);
-
-		expect(invokeMock).toHaveBeenCalledWith('open_url', { url: 'https://example.com/page' });
-	});
-
-	it('lets fragment links scroll instead of opening the browser', async () => {
 		const { container } = render(CustomWidget, {
-			config: { content: '<a href="#section">jump</a>' }
+			config: { content: '<p>stored</p>', file: '/x/w.html', watch: true, scripts: false }
 		});
-
-		const anchor = container.querySelector('.custom-widget a') as HTMLAnchorElement;
-		await fireEvent.click(anchor);
-
-		expect(invokeMock).not.toHaveBeenCalled();
-	});
-
-	it('renders sandboxed iframes with full documents, but not remote ones', () => {
-		const srcdoc =
-			"<style>body { color: #222; }</style><div id='t'>25:00</div><button onclick='go(25)'>Focus</button><script>function go(m) {}</script>";
-		const { container } = render(CustomWidget, {
-			config: {
-				content: `<iframe srcdoc="${srcdoc}" sandbox="allow-scripts allow-same-origin"></iframe><iframe src="https://example.com" sandbox="allow-scripts"></iframe>`
-			}
-		});
-
-		const iframes = container.querySelectorAll('.custom-widget iframe');
-		expect(iframes).toHaveLength(1);
-		expect(iframes[0].getAttribute('srcdoc')).toBe(srcdoc);
-		expect(iframes[0].getAttribute('sandbox')).toBe('allow-scripts');
-	});
-
-	it('shows consent prompt and fetches when a sandboxed iframe requests a host', async () => {
-		invokeMock.mockResolvedValue({ status: 200, body: '{"ok":true}' });
-		const srcdoc =
-			"<script>parent.postMessage({kind:'widget-fetch', id:1, url:'https://api.example.com/x'}, '*')</script>";
-		const { container } = render(CustomWidget, {
-			widgetId: 'w1',
-			config: { content: `<iframe sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe>` }
-		});
-
-		const iframe = container.querySelector('.custom-widget iframe') as HTMLIFrameElement;
-		expect(iframe).not.toBeNull();
-
-		// Simulate the iframe's fetch request reaching the parent window.
-		window.dispatchEvent(
-			new MessageEvent('message', {
-				source: iframe.contentWindow,
-				origin: 'null',
-				data: { kind: 'widget-fetch', id: 1, url: 'https://api.example.com/x' }
-			})
+		await waitFor(() =>
+			expect(frameOf(container).getAttribute('srcdoc')).toContain('<p>from file</p>')
 		);
-
-		await waitFor(() => {
-			expect(container.querySelector('.net-prompt')).not.toBeNull();
-		});
-
-		await fireEvent.click(container.querySelector('.net-prompt-allow') as HTMLElement);
-
-		await waitFor(() => {
-			expect(invokeMock).toHaveBeenCalledWith(
-				'widget_fetch',
-				expect.objectContaining({ url: 'https://api.example.com/x' })
-			);
-		});
+		expect(container.querySelector('.custom-widget')?.hasAttribute('data-linked')).toBe(true);
 	});
 });

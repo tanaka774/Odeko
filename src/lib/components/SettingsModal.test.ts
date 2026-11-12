@@ -221,7 +221,8 @@ describe('SettingsModal', () => {
 					cleared_local_network: true,
 					cleared_global_shortcuts: 1,
 					forced_power_confirmation: 1,
-					disabled_script_layers: 0
+					disabled_script_layers: 0,
+					disabled_script_widgets: 0
 				});
 			}
 			return Promise.resolve('Default');

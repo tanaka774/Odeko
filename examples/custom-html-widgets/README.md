@@ -1,128 +1,90 @@
 # Custom HTML widget examples
 
-Ready-to-paste examples for the canvas's **Custom HTML** widget. Each `.html`
-file contains exactly what goes into the widget's HTML editor — copy the whole
-file content.
+A Custom HTML widget is a normal web page: HTML, CSS and JavaScript, with no
+special quoting rules. It runs in a sandboxed frame and gets a small `odeko`
+helper for saved data and network access.
 
 ## How to install
 
 1. Enter edit mode (F2) → **Add Widget** → **Custom HTML**.
-2. Right-click the widget → **Open Settings...** → **HTML** tab.
-3. Delete the placeholder and paste the whole file content.
+2. Right-click the widget → **Open Settings…** → **Page** tab.
+3. Either paste a file's content into the editor, or press **Load from
+   file…** to link the file. A linked file reloads whenever you save it, so
+   you can keep editing it (or have an LLM edit it) while watching the canvas.
 4. **Save Changes**.
-
-Optional styling: **Appearance** tab → enable **Custom CSS** → paste a snippet
-from the "Custom CSS ideas" section below.
-
-## Ground rules
-
-- Interactive examples are **sandboxed iframes**: they need
-  `sandbox="allow-scripts"` and inline `srcdoc` (a remote `src` is dropped).
-- The `srcdoc` attribute is double-quoted — use **single quotes** for all
-  attributes inside it.
-- Attach button handlers with `addEventListener` inside the `<script>` block.
-  Inline `onclick` attributes are **not executed** inside the sandbox
-  (WebKitGTK quirk).
-- Nothing persists inside an iframe — its state resets when the widget
-  re-renders or the canvas restarts (a Game of Life pattern survives only
-  while the widget stays mounted).
-- Network access goes through the canvas's **fetch proxy**: an iframe script
-  calls `widgetFetch(url)` (see `weather-ticker.html` and `crypto-ticker.html`),
-  which posts a message to the app. The app asks you to **Allow** the host the
-  first time and remembers app-wide. Local/private addresses are blocked unless
-  you enable "Allow local network" in the widget's **Network** tab.
-- The full rules are enforced by the sanitizer in
-  `src/lib/widgets/custom-html.ts` (see `sanitization-demo.html` for what gets
-  stripped).
-
-## Network fetch
-
-Live-data widgets (weather, crypto, RSS…) fetch through the canvas's proxy,
-not `fetch()` directly — the CSP blocks `fetch()` inside the sandbox. Drop this
-helper into your `<script>` block and use it like `fetch`:
-
-```html
-<script>
-var pending = {};
-var nextId = 1;
-window.addEventListener('message', function (event) {
-  var msg = event.data;
-  if (!msg || msg.kind !== 'widget-fetch-result') return;
-  var entry = pending[msg.id];
-  if (!entry) return;
-  delete pending[msg.id];
-  if (msg.ok) { entry.resolve({ status: msg.status, body: msg.body }); }
-  else { entry.reject(new Error(msg.error || 'request failed')); }
-});
-function widgetFetch(url) {
-  return new Promise(function (resolve, reject) {
-    var id = nextId++;
-    pending[id] = { resolve: resolve, reject: reject };
-    parent.postMessage({ kind: 'widget-fetch', id: id, url: url }, '*');
-  });
-}
-</script>
-```
-
-Then `await widgetFetch(url)` resolves to `{ status, body }`; `body` is the raw
-response text — use `JSON.parse(result.body)` for JSON APIs.
-
-### Rules for network widgets
-
-- **No double quotes inside the `srcdoc`.** The `srcdoc` attribute is
-  double-quoted, so any `"` inside it terminates the attribute early and blanks
-  the iframe. Use single quotes for HTML attributes, and build dynamic markup
-  with `createElement` + `textContent` (never `innerHTML` containing `"`), like
-  `crypto-ticker.html`.
-- **`&` in URLs is fine** — e.g. `?ids=bitcoin&vs_currencies=usd` survives
-  sanitization and reaches the iframe intact.
-- **Check `status` and parse in a `try/catch`** — show `status`/`error` on
-  failure so a bad host or a rate limit is visible instead of a silent hang.
-- **Consent is app-wide.** The first request to a host prompts **Allow/Deny**;
-  the choice applies to every widget. Revoke hosts in a widget's **Network**
-  tab (the "Allow local network" toggle is there too).
-- **Respect the API's rate limit.** Public APIs are often tight — CoinGecko's
-  free tier is ~10–30/min, so `crypto-ticker.html` refreshes every 30s. A
-  rate-limited API returns e.g. `HTTP 429`, which the widget shows in its
-  error line.
-- **Plain `toLocaleString` can be unreliable inside the sandbox** — format
-  numbers manually (see `crypto-ticker.html`'s `fmtPrice`).
 
 ## Examples
 
-| File | What it is | Needs network |
-| --- | --- | --- |
-| `link-hub.html` | Styled link list; links open in your browser | no |
-| `status-board.html` | Rich document: tables, nested lists, quote, code, image, anchors | no |
-| `pomodoro.html` | 25/5 minute focus timer with Start/Break/Stop | no |
-| `game-of-life.html` | Conway's Game of Life — click cells to toggle them | no |
-| `world-clock.html` | Three timezones, ticking every second | no |
-| `weather-ticker.html` | Current weather for a city via the Open-Meteo API | yes (prompts for Open-Meteo) |
-| `crypto-ticker.html` | BTC/ETH price + 24h change, refreshing every 30s | yes (prompts for CoinGecko) |
-| `sanitization-demo.html` | Shows what the sanitizer strips (scripts, handlers, forms, media, unsafe iframes) | no |
+| File                  | What it is                                                     | Uses                   |
+| --------------------- | -------------------------------------------------------------- | ---------------------- |
+| `link-hub.html`       | Styled link list; links open in your browser                   |                        |
+| `world-clock.html`    | Three time zones, ticking every second                         |                        |
+| `pomodoro.html`       | 25/5 minute timer that keeps running across restarts           | `odeko.storage`        |
+| `checklist.html`      | A checklist that remembers its items                           | `odeko.storage`        |
+| `game-of-life.html`   | Conway's Game of Life; click cells, the board is saved         | `odeko.storage`        |
+| `weather-ticker.html` | Current weather for a city you type (Open-Meteo)               | `odeko.fetch`, storage |
+| `crypto-ticker.html`  | BTC/ETH price and 24h change, refreshing every 30s (CoinGecko) | `odeko.fetch`          |
 
-## Custom CSS ideas
+## How it runs
 
-Each widget's Custom CSS applies only to that one widget. Examples:
+- The page starts with a transparent background, white text and no margin,
+  so it sits on the widget's own background. Override any of it in your
+  `<style>`.
+- **Run JavaScript** can be turned off per widget; the page then renders as
+  static HTML/CSS. Widgets from an imported preset start with it off.
+- `<script src="https://…">`, `import … from "https://…"` and import maps
+  load libraries through a local cache: they download on first use and work
+  offline afterwards.
+- Links never navigate the widget: `http(s)` and `mailto` links open in your
+  browser, `#fragment` links scroll the page.
+- In edit mode the page is covered so you can drag and resize the widget.
+- Direct `fetch` is blocked; use `odeko.fetch`.
 
-```css
-/* link-hub */
-.custom-widget { background: rgba(15, 18, 28, 0.85); padding: 14px; }
-.custom-widget a { color: #8ec5ff; text-decoration: none; }
-.custom-widget li { margin: 6px 0; }
+## The `odeko` helper
 
-/* status-board */
-.custom-widget { background: rgba(15, 18, 28, 0.85); padding: 14px; }
-.custom-widget table { font-size: 0.85rem; width: 100%; }
-.custom-widget img { border-radius: 8px; }
+### Saved data
+
+```js
+const count = (await odeko.storage.get('count')) ?? 0;
+await odeko.storage.set('count', count + 1);
+await odeko.storage.remove('count');
+const keys = await odeko.storage.keys();
 ```
 
-Iframes fill the widget (and resize with it); style the frame itself with:
+Values are anything JSON can hold. Each widget has its own storage (up to
+1 MB), kept in `widget-data/<widget id>.json` in the app's config folder. It
+stays on this computer: exported presets do not include it. It survives
+reloads, restarts and preset switches, and is deleted once no preset contains
+the widget anymore. **Network & Data → Clear saved data** empties it.
 
-```css
-.custom-widget iframe { border-radius: 10px; }
+### Network
+
+```js
+const { status, body } = await odeko.fetch('https://api.example.com/data');
+const data = JSON.parse(body);
 ```
 
-For a complete ready-to-paste theme per widget — clock, system, weather,
-terminal, tasklist, music, and the rest — see
-[`examples/custom-css/`](../custom-css/README.md).
+- The first request to each host shows **Allow / Deny** on the widget. The
+  choice applies app-wide; revoke hosts in **Network & Data**.
+- Local and private addresses are blocked unless you turn on **Allow local
+  network** there.
+- Check `status` and wrap parsing in `try/catch`, so a bad host or a rate
+  limit shows up instead of a silent hang.
+
+### Other
+
+```js
+odeko.open('https://example.com'); // open a URL in the browser
+odeko.kind; // "widget"
+```
+
+## Styling the frame
+
+The page is its own document, so put its styles in its `<style>` block.
+The widget's **Appearance** tab and Custom CSS style the frame around it
+(`.custom-widget`, `.html-frame`), e.g. a gradient border or a shadow.
+
+## Generating one with an LLM
+
+Paste this README into the chat and describe the widget. The AI chat widget
+can also write one for you directly.

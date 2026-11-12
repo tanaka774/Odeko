@@ -73,7 +73,8 @@ describe('importNotes', () => {
 			cleared_local_network: false,
 			cleared_global_shortcuts: 0,
 			forced_power_confirmation: 0,
-			disabled_script_layers: 0
+			disabled_script_layers: 0,
+			disabled_script_widgets: 0
 		};
 		expect(importNotes(result)).toEqual([]);
 
@@ -84,14 +85,16 @@ describe('importNotes', () => {
 				cleared_local_network: true,
 				cleared_global_shortcuts: 1,
 				forced_power_confirmation: 3,
-				disabled_script_layers: 2
+				disabled_script_layers: 2,
+				disabled_script_widgets: 1
 			})
 		).toEqual([
 			'cleared 2 network grant(s)',
 			'disabled local network access',
 			'disabled 1 global shortcut(s)',
 			're-enabled confirmation on 3 power widget(s)',
-			'turned off scripts in 2 HTML background layer(s)'
+			'turned off scripts in 2 HTML background layer(s)',
+			'turned off scripts in 1 Custom HTML widget(s)'
 		]);
 	});
 });

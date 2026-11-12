@@ -18,7 +18,6 @@ export const SKILLS: Record<string, Skill> = {
 			'get_docs',
 			'list_examples',
 			'check_shader',
-			'preview_html_sanitize',
 			'list_presets',
 			'switch_preset',
 			'save_preset_as',

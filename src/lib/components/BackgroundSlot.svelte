@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
-	import { invoke } from '@tauri-apps/api/core';
+	import { watchTextFile } from '$lib/file-watch';
 	import LayerView from './LayerView.svelte';
 	import {
 		contentKey,
@@ -26,7 +26,6 @@
 	} = $props();
 
 	const FADE_MS = 280;
-	const WATCH_INTERVAL_MS = 1000;
 
 	interface Version {
 		id: number;
@@ -82,33 +81,15 @@
 		});
 	});
 
-	// Polls the linked file's modification time; a change re-reads it.
 	$effect(() => {
 		const path = linkedFile;
 		watchedSource = null;
 		if (!path) return;
-		let modified = -1;
-		let stopped = false;
-		async function poll() {
-			try {
-				const current = await invoke<number>('text_file_modified', { path });
-				if (current === modified || stopped) return;
-				const file = await invoke<{ content: string; modified: number }>('read_text_file', {
-					path
-				});
-				if (stopped) return;
-				modified = file.modified;
-				watchedSource = file.content;
-			} catch (error) {
-				console.warn('[BackgroundSlot] cannot read watched file:', error);
-			}
-		}
-		void poll();
-		const timer = setInterval(poll, WATCH_INTERVAL_MS);
-		return () => {
-			stopped = true;
-			clearInterval(timer);
-		};
+		return watchTextFile(
+			path,
+			(content) => (watchedSource = content),
+			(error) => console.warn('[BackgroundSlot] cannot read watched file:', error)
+		);
 	});
 
 	function markReady(id: number) {

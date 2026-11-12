@@ -235,8 +235,7 @@
 		patch_config: 'Change config',
 		get_docs: 'Read docs',
 		list_examples: 'List examples',
-		check_shader: 'Check shader',
-		preview_html_sanitize: 'Check HTML'
+		check_shader: 'Check shader'
 	};
 
 	function toolLabel(part: Extract<ChatPart, { type: 'tool' }>): string {

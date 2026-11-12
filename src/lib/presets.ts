@@ -18,6 +18,7 @@ export interface ImportResult {
 	cleared_global_shortcuts: number;
 	forced_power_confirmation: number;
 	disabled_script_layers: number;
+	disabled_script_widgets: number;
 }
 
 export function listPresets(): Promise<PresetSummary[]> {
@@ -129,6 +130,9 @@ export function importNotes(result: ImportResult): string[] {
 	}
 	if (result.disabled_script_layers > 0) {
 		notes.push(`turned off scripts in ${result.disabled_script_layers} HTML background layer(s)`);
+	}
+	if (result.disabled_script_widgets > 0) {
+		notes.push(`turned off scripts in ${result.disabled_script_widgets} Custom HTML widget(s)`);
 	}
 	return notes;
 }

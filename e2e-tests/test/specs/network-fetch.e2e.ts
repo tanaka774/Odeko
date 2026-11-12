@@ -2,30 +2,20 @@ import { $, $$, browser, expect } from '@wdio/globals';
 import { enterEditMode } from '../helpers';
 
 /**
- * A minimal network widget: fetches a stable host through the canvas's fetch
- * proxy and posts the result back to the parent. The parent cannot read the
- * opaque-origin iframe's DOM, so the iframe reports its own outcome.
+ * A minimal network page: fetches a stable host through odeko.fetch and posts
+ * the result back to the parent, since the opaque-origin frame's DOM cannot be
+ * read from outside.
  */
-const NET_HTML = `<iframe sandbox="allow-scripts" srcdoc="<script>
-  var pending = {}; var nextId = 1;
-  window.addEventListener('message', function (event) {
-    var msg = event.data;
-    if (!msg || msg.kind !== 'widget-fetch-result') return;
-    var entry = pending[msg.id]; if (!entry) return; delete pending[msg.id];
-    if (msg.ok) { entry.resolve(msg.body); } else { entry.reject(new Error(msg.error || 'failed')); }
-  });
-  function widgetFetch(url) {
-    return new Promise(function (resolve, reject) {
-      var id = nextId++; pending[id] = { resolve: resolve, reject: reject };
-      parent.postMessage({ kind: 'widget-fetch', id: id, url: url }, '*');
-    });
-  }
-  widgetFetch('https://example.com/').then(function (body) {
-    parent.postMessage({ kind: 'e2e-fetch-done', body: body }, '*');
-  }).catch(function (e) {
-    parent.postMessage({ kind: 'e2e-fetch-error', error: String(e) }, '*');
-  });
-</script>"></iframe>`;
+const NET_HTML = `<script>
+	odeko
+		.fetch('https://example.com/')
+		.then(function (result) {
+			parent.postMessage({ kind: 'e2e-fetch-done', body: result.body }, '*');
+		})
+		.catch(function (e) {
+			parent.postMessage({ kind: 'e2e-fetch-error', error: String(e) }, '*');
+		});
+</script>`;
 
 async function openCustomWidgetSettings() {
 	await browser.execute(() => {

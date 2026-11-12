@@ -10,7 +10,7 @@
 	import ToastStack from '$lib/components/ToastStack.svelte';
 	import { isVideoBackground } from '$lib/background';
 	import { isInteractive, layersAt } from '$lib/background-layers';
-	import { bridge } from '$lib/widgets/network-bridge.svelte';
+	import { bridge } from '$lib/page-bridge.svelte';
 	import { shouldIgnoreGlobalShortcut } from '$lib/keyboard';
 	import {
 		settingsStore,
@@ -303,6 +303,7 @@
 			window.setFocus();
 			await settingsStore.loadSettings();
 			void showCanvas();
+			void invoke('widget_data_prune').catch(() => {});
 			invoke('update_global_shortcut', {
 				keybind: settingsStore.settings.keybind_toggle_canvas
 			});
@@ -469,13 +470,14 @@
 
 		<ToastStack />
 
-		{#if bridge.pending?.fromBackground}
+		{#if bridge.backgroundPending}
+			{@const request = bridge.backgroundPending}
 			<div class="net-prompt" role="alertdialog" aria-label="Network access request">
-				<span
-					>A background layer wants to fetch data from <strong>{bridge.pending.host}</strong></span
+				<span>A background layer wants to fetch data from <strong>{request.host}</strong></span>
+				<button class="net-prompt-allow" onclick={() => bridge.resolvePrompt(request, true)}
+					>Allow</button
 				>
-				<button class="net-prompt-allow" onclick={() => bridge.resolvePrompt(true)}>Allow</button>
-				<button onclick={() => bridge.resolvePrompt(false)}>Deny</button>
+				<button onclick={() => bridge.resolvePrompt(request, false)}>Deny</button>
 			</div>
 		{/if}
 

@@ -476,6 +476,20 @@
 										</label>
 									</div>
 								</section>
+
+								<section class="settings-section">
+									<h3>Links</h3>
+									<div class="setting-row">
+										<label class="checkbox-label">
+											<input type="checkbox" bind:checked={localSettings.hide_on_link_open} />
+											<span>Hide Odeko after opening a link</span>
+										</label>
+									</div>
+									<p class="setting-hint">
+										For links inside Custom HTML widgets and HTML backgrounds. Icons with a URL
+										always hide it.
+									</p>
+								</section>
 							{:else if activeTab === 'background'}
 								<BackgroundLayersPanel
 									bind:layers={localSettings.background_layers}
