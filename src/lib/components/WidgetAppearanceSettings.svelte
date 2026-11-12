@@ -14,6 +14,7 @@
 	} from '$lib/widgets/custom-css';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
+	import FontPicker from './FontPicker.svelte';
 	import './settings/modal-form.css';
 
 	interface Props {
@@ -322,13 +323,10 @@
 						labelFor="widget-font-family"
 						select={bulkSelect('fontFamily', 'Font Family')}
 					>
-						<input
+						<FontPicker
 							id="widget-font-family"
-							class="text-input"
-							type="text"
 							value={resolvedAppearance.fontFamily}
-							placeholder="e.g., Georgia, serif"
-							oninput={(event) => updateAppearance({ fontFamily: event.currentTarget.value })}
+							onchange={(fontFamily) => updateAppearance({ fontFamily })}
 						/>
 					</SettingRow>
 				{/if}

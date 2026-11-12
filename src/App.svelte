@@ -32,6 +32,7 @@
 		type TransitionOptions
 	} from '$lib/canvas-transition';
 	import type { PowerControlWidgetConfig } from '$lib/widgets/types';
+	import { fontStore } from '$lib/stores/fonts.svelte';
 
 	let iconGrid: IconGrid;
 	let backgroundBelow: CanvasBackground;
@@ -297,6 +298,7 @@
 		async function setup() {
 			const window = getCurrentWindow();
 			await platformStore.load();
+			void fontStore.loadUser();
 			window.show();
 			window.setFocus();
 			await settingsStore.loadSettings();

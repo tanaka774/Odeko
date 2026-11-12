@@ -4,6 +4,7 @@ pub mod ai_snapshot;
 pub mod chatgpt_auth;
 pub mod app_scanner;
 pub mod errors;
+pub mod fonts;
 pub mod canvas;
 pub mod media;
 pub mod library_cache;

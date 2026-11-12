@@ -7,6 +7,7 @@ use commands::ai_settings::{delete_ai_chat, load_ai_chat, load_ai_settings, prun
 use commands::app_scanner::{convert_icns_to_png, get_system_app, scan_installed_apps};
 use commands::canvas::{launch_app, open_url, load_active_layout, load_preset, save_active_layout, save_active_settings, set_active_preset, save_preset_as, list_presets, save_default_preset, delete_preset, rename_preset, duplicate_preset, export_preset, import_preset, KeybindConfig, AppIcon, IconType, launch_icon_sync, hide_canvas, request_canvas_hide, get_icon_base64};
 use commands::media::{get_media_info, get_active_players, media_play_pause, media_next, media_previous, media_set_position, list_media_players};
+use commands::fonts::{import_font, list_system_fonts, list_user_fonts, remove_font};
 use commands::library_cache::{clear_library_cache, library_cache_size};
 use commands::media_server::{library_base_url, register_background_video, MediaServerState};
 use commands::text_files::{read_text_file, text_file_modified, write_text_file};
@@ -179,7 +180,8 @@ pub fn run() {
             load_ai_settings, save_ai_settings, set_ai_secret, prune_ai_secrets,
             load_ai_chat, save_ai_chat, delete_ai_chat,
             ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot,
-            chatgpt_sign_in, chatgpt_sign_out, chatgpt_account
+            chatgpt_sign_in, chatgpt_sign_out, chatgpt_account,
+            list_system_fonts, list_user_fonts, import_font, remove_font
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

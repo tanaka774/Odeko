@@ -8,6 +8,7 @@
 	} from './modal-appearance';
 	import SettingSection from './SettingSection.svelte';
 	import SettingRow from './SettingRow.svelte';
+	import FontPicker from '../FontPicker.svelte';
 	import './modal-form.css';
 
 	interface Props {
@@ -199,13 +200,10 @@
 
 			{#if group.title === 'Text'}
 				<SettingRow label="Font Family" labelFor="modal-font-family">
-					<input
+					<FontPicker
 						id="modal-font-family"
-						class="text-input"
-						type="text"
 						value={resolved.fontFamily}
-						placeholder="e.g. Georgia, serif"
-						oninput={(event) => update({ fontFamily: event.currentTarget.value })}
+						onchange={(fontFamily) => update({ fontFamily })}
 					/>
 				</SettingRow>
 			{/if}

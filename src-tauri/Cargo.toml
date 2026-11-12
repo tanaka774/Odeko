@@ -53,6 +53,7 @@ url = "=2.5.4"
 # forward, which needs its own testing on the transparent-window paths.
 tauri-plugin-updater = "~2.12.0"
 tauri-plugin-process = "~2.3.1"
+fontdb = { version = "0.23", default-features = false, features = ["fs", "memmap", "fontconfig"] }
 
 # Platform-specific media control dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
