@@ -14,7 +14,7 @@ const SCOPE = '[data-item-id="example"]';
  * class advertised in `WIDGET_CSS_API` still exists in that component's
  * markup, so the in-app "What can I style?" list cannot rot silently.
  */
-const MARKUP_SOURCES: Record<CssApiItemType, string> = {
+const MARKUP_SOURCES: Record<CssApiItemType, string | string[]> = {
 	clock: 'src/lib/widgets/ClockWidget.svelte',
 	system: 'src/lib/widgets/SystemWidget.svelte',
 	weather: 'src/lib/widgets/WeatherWidget.svelte',
@@ -30,7 +30,7 @@ const MARKUP_SOURCES: Record<CssApiItemType, string> = {
 	shutdown: 'src/lib/widgets/PowerControlBaseWidget.svelte',
 	clipboard: 'src/lib/widgets/ClipboardWidget.svelte',
 	custom: 'src/lib/widgets/CustomWidget.svelte',
-	aichat: 'src/lib/widgets/AiChatWidget.svelte',
+	aichat: ['src/lib/widgets/AiChatWidget.svelte', 'src/lib/widgets/ChatTabBar.svelte'],
 	icon: 'src/lib/components/AppIcon.svelte'
 };
 
@@ -145,7 +145,10 @@ describe('custom CSS examples', () => {
 	});
 
 	it.each(TYPES)('%s curated classes still exist in the component markup', (type) => {
-		const markup = markupOf(readFileSync(`${REPO_ROOT}/${MARKUP_SOURCES[type]}`, 'utf8'));
+		const markup = [MARKUP_SOURCES[type]]
+			.flat()
+			.map((file) => markupOf(readFileSync(`${REPO_ROOT}/${file}`, 'utf8')))
+			.join('\n');
 		const missing = WIDGET_CSS_API[type].classes.filter(
 			(className) => !mentionsClass(markup, className)
 		);

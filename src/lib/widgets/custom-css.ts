@@ -260,6 +260,9 @@ export const WIDGET_CSS_API: Record<
 	aichat: {
 		classes: [
 			'.aichat-widget',
+			'.chat-tab-bar',
+			'.chat-tab',
+			'.chat-tab-editor',
 			'.chat-log',
 			'.chat-message',
 			'.chat-user',

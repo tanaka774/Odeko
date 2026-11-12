@@ -374,7 +374,33 @@ export interface CustomWidgetConfig extends WidgetConfig {
 
 // AI chat widget config. Provider profiles (with API keys) live outside the
 // preset in ai.json; the widget only references one by id.
+export interface ChatTab {
+	id: string;
+	name: string;
+	color: string;
+}
+
+export const DEFAULT_CHAT_TAB_ID = 'main';
+
+/** Tabs of an AI chat widget; widgets from before tabs get one nameless tab. */
+export function normalizeChatTabs(config: AiChatWidgetConfig): ChatTab[] {
+	return config.tabs && config.tabs.length > 0
+		? config.tabs
+		: [{ id: DEFAULT_CHAT_TAB_ID, name: '', color: TASK_GROUP_COLORS[0] }];
+}
+
+export function createChatTab(color: string = TASK_GROUP_COLORS[0]): ChatTab {
+	return {
+		id: `tab-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+		name: '',
+		color
+	};
+}
+
 export interface AiChatWidgetConfig extends WidgetConfig {
+	/** Conversations live in ai-chats/<widget id>--<tab id>.json, not here. */
+	tabs?: ChatTab[];
+	activeTabId?: string;
 	profileId?: string | null;
 	/** Extra instructions appended to the system prompt. */
 	instructions?: string;

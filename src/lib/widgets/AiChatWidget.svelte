@@ -11,11 +11,17 @@
 	import X from '@lucide/svelte/icons/x';
 	import { imagesFromClipboard, MAX_IMAGES, prepareImage, type ChatImage } from '$lib/ai/images';
 	import { createChatSession, type ChatPart, type StoredChat } from '$lib/ai/chat.svelte';
-	import { deleteChat, loadChat, saveChat } from '$lib/ai/chat-store';
+	import { chatKey, deleteChat, loadChat, saveChat } from '$lib/ai/chat-store';
+	import ChatTabBar from './ChatTabBar.svelte';
 	import { aiSettingsStore } from '$lib/ai/settings.svelte';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
-	import type { AiChatWidgetConfig, WidgetComponentProps } from './types';
-	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
+	import type { AiChatWidgetConfig, ChatTab, WidgetComponentProps } from './types';
+	import {
+		createChatTab,
+		normalizeChatTabs,
+		TASK_GROUP_COLORS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS
+	} from './types';
 
 	type Props = WidgetComponentProps<AiChatWidgetConfig>;
 
@@ -38,28 +44,92 @@
 		latestConfig = config;
 	});
 
-	const session = createChatSession({
-		profileId: () => latestConfig.profileId,
-		instructions: () => latestConfig.instructions ?? '',
-		onPersist: (chat) => {
-			if (widgetId) saveChat(widgetId, chat);
-		}
+	type Session = ReturnType<typeof createChatSession>;
+
+	const tabs = $derived(normalizeChatTabs(config));
+	const activeTabId = $derived(
+		tabs.some((tab) => tab.id === config.activeTabId) ? config.activeTabId! : tabs[0].id
+	);
+	const sessions = new Map<string, Session>();
+	let sessionsVersion = $state(0);
+
+	function sessionFor(tabId: string): Session {
+		const existing = sessions.get(tabId);
+		if (existing) return existing;
+		const created = createChatSession({
+			profileId: () => latestConfig.profileId,
+			instructions: () => latestConfig.instructions ?? '',
+			onPersist: (chat) => {
+				if (widgetId) saveChat(chatKey(widgetId, tabId), chat);
+			}
+		});
+		sessions.set(tabId, created);
+		queueMicrotask(() => sessionsVersion++);
+		if (widgetId) void loadChat(chatKey(widgetId, tabId)).then((chat) => created.restore(chat));
+		return created;
+	}
+
+	const session = $derived(sessionFor(activeTabId));
+	const busyTabs = $derived.by(() => {
+		void sessionsVersion;
+		return new Set([...sessions].filter(([, s]) => s.busy).map(([id]) => id));
 	});
 
 	$effect(() => {
 		const id = widgetId;
 		if (!id) return;
 		const legacy = untrack(() => (config as { chat?: StoredChat }).chat);
-		if (legacy) {
-			session.restore(legacy);
-			saveChat(id, legacy);
-			const rest: AiChatWidgetConfig & { chat?: StoredChat } = { ...untrack(() => config) };
-			delete rest.chat;
-			untrack(() => onConfigChange?.(rest));
+		if (!legacy) return;
+		const first = untrack(() => normalizeChatTabs(config)[0].id);
+		saveChat(chatKey(id, first), legacy);
+		untrack(() => sessionFor(first)).restore(legacy);
+		const rest: AiChatWidgetConfig & { chat?: StoredChat } = { ...untrack(() => config) };
+		delete rest.chat;
+		untrack(() => onConfigChange?.(rest));
+	});
+
+	function updateTabs(next: ChatTab[], activeId: string) {
+		onConfigChange?.({ ...latestConfig, tabs: next, activeTabId: activeId });
+	}
+
+	function selectTab(id: string) {
+		if (id !== activeTabId) updateTabs(tabs, id);
+	}
+
+	function addTab() {
+		const color = TASK_GROUP_COLORS[tabs.length % TASK_GROUP_COLORS.length];
+		const tab = createChatTab(color);
+		updateTabs([...tabs, tab], tab.id);
+	}
+
+	let editingTabId = $state<string | null>(null);
+	const editingTab = $derived(tabs.find((tab) => tab.id === editingTabId) ?? null);
+
+	function editTab(patch: Partial<ChatTab>) {
+		if (!editingTabId) return;
+		updateTabs(
+			tabs.map((tab) => (tab.id === editingTabId ? { ...tab, ...patch } : tab)),
+			activeTabId
+		);
+	}
+
+	function deleteTab(id: string) {
+		editingTabId = null;
+		sessions.get(id)?.dispose();
+		sessions.delete(id);
+		sessionsVersion++;
+		if (widgetId) deleteChat(chatKey(widgetId, id));
+		const remaining = tabs.filter((tab) => tab.id !== id);
+		if (remaining.length === 0) {
+			const fresh = createChatTab();
+			updateTabs([fresh], fresh.id);
 			return;
 		}
-		void loadChat(id).then((chat) => session.restore(chat));
-	});
+		const index = tabs.findIndex((tab) => tab.id === id);
+		const nextActive =
+			id === activeTabId ? remaining[Math.min(index, remaining.length - 1)].id : activeTabId;
+		updateTabs(remaining, nextActive);
+	}
 
 	void aiSettingsStore.load();
 	const profile = $derived(aiSettingsStore.profile(config.profileId));
@@ -127,7 +197,7 @@
 
 	function clearChat() {
 		session.clear();
-		if (widgetId) deleteChat(widgetId);
+		if (widgetId) deleteChat(chatKey(widgetId, activeTabId));
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -184,6 +254,40 @@
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 >
+	<ChatTabBar
+		{tabs}
+		activeId={activeTabId}
+		busyIds={busyTabs}
+		disabled={isEditMode}
+		onselect={selectTab}
+		onadd={addTab}
+		onedit={(id) => (editingTabId = editingTabId === id ? null : id)}
+	/>
+	{#if editingTab}
+		<div class="chat-tab-editor">
+			<input
+				type="color"
+				value={editingTab.color}
+				oninput={(event) => editTab({ color: event.currentTarget.value })}
+				title="Tab color"
+			/>
+			<input
+				type="text"
+				class="tab-name-input"
+				value={editingTab.name}
+				oninput={(event) => editTab({ name: event.currentTarget.value })}
+				onkeydown={(event) => {
+					event.stopPropagation();
+					if (event.key === 'Enter' || event.key === 'Escape') editingTabId = null;
+				}}
+				aria-label="Tab name"
+			/>
+			<button title="Delete chat" onclick={() => editingTab && deleteTab(editingTab.id)}>
+				<Trash2 size={13} />
+			</button>
+			<button title="Done" onclick={() => (editingTabId = null)}><X size={13} /></button>
+		</div>
+	{/if}
 	<div class="chat-log" bind:this={log} onscroll={handleScroll} role="log">
 		{#if session.messages.length === 0}
 			<div class="chat-empty">
@@ -360,6 +464,52 @@
 	.aichat-widget.editing .chat-log,
 	.aichat-widget.editing .chat-input-row {
 		pointer-events: none;
+	}
+
+	.chat-tab-editor {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.chat-tab-editor input[type='color'] {
+		width: 24px;
+		height: 22px;
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+	}
+
+	.tab-name-input {
+		flex: 1;
+		min-width: 0;
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		background: rgba(0, 0, 0, 0.3);
+		color: inherit;
+		font: inherit;
+		font-size: 0.85em;
+		outline: none;
+	}
+
+	.chat-tab-editor button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: none;
+		border-radius: 5px;
+		background: rgba(255, 255, 255, 0.1);
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.chat-tab-editor button:hover {
+		background: rgba(255, 255, 255, 0.22);
 	}
 
 	.chat-log {

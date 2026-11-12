@@ -184,7 +184,10 @@ export function createChatSession(options: {
 	let controller: AbortController | null = null;
 	const undos = new Map<string, () => Promise<void>>();
 
+	let disposed = false;
+
 	function persist() {
+		if (disposed) return;
 		options.onPersist?.({
 			messages: $state.snapshot(messages) as ChatMessage[],
 			history,
@@ -449,6 +452,12 @@ export function createChatSession(options: {
 		persist();
 	}
 
+	/** Stops for good; nothing is saved afterwards (the tab was deleted). */
+	function dispose() {
+		disposed = true;
+		stop();
+	}
+
 	function clear() {
 		stop();
 		messages = [];
@@ -477,6 +486,7 @@ export function createChatSession(options: {
 		},
 		answerPermission,
 		restore,
+		dispose,
 		send,
 		stop,
 		revert,

@@ -6,6 +6,11 @@ import type { StoredChat } from './chat.svelte';
 const SAVE_DELAY_MS = 400;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** The first tab of a widget keeps the pre-tab file name, so old chats carry over. */
+export function chatKey(widgetId: string, tabId: string): string {
+	return tabId === 'main' ? widgetId : `${widgetId}--${tabId}`;
+}
+
 export async function loadChat(widgetId: string): Promise<StoredChat | null> {
 	try {
 		return await invoke<StoredChat | null>('load_ai_chat', { widgetId });
