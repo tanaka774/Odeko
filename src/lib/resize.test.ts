@@ -17,6 +17,13 @@ describe('getResizeDirAtPoint', () => {
 		expect(getResizeDirAtPoint(rect, 110, 50)).toBe('e');
 	});
 
+	it('keeps a move area in the middle of thin items', () => {
+		const thin = { x: 0, y: 0, width: 200, height: 8 };
+		expect(getResizeDirAtPoint(thin, 100, 4)).toBeNull();
+		expect(getResizeDirAtPoint(thin, 100, 0)).toBe('n');
+		expect(getResizeDirAtPoint(thin, 199, 4)).toBe('e');
+	});
+
 	it('returns null inside the move area', () => {
 		expect(getResizeDirAtPoint(rect, 60, 50)).toBeNull();
 	});

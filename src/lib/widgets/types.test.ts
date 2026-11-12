@@ -16,8 +16,8 @@ import {
 } from './types';
 
 describe('WIDGET_REGISTRY', () => {
-	it('registers all 16 widget types', () => {
-		expect(WIDGET_REGISTRY).toHaveLength(16);
+	it('registers all 17 widget types', () => {
+		expect(WIDGET_REGISTRY).toHaveLength(17);
 	});
 });
 

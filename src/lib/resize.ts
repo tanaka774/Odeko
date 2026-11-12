@@ -22,7 +22,7 @@ export interface Rect {
 /**
  * Maps a pointer position (client coordinates) inside an item's bounding rect
  * to a resize direction, or null for the interior "move" area. Corners win
- * over edges; the hit zone defaults to 8px. Points outside the rect return
+ * over edges; the hit zone defaults to 8px, capped at a third of each side. Points outside the rect return
  * null.
  */
 export function getResizeDirAtPoint(rect: Rect, x: number, y: number, zone = 8): ResizeDir | null {
@@ -30,10 +30,13 @@ export function getResizeDirAtPoint(rect: Rect, x: number, y: number, zone = 8):
 	const insideY = y >= rect.y && y <= rect.y + rect.height;
 	if (!insideX || !insideY) return null;
 
-	const nearLeft = x - rect.x <= zone;
-	const nearRight = rect.x + rect.width - x <= zone;
-	const nearTop = y - rect.y <= zone;
-	const nearBottom = rect.y + rect.height - y <= zone;
+	// Thin items (dividers) keep a move area in the middle.
+	const zoneX = Math.min(zone, rect.width / 3);
+	const zoneY = Math.min(zone, rect.height / 3);
+	const nearLeft = x - rect.x <= zoneX;
+	const nearRight = rect.x + rect.width - x <= zoneX;
+	const nearTop = y - rect.y <= zoneY;
+	const nearBottom = rect.y + rect.height - y <= zoneY;
 
 	if (nearLeft && nearTop) return 'nw';
 	if (nearRight && nearTop) return 'ne';

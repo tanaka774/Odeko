@@ -16,7 +16,8 @@ export type WidgetType =
 	| 'shutdown'
 	| 'clipboard'
 	| 'custom'
-	| 'aichat';
+	| 'aichat'
+	| 'divider';
 
 export type WidgetBorderStyle = 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
 
@@ -166,6 +167,14 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 		fontSize: 14,
 		padding: 8
 	},
+	divider: {
+		backgroundColor: 'rgba(0, 0, 0, 1)',
+		backgroundOpacity: 0,
+		borderWidth: 0,
+		borderRadius: 0,
+		padding: 0,
+		fontSize: 13
+	},
 	system: {
 		backgroundColor: 'rgba(0, 8, 0, 0.85)',
 		backgroundOpacity: 0.85,
@@ -303,6 +312,16 @@ export interface TextBoxWidgetConfig extends WidgetConfig {
 	showBorderLeft?: boolean;
 }
 
+export type DividerLineStyle = 'solid' | 'dashed' | 'dotted' | 'double' | 'fade';
+
+export interface DividerWidgetConfig extends WidgetConfig {
+	orientation?: 'horizontal' | 'vertical';
+	lineStyle?: DividerLineStyle;
+	thickness?: number;
+	color?: string;
+	label?: string;
+}
+
 // Memo widget config
 export interface MemoWidgetConfig extends WidgetConfig {
 	content?: string;
@@ -422,7 +441,8 @@ export type WidgetConfigType =
 	| ShutdownWidgetConfig
 	| ClipboardWidgetConfig
 	| CustomWidgetConfig
-	| AiChatWidgetConfig;
+	| AiChatWidgetConfig
+	| DividerWidgetConfig;
 
 // Common props every widget component accepts. WidgetContainer dispatches
 // through a registry and passes these uniformly, so every widget shares one
@@ -609,6 +629,16 @@ export const WIDGET_REGISTRY: WidgetMeta[] = [
 		defaultHeight: 480,
 		minWidth: 240,
 		minHeight: 240
+	},
+	{
+		type: 'divider',
+		name: 'Divider',
+		description: 'A line to separate areas, with an optional label',
+		icon: 'separator-horizontal',
+		defaultWidth: 240,
+		defaultHeight: 24,
+		minWidth: 8,
+		minHeight: 8
 	}
 ];
 
@@ -673,6 +703,14 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 				showBorderRight: true,
 				showBorderBottom: true,
 				showBorderLeft: true
+			};
+		case 'divider':
+			return {
+				orientation: 'horizontal',
+				lineStyle: 'solid',
+				thickness: 1,
+				color: '#ffffff',
+				label: ''
 			};
 		case 'memo':
 			return {

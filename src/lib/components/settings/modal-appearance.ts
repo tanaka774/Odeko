@@ -21,6 +21,7 @@ export type ModalKey =
 	| 'clipboard'
 	| 'custom'
 	| 'aichat'
+	| 'divider'
 	| 'app-picker'
 	| 'widget-picker';
 
@@ -43,6 +44,7 @@ export const MODAL_KEYS: ModalKey[] = [
 	'clipboard',
 	'custom',
 	'aichat',
+	'divider',
 	'app-picker',
 	'widget-picker'
 ];
@@ -66,6 +68,7 @@ export const MODAL_LABELS: Record<ModalKey, string> = {
 	clipboard: 'Clipboard Settings',
 	custom: 'Custom Widget Settings',
 	aichat: 'AI Chat Settings',
+	divider: 'Divider Settings',
 	'app-picker': 'Add App Dialog',
 	'widget-picker': 'Add Widget Dialog'
 };

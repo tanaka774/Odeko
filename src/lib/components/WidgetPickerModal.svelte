@@ -23,6 +23,7 @@
 	import Clipboard from '@lucide/svelte/icons/clipboard';
 	import Code from '@lucide/svelte/icons/code';
 	import Bot from '@lucide/svelte/icons/bot';
+	import SeparatorHorizontal from '@lucide/svelte/icons/separator-horizontal';
 	import type { Component } from 'svelte';
 
 	interface Props {
@@ -49,7 +50,8 @@
 		power: Power,
 		clipboard: Clipboard,
 		code: Code,
-		bot: Bot
+		bot: Bot,
+		'separator-horizontal': SeparatorHorizontal
 	};
 
 	function handleSelect(widgetType: WidgetType) {

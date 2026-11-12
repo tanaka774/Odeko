@@ -1,0 +1,17 @@
+/*
+ * Divider widget — "Neon Rule" custom CSS theme.
+ * Install: Appearance tab -> Enable Custom CSS -> paste this whole file.
+ * Works with the Solid, Dashed and Dotted styles; the label gets spaced caps.
+ */
+
+.divider-line {
+	border-color: #f472b6;
+	filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.9));
+}
+
+.divider-label {
+	color: #fbcfe8;
+	letter-spacing: 0.24em;
+	text-transform: uppercase;
+	text-shadow: 0 0 8px rgba(244, 114, 182, 0.8);
+}

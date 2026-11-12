@@ -795,6 +795,7 @@
 			{#each icons as icon (icon.id)}
 				<div
 					class="icon-wrapper"
+					class:passthrough={!isEditMode && icon.widget_type === 'divider'}
 					data-item-id={icon.id}
 					style="left: {icon.x}px; top: {icon.y}px; width: {icon.width}px; height: {icon.height}px; z-index: {interactingIds.has(
 						icon.id
@@ -933,6 +934,10 @@
 	}
 	.icon-wrapper {
 		position: absolute;
+	}
+
+	.icon-wrapper.passthrough {
+		pointer-events: none;
 	}
 	.loading {
 		position: absolute;

@@ -39,6 +39,7 @@ another item (or duplicate the item first).
 | `shutdown.css`  | Shutdown       | Red Alert — charcoal panel with a pulsing red glow                          |
 | `clipboard.css` | Clipboard      | Frosted Glass — translucent panel, card entries, accent badge               |
 | `custom.css`    | Custom HTML    | Poster — bold frame plus typography for the HTML inside                     |
+| `divider.css`   | Divider        | Neon Rule — glowing pink line with a spaced uppercase label                 |
 | `aichat.css`    | AI chat        | Midnight Terminal — indigo glass, monospace transcript, violet bubbles      |
 | `icon.css`      | Canvas icon    | Glossy Tile — vivid gradient tile, inner highlight, uppercase label         |
 

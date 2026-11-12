@@ -20,6 +20,7 @@
 	import ClipboardSettingsModal from '$lib/components/ClipboardSettingsModal.svelte';
 	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
 	import AiChatSettingsModal from '$lib/components/AiChatSettingsModalLazy.svelte';
+	import DividerSettingsModal from '$lib/components/DividerSettingsModal.svelte';
 	import Portal from '$lib/components/Portal.svelte';
 	import type { KeybindConfig } from '$lib/stores/settings.svelte';
 	import {
@@ -108,7 +109,7 @@
 	let flipContextMenuX = $state(false);
 	let flipContextMenuY = $state(false);
 
-	const MIN_SIZE = 80;
+	const MIN_SIZE = $derived(widgetType === 'divider' ? 8 : 80);
 	const SNAP_THRESHOLD = 10;
 
 	// The widget's effective corner radius (type default < icon override), so
@@ -412,7 +413,7 @@
 				<button class="context-menu-item" onclick={handleEnterEditMode}>
 					<span class="item-label">Enter Edit Mode</span>
 				</button>
-			{:else if widgetType === 'textbox'}
+			{:else if widgetType === 'textbox' || widgetType === 'divider'}
 				<button class="context-menu-item" onclick={handleCopyTextbox}>
 					<span class="item-label">Copy</span>
 				</button>
@@ -590,6 +591,12 @@
 			bind:isOpen={showSettings}
 			widgetId={id}
 			config={config as import('./types').CustomWidgetConfig}
+			onSave={handleConfigSave}
+		/>
+	{:else if widgetType === 'divider'}
+		<DividerSettingsModal
+			bind:isOpen={showSettings}
+			config={config as import('./types').DividerWidgetConfig}
 			onSave={handleConfigSave}
 		/>
 	{:else if widgetType === 'aichat'}

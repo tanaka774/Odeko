@@ -284,6 +284,12 @@ export const WIDGET_CSS_API: Record<
 		example:
 			'.aichat-widget { background: linear-gradient(170deg, #0f172a, #1e1b4b); }\n.chat-user .chat-text { background: #4338ca; color: #ffffff; }\n.chat-input { border-color: #6366f1; }'
 	},
+	divider: {
+		classes: ['.divider-widget', '.divider-line', '.divider-label', '.vertical', '.fade'],
+		example:
+			'.divider-line { border-color: #f472b6; box-shadow: 0 0 8px rgba(244, 114, 182, 0.8); }\n.divider-label { letter-spacing: 0.2em; text-transform: uppercase; }',
+		note: 'The line color, style and thickness come from the divider settings; override border-color (or background for the Fade style) to recolor it here.'
+	},
 	icon: {
 		classes: [
 			'.app-icon',

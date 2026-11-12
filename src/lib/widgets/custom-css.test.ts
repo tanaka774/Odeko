@@ -112,6 +112,7 @@ describe('WIDGET_CSS_API', () => {
 			'shutdown',
 			'clipboard',
 			'custom',
+			'divider',
 			'icon'
 		];
 		for (const type of types) {
