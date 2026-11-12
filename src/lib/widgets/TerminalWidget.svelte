@@ -33,7 +33,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
+	import {
+		getAppearanceBorder,
+		getAppearanceSolidBackground,
+		getWidgetAppearance
+	} from './appearance';
 	import type { TerminalWidgetConfig, WidgetComponentProps } from './types';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
 	import type { Terminal } from '@xterm/xterm';
@@ -86,7 +90,7 @@
 		// Build xterm theme: dark ANSI palette + user's appearance overrides.
 		const theme = {
 			...terminalAnsiTheme,
-			background: getAppearanceBackground(appearance)
+			background: getAppearanceSolidBackground(appearance)
 		};
 		if (config?.appearance?.textColor) {
 			theme.foreground = appearance.textColor;

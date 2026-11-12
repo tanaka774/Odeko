@@ -11,11 +11,14 @@
 	import Portal from '$lib/components/Portal.svelte';
 	import WidgetCss from '$lib/widgets/WidgetCss.svelte';
 	import {
-		getWidgetAppearance,
-		getCanvasIconAppearanceDefaults,
+		colorWithOpacity,
+		getAppearanceBackdrop,
 		getAppearanceBackground,
 		getAppearanceBorder,
-		colorWithOpacity
+		getAppearanceHoverTransform,
+		getAppearanceShadow,
+		getCanvasIconAppearanceDefaults,
+		getWidgetAppearance
 	} from '$lib/widgets/appearance';
 	import {
 		computeResizeRect,
@@ -102,7 +105,12 @@
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 	const hoverBackground = $derived(
-		colorWithOpacity(appearance.backgroundColor, Math.min(1, appearance.backgroundOpacity + 0.1))
+		appearance.gradientColor
+			? widgetBackground
+			: colorWithOpacity(
+					appearance.backgroundColor,
+					Math.min(1, appearance.backgroundOpacity + 0.1)
+				)
 	);
 
 	const MIN_SIZE = 40;
@@ -314,6 +322,9 @@
 	class:no-click-action={!isEditMode && !hasClickAction}
 	data-item-id={icon.id}
 	style="width: 100%; height: 100%; --appearance-background: {widgetBackground}; --appearance-hover-background: {hoverBackground}; --appearance-border: {widgetBorder}; --appearance-border-radius: {appearance.borderRadius}px; --appearance-text-color: {appearance.textColor}; --appearance-font-family: {appearance.fontFamily}; --appearance-font-size: {appearance.fontSize}px; --appearance-padding: {appearance.padding}px; --appearance-opacity: {appearance.opacity}; cursor: {cursor};"
+	style:--appearance-shadow={getAppearanceShadow(appearance)}
+	style:--appearance-backdrop={getAppearanceBackdrop(appearance)}
+	style:--appearance-hover-transform={getAppearanceHoverTransform(appearance)}
 	role="button"
 	tabindex="0"
 	onclick={handleClick}
@@ -452,12 +463,16 @@
 		font-family: var(--appearance-font-family, system-ui);
 		padding: var(--appearance-padding, 8px);
 		opacity: var(--appearance-opacity, 1);
+		box-shadow: var(--appearance-shadow);
+		backdrop-filter: var(--appearance-backdrop);
+		-webkit-backdrop-filter: var(--appearance-backdrop);
 		cursor: pointer;
 		transition:
 			background 0.2s ease,
 			border-color 0.2s ease,
 			box-shadow 0.2s ease,
-			opacity 0.2s ease;
+			opacity 0.2s ease,
+			transform 0.2s ease;
 		user-select: none;
 		box-sizing: border-box;
 	}
@@ -467,6 +482,10 @@
 
 	.app-icon:not(.no-click-action):hover {
 		background: var(--appearance-hover-background, rgba(255, 255, 255, 0.3));
+	}
+
+	.app-icon:not(.edit-mode):hover {
+		transform: var(--appearance-hover-transform);
 	}
 
 	.app-icon.edit-mode {

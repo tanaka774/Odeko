@@ -13,7 +13,11 @@ import {
 	colorWithOpacity,
 	getAppearanceBackground,
 	getAppearanceBorder,
-	colorToHexInputValue
+	colorToHexInputValue,
+	getAppearanceShadow,
+	getAppearanceBackdrop,
+	getAppearanceHoverTransform,
+	NO_SHADOW
 } from './appearance';
 import { settingsStore } from '$lib/stores/settings.svelte';
 
@@ -75,6 +79,14 @@ describe('getWidgetAppearance', () => {
 			borderRadius: 12,
 			padding: 12,
 			opacity: 1,
+			gradientColor: '',
+			gradientAngle: 135,
+			shadowBlur: 0,
+			shadowOffsetY: 4,
+			shadowColor: '#000000',
+			shadowOpacity: 0.4,
+			backdropBlur: 0,
+			hoverEffect: 'none',
 			customCssEnabled: false,
 			customCss: ''
 		});
@@ -167,5 +179,50 @@ describe('colorToHexInputValue', () => {
 	it('uses the fallback for invalid colors', () => {
 		expect(colorToHexInputValue('not a color', '#000000')).toBe('#000000');
 		expect(colorToHexInputValue(undefined, '#123456')).toBe('#123456');
+	});
+});
+
+describe('appearance effects', () => {
+	it('keeps a solid fill without a gradient color', () => {
+		expect(getAppearanceBackground({ backgroundColor: '#ff0000', backgroundOpacity: 0.5 })).toBe(
+			'rgba(255, 0, 0, 0.5)'
+		);
+	});
+
+	it('builds a linear gradient that shares the fill opacity', () => {
+		expect(
+			getAppearanceBackground({
+				backgroundColor: '#ff0000',
+				backgroundOpacity: 0.5,
+				gradientColor: '#0000ff',
+				gradientAngle: 90
+			})
+		).toBe('linear-gradient(90deg, rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5))');
+	});
+
+	it('never echoes a crafted gradient value', () => {
+		expect(
+			getAppearanceBackground({ backgroundColor: '#000', gradientColor: 'red; color: x' })
+		).not.toContain(';');
+	});
+
+	it('emits an empty shadow until blur is set', () => {
+		expect(getAppearanceShadow({})).toBe(NO_SHADOW);
+		expect(
+			getAppearanceShadow({
+				shadowBlur: 12,
+				shadowOffsetY: 6,
+				shadowColor: '#000000',
+				shadowOpacity: 0.5
+			})
+		).toBe('0 6px 12px rgba(0, 0, 0, 0.5)');
+	});
+
+	it('maps backdrop blur and hover effects', () => {
+		expect(getAppearanceBackdrop({})).toBe('none');
+		expect(getAppearanceBackdrop({ backdropBlur: 10 })).toBe('blur(10px)');
+		expect(getAppearanceHoverTransform({ hoverEffect: 'lift' })).toBe('translateY(-3px)');
+		expect(getAppearanceHoverTransform({ hoverEffect: 'grow' })).toBe('scale(1.04)');
+		expect(getAppearanceHoverTransform({})).toBe('none');
 	});
 });

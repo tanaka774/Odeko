@@ -3,7 +3,12 @@
 
 	import type { WidgetType, WidgetConfigType } from './types';
 	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
-	import { getWidgetAppearance } from './appearance';
+	import {
+		getAppearanceBackdrop,
+		getAppearanceHoverTransform,
+		getAppearanceShadow,
+		getWidgetAppearance
+	} from './appearance';
 	import WidgetContainer from './WidgetContainer.svelte';
 	import WidgetCss from './WidgetCss.svelte';
 	import ClockSettingsModal from '$lib/components/ClockSettingsModal.svelte';
@@ -114,9 +119,10 @@
 
 	// The widget's effective corner radius (type default < icon override), so
 	// the drag frame and container match what renders.
-	const borderRadius = $derived(
-		getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS[widgetType] ?? {}).borderRadius
+	const appearance = $derived(
+		getWidgetAppearance(config, WIDGET_TYPE_APPEARANCE_DEFAULTS[widgetType] ?? {})
 	);
+	const borderRadius = $derived(appearance.borderRadius);
 
 	let cursor = $derived(
 		isEditMode ? (hoverResizeDir ? RESIZE_CURSORS[hoverResizeDir] : 'move') : undefined
@@ -361,6 +367,9 @@
 	class:resizing={isResizing}
 	class:selected
 	style="width: 100%; height: 100%; border-radius: {borderRadius}px; cursor: {cursor};"
+	style:--appearance-shadow={getAppearanceShadow(appearance)}
+	style:--appearance-backdrop={getAppearanceBackdrop(appearance)}
+	style:--appearance-hover-transform={getAppearanceHoverTransform(appearance)}
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
@@ -613,17 +622,28 @@
 		position: relative;
 		width: 100%;
 		height: 100%;
-		transition: box-shadow 0.2s ease;
+		box-shadow: var(--appearance-shadow);
+		backdrop-filter: var(--appearance-backdrop);
+		-webkit-backdrop-filter: var(--appearance-backdrop);
+		transition:
+			box-shadow 0.2s ease,
+			transform 0.2s ease;
 	}
 
 	.draggable-widget:not(.edit-mode) {
 		overflow: hidden;
 	}
 
+	.draggable-widget:not(.edit-mode):hover {
+		transform: var(--appearance-hover-transform);
+	}
+
 	.draggable-widget.edit-mode {
 		overflow: visible;
 		cursor: move;
-		box-shadow: 0 0 0 1px var(--edit-outline);
+		box-shadow:
+			0 0 0 1px var(--edit-outline),
+			var(--appearance-shadow);
 		user-select: none;
 		-webkit-user-select: none;
 		touch-action: none;

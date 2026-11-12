@@ -2,6 +2,7 @@
 	import {
 		type WidgetAppearanceConfig,
 		type WidgetBorderStyle,
+		type WidgetHoverEffect,
 		type WidgetAppearanceField
 	} from '$lib/widgets/types';
 	import { colorToHexInputValue, getWidgetAppearance } from '$lib/widgets/appearance';
@@ -56,6 +57,19 @@
 	const resolvedAppearance = $derived(getWidgetAppearance({ appearance }, defaults));
 
 	const customCssApi = $derived(widgetType ? WIDGET_CSS_API[widgetType] : null);
+
+	const hoverEffectOptions: { value: WidgetHoverEffect; label: string }[] = [
+		{ value: 'none', label: 'None' },
+		{ value: 'lift', label: 'Lift' },
+		{ value: 'grow', label: 'Grow' }
+	];
+
+	const hasGradient = $derived(Boolean(resolvedAppearance.gradientColor));
+	const hasShadow = $derived(resolvedAppearance.shadowBlur > 0);
+
+	function shown(...fields: WidgetAppearanceField[]): boolean {
+		return fields.some((field) => !hideFields.includes(field));
+	}
 
 	// Width and color only matter when a border style is actually applied.
 	const showBorderDetails = $derived(resolvedAppearance.borderStyle !== 'none');
@@ -215,6 +229,66 @@
 								updateAppearance({ backgroundOpacity: Number(event.currentTarget.value) })}
 						/>
 					</SettingRow>
+				{/if}
+
+				{#if !hideFields.includes('gradientColor')}
+					<SettingRow
+						label="Gradient"
+						labelFor="widget-gradient"
+						select={bulkSelect('gradientColor', 'Gradient')}
+					>
+						<label class="checkbox-label">
+							<input
+								id="widget-gradient"
+								type="checkbox"
+								checked={hasGradient}
+								onchange={(event) =>
+									updateAppearance({
+										gradientColor: event.currentTarget.checked ? '#3b82f6' : ''
+									})}
+							/>
+							<span>Blend into a second color</span>
+						</label>
+					</SettingRow>
+
+					{#if hasGradient}
+						<SettingRow label="Second Color" labelFor="widget-gradient-color">
+							<div class="color-control">
+								<input
+									id="widget-gradient-color"
+									type="color"
+									value={colorToHexInputValue(resolvedAppearance.gradientColor, '#3b82f6')}
+									oninput={(event) =>
+										updateAppearance({ gradientColor: event.currentTarget.value })}
+								/>
+								<input
+									type="text"
+									aria-label="Second color value"
+									value={resolvedAppearance.gradientColor}
+									oninput={(event) =>
+										updateAppearance({ gradientColor: event.currentTarget.value })}
+								/>
+							</div>
+						</SettingRow>
+
+						<SettingRow
+							label="Gradient Angle: {resolvedAppearance.gradientAngle}°"
+							labelFor="widget-gradient-angle"
+							select={bulkSelect('gradientAngle', 'Gradient Angle')}
+						>
+							<input
+								id="widget-gradient-angle"
+								class="range-input"
+								type="range"
+								min="0"
+								max="360"
+								step="5"
+								value={resolvedAppearance.gradientAngle}
+								oninput={(event) =>
+									updateAppearance({ gradientAngle: Number(event.currentTarget.value) })}
+							/>
+						</SettingRow>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -397,6 +471,133 @@
 							value={resolvedAppearance.padding}
 							oninput={(event) => updateAppearance({ padding: Number(event.currentTarget.value) })}
 						/>
+					</SettingRow>
+				{/if}
+			</div>
+		{/if}
+
+		{#if shown('shadowBlur', 'backdropBlur', 'hoverEffect')}
+			<div class="appearance-group">
+				<p class="appearance-group-label">Effects</p>
+
+				{#if !hideFields.includes('shadowBlur')}
+					<SettingRow
+						label="Shadow: {resolvedAppearance.shadowBlur}px"
+						labelFor="widget-shadow-blur"
+						select={bulkSelect('shadowBlur', 'Shadow')}
+					>
+						<input
+							id="widget-shadow-blur"
+							class="range-input"
+							type="range"
+							min="0"
+							max="60"
+							step="1"
+							value={resolvedAppearance.shadowBlur}
+							oninput={(event) =>
+								updateAppearance({ shadowBlur: Number(event.currentTarget.value) })}
+						/>
+					</SettingRow>
+
+					{#if hasShadow}
+						<SettingRow
+							label="Shadow Offset: {resolvedAppearance.shadowOffsetY}px"
+							labelFor="widget-shadow-offset"
+							select={bulkSelect('shadowOffsetY', 'Shadow Offset')}
+						>
+							<input
+								id="widget-shadow-offset"
+								class="range-input"
+								type="range"
+								min="-20"
+								max="30"
+								step="1"
+								value={resolvedAppearance.shadowOffsetY}
+								oninput={(event) =>
+									updateAppearance({ shadowOffsetY: Number(event.currentTarget.value) })}
+							/>
+						</SettingRow>
+
+						<SettingRow
+							label="Shadow Color"
+							labelFor="widget-shadow-color"
+							select={bulkSelect('shadowColor', 'Shadow Color')}
+						>
+							<div class="color-control">
+								<input
+									id="widget-shadow-color"
+									type="color"
+									value={colorToHexInputValue(resolvedAppearance.shadowColor, '#000000')}
+									oninput={(event) => updateAppearance({ shadowColor: event.currentTarget.value })}
+								/>
+								<input
+									type="text"
+									aria-label="Shadow color value"
+									value={resolvedAppearance.shadowColor}
+									oninput={(event) => updateAppearance({ shadowColor: event.currentTarget.value })}
+								/>
+							</div>
+						</SettingRow>
+
+						<SettingRow
+							label="Shadow Opacity: {Math.round(resolvedAppearance.shadowOpacity * 100)}%"
+							labelFor="widget-shadow-opacity"
+							select={bulkSelect('shadowOpacity', 'Shadow Opacity')}
+						>
+							<input
+								id="widget-shadow-opacity"
+								class="range-input"
+								type="range"
+								min="0"
+								max="1"
+								step="0.05"
+								value={resolvedAppearance.shadowOpacity}
+								oninput={(event) =>
+									updateAppearance({ shadowOpacity: Number(event.currentTarget.value) })}
+							/>
+						</SettingRow>
+					{/if}
+				{/if}
+
+				{#if !hideFields.includes('backdropBlur')}
+					<SettingRow
+						label="Glass Blur: {resolvedAppearance.backdropBlur}px"
+						labelFor="widget-backdrop-blur"
+						select={bulkSelect('backdropBlur', 'Glass Blur')}
+					>
+						<input
+							id="widget-backdrop-blur"
+							class="range-input"
+							type="range"
+							min="0"
+							max="40"
+							step="1"
+							value={resolvedAppearance.backdropBlur}
+							oninput={(event) =>
+								updateAppearance({ backdropBlur: Number(event.currentTarget.value) })}
+						/>
+					</SettingRow>
+				{/if}
+
+				{#if !hideFields.includes('hoverEffect')}
+					<SettingRow
+						label="On Hover"
+						labelFor="widget-hover-effect"
+						select={bulkSelect('hoverEffect', 'Hover Effect')}
+					>
+						<select
+							id="widget-hover-effect"
+							class="select-input"
+							value={resolvedAppearance.hoverEffect}
+							onchange={(event) =>
+								updateAppearance({
+									hoverEffect: event.currentTarget.value as WidgetHoverEffect
+								})}
+						>
+							{#each hoverEffectOptions as option (option.value)}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
 					</SettingRow>
 				{/if}
 			</div>

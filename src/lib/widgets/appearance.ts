@@ -97,13 +97,57 @@ export function colorWithOpacity(color: string, opacity: number): string {
 	return fallback;
 }
 
-export function getAppearanceBackground(appearance: WidgetAppearanceConfig): string {
+/** Always a plain color, for consumers that cannot take a gradient. */
+export function getAppearanceSolidBackground(appearance: WidgetAppearanceConfig): string {
 	if (!appearance.backgroundColor) return DEFAULT_WIDGET_APPEARANCE.backgroundColor;
 
 	return colorWithOpacity(
 		appearance.backgroundColor,
 		appearance.backgroundOpacity ?? DEFAULT_WIDGET_APPEARANCE.backgroundOpacity
 	);
+}
+
+export function getAppearanceBackground(appearance: WidgetAppearanceConfig): string {
+	const solid = getAppearanceSolidBackground(appearance);
+	if (!appearance.gradientColor) return solid;
+
+	const second = colorWithOpacity(
+		appearance.gradientColor,
+		appearance.backgroundOpacity ?? DEFAULT_WIDGET_APPEARANCE.backgroundOpacity
+	);
+	const angle = finiteOr(appearance.gradientAngle, DEFAULT_WIDGET_APPEARANCE.gradientAngle);
+	return `linear-gradient(${angle}deg, ${solid}, ${second})`;
+}
+
+// An empty shadow instead of `none`, so it can join a comma list with the
+// edit-mode outline.
+export const NO_SHADOW = '0 0 #0000';
+
+export function getAppearanceShadow(appearance: WidgetAppearanceConfig): string {
+	const blur = Math.max(0, finiteOr(appearance.shadowBlur, 0));
+	if (blur === 0) return NO_SHADOW;
+
+	const offsetY = finiteOr(appearance.shadowOffsetY, DEFAULT_WIDGET_APPEARANCE.shadowOffsetY);
+	const color = colorWithOpacity(
+		appearance.shadowColor ?? DEFAULT_WIDGET_APPEARANCE.shadowColor,
+		finiteOr(appearance.shadowOpacity, DEFAULT_WIDGET_APPEARANCE.shadowOpacity)
+	);
+	return `0 ${offsetY}px ${blur}px ${color}`;
+}
+
+export function getAppearanceBackdrop(appearance: WidgetAppearanceConfig): string {
+	const blur = Math.max(0, finiteOr(appearance.backdropBlur, 0));
+	return blur === 0 ? 'none' : `blur(${blur}px)`;
+}
+
+export function getAppearanceHoverTransform(appearance: WidgetAppearanceConfig): string {
+	if (appearance.hoverEffect === 'lift') return 'translateY(-3px)';
+	if (appearance.hoverEffect === 'grow') return 'scale(1.04)';
+	return 'none';
+}
+
+function finiteOr(value: unknown, fallback: number): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 export function getAppearanceBorder(appearance: WidgetAppearanceConfig): string {

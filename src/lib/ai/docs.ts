@@ -62,6 +62,9 @@ New layers need a unique id like "layer-ai-1". Set file to null when you write s
 # Appearance object
 { backgroundColor, backgroundOpacity 0-1, textColor, fontSize px, fontFamily, borderColor, borderWidth px,
   borderStyle "solid" | "dashed" | "dotted" | "double" | "none", borderRadius px, padding px, opacity 0-1,
+  gradientColor (second fill color, "" = solid), gradientAngle deg,
+  shadowBlur px (0 = no shadow), shadowOffsetY px, shadowColor, shadowOpacity 0-1,
+  backdropBlur px (frosted glass), hoverEffect "none" | "lift" | "grow",
   customCssEnabled, customCss }
 customCssEnabled true makes the item ignore the built-in controls in favor of customCss. Read the css topic first.
 `;

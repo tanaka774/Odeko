@@ -21,6 +21,8 @@ export type WidgetType =
 
 export type WidgetBorderStyle = 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
 
+export type WidgetHoverEffect = 'none' | 'lift' | 'grow';
+
 export type WidgetAppearanceField =
 	| 'backgroundColor'
 	| 'backgroundOpacity'
@@ -32,7 +34,15 @@ export type WidgetAppearanceField =
 	| 'borderStyle'
 	| 'borderRadius'
 	| 'padding'
-	| 'opacity';
+	| 'opacity'
+	| 'gradientColor'
+	| 'gradientAngle'
+	| 'shadowBlur'
+	| 'shadowOffsetY'
+	| 'shadowColor'
+	| 'shadowOpacity'
+	| 'backdropBlur'
+	| 'hoverEffect';
 
 /** Text-related appearance fields; editors for textless icon types hide them. */
 export const TEXT_APPEARANCE_FIELDS: WidgetAppearanceField[] = [
@@ -54,6 +64,17 @@ export interface WidgetAppearanceConfig {
 	borderRadius?: number;
 	padding?: number;
 	opacity?: number;
+	/** Second color of a linear gradient fill; empty for a solid fill. */
+	gradientColor?: string;
+	gradientAngle?: number;
+	/** 0 turns the shadow off. */
+	shadowBlur?: number;
+	shadowOffsetY?: number;
+	shadowColor?: string;
+	shadowOpacity?: number;
+	/** Blur of whatever is behind the item, in px. */
+	backdropBlur?: number;
+	hoverEffect?: WidgetHoverEffect;
 	/** Master switch: when true the built-in appearance controls are ignored
 	 *  in favor of the user's customCss. */
 	customCssEnabled?: boolean;
@@ -73,6 +94,14 @@ export const DEFAULT_WIDGET_APPEARANCE: Required<WidgetAppearanceConfig> = {
 	borderRadius: 12,
 	padding: 12,
 	opacity: 1,
+	gradientColor: '',
+	gradientAngle: 135,
+	shadowBlur: 0,
+	shadowOffsetY: 4,
+	shadowColor: '#000000',
+	shadowOpacity: 0.4,
+	backdropBlur: 0,
+	hoverEffect: 'none',
 	customCssEnabled: false,
 	customCss: ''
 };
