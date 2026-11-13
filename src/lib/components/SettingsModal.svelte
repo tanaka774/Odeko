@@ -464,7 +464,7 @@
 									{/if}
 								</section>
 								<section class="settings-section">
-									<h3>Startup</h3>
+									<h3>Behavior</h3>
 									<div class="setting-row">
 										<label class="checkbox-label">
 											<input
@@ -475,10 +475,6 @@
 											<span>Launch Odeko at login</span>
 										</label>
 									</div>
-								</section>
-
-								<section class="settings-section">
-									<h3>Links</h3>
 									<div class="setting-row">
 										<label class="checkbox-label">
 											<input type="checkbox" bind:checked={localSettings.hide_on_link_open} />
