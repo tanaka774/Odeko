@@ -52,6 +52,7 @@
 	onClose={handleClose}
 	onSave={handleSave}
 	tabKey={activeTab}
+	height="auto"
 >
 	<div class="settings-form">
 		<TabBar

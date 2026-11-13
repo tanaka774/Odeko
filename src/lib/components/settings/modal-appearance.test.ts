@@ -121,7 +121,7 @@ describe('modalAppearanceStyle', () => {
 			expect(style).toContain(`${variable}:`);
 		}
 		expect(style).toContain('--modal-overlay-bg:rgba(0, 0, 0, 0.7)');
-		expect(style).toContain('--modal-width:min(480px, 92%)');
+		expect(style).toContain('--modal-width:min(540px, 92%)');
 	});
 
 	it('emits the base text size and scales the title with it', () => {

@@ -686,10 +686,10 @@
 
 	.modal-anchor {
 		width: var(--modal-width, min(750px, 92%));
-		height: var(--modal-height, min(85%, 640px));
+		height: var(--modal-height, min(85%, 760px));
 		transform: translate(
-			clamp(calc(375px - 50vw), var(--canvas-dx, 0px), calc(50vw - 375px)),
-			clamp(calc(320px - 50vh), var(--canvas-dy, 0px), calc(50vh - 320px))
+			clamp(calc(50% - 50vw), var(--canvas-dx, 0px), calc(50vw - 50%)),
+			clamp(calc(50% - 50vh), var(--canvas-dy, 0px), calc(50vh - 50%))
 		);
 	}
 

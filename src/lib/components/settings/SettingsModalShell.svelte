@@ -226,18 +226,20 @@
 	   unset. The clamp keeps the dialog fully on screen when the canvas is
 	   near an edge. */
 	.modal-anchor {
-		width: var(--modal-width, min(480px, 92%));
-		height: var(--modal-height, min(85%, 640px));
+		width: var(--modal-width, min(540px, 92%));
+		height: var(--modal-height, min(85%, 760px));
 		transform: translate(
-			clamp(calc(240px - 50vw), var(--canvas-dx, 0px), calc(50vw - 240px)),
-			clamp(calc(320px - 50vh), var(--canvas-dy, 0px), calc(50vh - 320px))
+			clamp(calc(50% - 50vw), var(--canvas-dx, 0px), calc(50vw - 50%)),
+			clamp(calc(50% - 50vh), var(--canvas-dy, 0px), calc(50vh - 50%))
 		);
 	}
 
 	/* Content-sized dialogs (pickers) hug their content up to the height knob. */
 	.modal-anchor.auto {
 		height: auto;
-		max-height: var(--modal-height, min(85%, 640px));
+		max-height: var(--modal-height, min(85%, 760px));
+		display: flex;
+		flex-direction: column;
 	}
 
 	.modal-content {
