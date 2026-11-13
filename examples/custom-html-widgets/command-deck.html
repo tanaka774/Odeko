@@ -1,0 +1,540 @@
+<!--
+	Command Deck: one widget that uses everything a Custom HTML page can do.
+	- odeko.fetch: live weather (Open-Meteo) and Hacker News top stories
+	- odeko.storage: focus timer, notes, city and tab survive restarts
+	- a library from a CDN (Chart.js), cached for offline use
+	- canvas animation, tabs, keyboard shortcuts, links that open in the browser
+	Suggested size: 460 x 400 or larger.
+-->
+<style>
+	:root {
+		--accent: #8b5cf6;
+		--accent-2: #22d3ee;
+		--glass: rgba(255, 255, 255, 0.06);
+		--line: rgba(255, 255, 255, 0.1);
+		--muted: rgba(255, 255, 255, 0.55);
+	}
+	* { box-sizing: border-box; }
+	body {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		overflow: hidden;
+		font-size: 13px;
+	}
+	#aurora {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		width: 100%;
+		height: 100%;
+	}
+	header {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		padding: 6px 10px 0;
+	}
+	#clock {
+		font-size: 2.2em;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		font-variant-numeric: tabular-nums;
+		background: linear-gradient(90deg, #fff, var(--accent-2));
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+	#date { color: var(--muted); }
+	#now {
+		margin-left: auto;
+		text-align: right;
+		line-height: 1.2;
+	}
+	#now b { font-size: 1.4em; }
+	nav {
+		display: flex;
+		gap: 2px;
+		padding: 6px 10px 4px;
+	}
+	nav button {
+		flex: 1;
+		padding: 4px 0;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		background: transparent;
+		color: var(--muted);
+		font: inherit;
+		cursor: pointer;
+		transition: background 0.2s, color 0.2s;
+	}
+	nav button.active {
+		background: var(--glass);
+		color: #fff;
+		border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+	}
+	nav kbd { opacity: 0.5; font-size: 0.8em; }
+	main { flex: 1; min-height: 0; position: relative; }
+	section {
+		position: absolute;
+		inset: 0;
+		padding: 4px 10px 8px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		opacity: 0;
+		transform: translateY(6px);
+		pointer-events: none;
+		transition: opacity 0.25s, transform 0.25s;
+	}
+	section.active { opacity: 1; transform: none; pointer-events: auto; }
+	.card {
+		background: var(--glass);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		padding: 6px 8px;
+	}
+	.row { display: flex; align-items: center; gap: 6px; }
+	.muted { color: var(--muted); }
+	.err { color: #fca5a5; }
+	input, textarea {
+		font: inherit;
+		color: inherit;
+		background: rgba(0, 0, 0, 0.3);
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		padding: 3px 6px;
+	}
+	button.small {
+		font: inherit;
+		color: inherit;
+		background: var(--glass);
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		padding: 2px 8px;
+		cursor: pointer;
+	}
+	button.small:hover { border-color: var(--accent); }
+
+	/* Weather */
+	#chart-box { flex: 1; min-height: 0; position: relative; }
+	#forecast { display: flex; justify-content: space-between; }
+	#forecast div { text-align: center; }
+	#forecast b { display: block; }
+
+	/* Focus */
+	#focus { align-items: center; justify-content: center; }
+	#ring { width: 150px; height: 150px; }
+	#ring circle { fill: none; stroke-width: 10; }
+	#ring .track { stroke: var(--line); }
+	#ring .bar {
+		stroke: url(#grad);
+		stroke-linecap: round;
+		transform: rotate(-90deg);
+		transform-origin: 50% 50%;
+		transition: stroke-dashoffset 0.9s linear;
+	}
+	#ring text {
+		fill: #fff;
+		font-size: 24px;
+		font-weight: 700;
+		text-anchor: middle;
+		dominant-baseline: middle;
+		font-variant-numeric: tabular-nums;
+	}
+	#streak { display: flex; gap: 3px; }
+	#streak i {
+		width: 10px;
+		height: 10px;
+		border-radius: 3px;
+		background: var(--line);
+	}
+	#streak i.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+	/* News */
+	#news { overflow-y: auto; gap: 4px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+	#news a {
+		display: flex;
+		gap: 8px;
+		padding: 5px 8px;
+		border-radius: 8px;
+		color: inherit;
+		text-decoration: none;
+		background: var(--glass);
+		border: 1px solid transparent;
+	}
+	#news a:hover { border-color: var(--accent); }
+	#news .score {
+		min-width: 3em;
+		color: var(--accent-2);
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+	#news .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+	/* Notes */
+	#notes textarea { flex: 1; resize: none; line-height: 1.5; }
+</style>
+
+<canvas id="aurora"></canvas>
+
+<header>
+	<div id="clock">--:--</div>
+	<div id="date"></div>
+	<div id="now"><b id="now-temp">–</b><br /><span id="now-text" class="muted"></span></div>
+</header>
+
+<nav id="tabs">
+	<button data-tab="weather">Weather <kbd>1</kbd></button>
+	<button data-tab="focus">Focus <kbd>2</kbd></button>
+	<button data-tab="news">News <kbd>3</kbd></button>
+	<button data-tab="notes">Notes <kbd>4</kbd></button>
+</nav>
+
+<main>
+	<section id="weather">
+		<div class="row">
+			<input id="city" aria-label="City" style="width: 9em" />
+			<span id="place" class="muted"></span>
+			<span id="weather-err" class="err"></span>
+		</div>
+		<div id="chart-box" class="card"><canvas id="chart"></canvas></div>
+		<div id="forecast" class="card"></div>
+	</section>
+
+	<section id="focus">
+		<svg id="ring" viewBox="0 0 160 160">
+			<defs>
+				<linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0" stop-color="#8b5cf6" />
+					<stop offset="1" stop-color="#22d3ee" />
+				</linearGradient>
+			</defs>
+			<circle class="track" cx="80" cy="80" r="66" />
+			<circle class="bar" id="bar" cx="80" cy="80" r="66" />
+			<text id="left" x="80" y="80">25:00</text>
+		</svg>
+		<div class="row">
+			<button class="small" id="start">Focus 25</button>
+			<button class="small" id="short">Break 5</button>
+			<button class="small" id="stop">Stop</button>
+		</div>
+		<div class="row muted">Today <div id="streak"></div></div>
+	</section>
+
+	<section id="news">
+		<div class="row"><span class="muted">Hacker News top stories</span><span id="news-err" class="err"></span></div>
+		<div id="stories" class="row" style="flex-direction: column; align-items: stretch; gap: 4px"></div>
+	</section>
+
+	<section id="notes">
+		<textarea id="note" aria-label="Notes"></textarea>
+		<div class="row muted"><span id="saved">Saved</span><span style="margin-left: auto">Ctrl+S saves now</span></div>
+	</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+	const $ = (id) => document.getElementById(id);
+	const store = odeko.storage;
+
+	// ── Aurora background: a small canvas animation that pauses with the canvas.
+	const aurora = (() => {
+		const canvas = $('aurora');
+		const ctx = canvas.getContext('2d');
+		const blobs = [
+			{ hue: 265, x: 0.2, y: 0.3, r: 0.55, s: 0.00021 },
+			{ hue: 190, x: 0.8, y: 0.6, r: 0.5, s: 0.00017 },
+			{ hue: 320, x: 0.5, y: 0.9, r: 0.45, s: 0.00013 }
+		];
+		let raf = 0;
+		function draw(t) {
+			const w = (canvas.width = innerWidth);
+			const h = (canvas.height = innerHeight);
+			ctx.clearRect(0, 0, w, h);
+			ctx.globalCompositeOperation = 'lighter';
+			for (const b of blobs) {
+				const x = (b.x + Math.sin(t * b.s * 6) * 0.15) * w;
+				const y = (b.y + Math.cos(t * b.s * 5) * 0.12) * h;
+				const r = b.r * Math.max(w, h);
+				const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+				g.addColorStop(0, `hsla(${b.hue}, 80%, 55%, 0.22)`);
+				g.addColorStop(1, 'transparent');
+				ctx.fillStyle = g;
+				ctx.fillRect(0, 0, w, h);
+			}
+			raf = requestAnimationFrame(draw);
+		}
+		return {
+			start: () => (raf ||= requestAnimationFrame(draw)),
+			stop: () => {
+				cancelAnimationFrame(raf);
+				raf = 0;
+			}
+		};
+	})();
+	aurora.start();
+	odeko.on('pause', aurora.stop);
+	odeko.on('resume', aurora.start);
+
+	// ── Clock
+	function tickClock() {
+		const now = new Date();
+		$('clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		$('date').textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+	}
+	tickClock();
+	setInterval(tickClock, 1000);
+
+	// ── Tabs (keys 1-4), remembered across restarts
+	const TABS = ['weather', 'focus', 'news', 'notes'];
+	function showTab(name) {
+		for (const tab of TABS) {
+			$(tab).classList.toggle('active', tab === name);
+			document.querySelector(`[data-tab="${tab}"]`).classList.toggle('active', tab === name);
+		}
+		store.set('tab', name);
+		if (name === 'news') loadNews();
+	}
+	$('tabs').addEventListener('click', (event) => {
+		const tab = event.target.closest('button')?.dataset.tab;
+		if (tab) showTab(tab);
+	});
+	addEventListener('keydown', (event) => {
+		if (event.target.matches('input, textarea')) {
+			if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+				event.preventDefault();
+				saveNote();
+			}
+			return;
+		}
+		const index = Number(event.key) - 1;
+		if (TABS[index]) {
+			event.preventDefault();
+			showTab(TABS[index]);
+		}
+	});
+
+	// ── Network helper with one retry
+	async function getJson(url, retries = 1) {
+		try {
+			const { status, body } = await odeko.fetch(url);
+			if (status !== 200) throw new Error(`HTTP ${status}`);
+			return JSON.parse(body);
+		} catch (error) {
+			if (retries === 0 || String(error).includes('denied')) throw error;
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+			return getJson(url, retries - 1);
+		}
+	}
+
+	// ── Weather: current conditions, a 24h chart and a 4-day forecast
+	const CODES = {
+		0: ['Clear', '☀️'], 1: ['Mostly clear', '🌤️'], 2: ['Partly cloudy', '⛅'], 3: ['Overcast', '☁️'],
+		45: ['Fog', '🌫️'], 48: ['Fog', '🌫️'], 51: ['Drizzle', '🌦️'], 53: ['Drizzle', '🌦️'], 55: ['Drizzle', '🌦️'],
+		61: ['Rain', '🌧️'], 63: ['Rain', '🌧️'], 65: ['Heavy rain', '🌧️'], 71: ['Snow', '🌨️'], 73: ['Snow', '🌨️'],
+		75: ['Heavy snow', '❄️'], 80: ['Showers', '🌦️'], 81: ['Showers', '🌧️'], 82: ['Storm showers', '⛈️'],
+		95: ['Thunderstorm', '⛈️'], 96: ['Thunderstorm', '⛈️'], 99: ['Thunderstorm', '⛈️']
+	};
+	const describe = (code) => CODES[code] ?? [`Code ${code}`, '🌡️'];
+	let chart = null;
+
+	async function loadWeather(city) {
+		$('weather-err').textContent = '';
+		try {
+			const geo = await getJson(
+				`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`
+			);
+			const place = geo.results?.[0];
+			if (!place) throw new Error(`${city} not found`);
+			const data = await getJson(
+				`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
+					'&current=temperature_2m,weather_code&hourly=temperature_2m,precipitation_probability' +
+					'&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5&timezone=auto'
+			);
+			$('place').textContent = `${place.name}, ${place.country_code ?? ''}`;
+			const [text, icon] = describe(data.current.weather_code);
+			$('now-temp').textContent = `${icon} ${Math.round(data.current.temperature_2m)}°`;
+			$('now-text').textContent = text;
+			drawChart(data.hourly);
+			$('forecast').replaceChildren(
+				...data.daily.time.slice(1, 5).map((day, i) => {
+					const cell = document.createElement('div');
+					const [, dayIcon] = describe(data.daily.weather_code[i + 1]);
+					const name = new Date(day).toLocaleDateString([], { weekday: 'short' });
+					cell.innerHTML = `<span class="muted">${name}</span><b>${dayIcon}</b>${Math.round(
+						data.daily.temperature_2m_max[i + 1]
+					)}° <span class="muted">${Math.round(data.daily.temperature_2m_min[i + 1])}°</span>`;
+					return cell;
+				})
+			);
+		} catch (error) {
+			$('weather-err').textContent = String(error.message ?? error);
+		}
+	}
+
+	function drawChart(hourly) {
+		if (!window.Chart) return;
+		const start = hourly.time.findIndex((t) => new Date(t) >= new Date(Date.now() - 3600e3));
+		const slice = (list) => list.slice(start, start + 24);
+		const labels = slice(hourly.time).map((t) => `${new Date(t).getHours()}h`);
+		const ctx = $('chart').getContext('2d');
+		const fill = ctx.createLinearGradient(0, 0, 0, 160);
+		fill.addColorStop(0, 'rgba(139, 92, 246, 0.45)');
+		fill.addColorStop(1, 'rgba(139, 92, 246, 0)');
+		chart?.destroy();
+		chart = new Chart(ctx, {
+			data: {
+				labels,
+				datasets: [
+					{
+						type: 'line',
+						label: '°C',
+						data: slice(hourly.temperature_2m),
+						borderColor: '#a78bfa',
+						backgroundColor: fill,
+						fill: true,
+						tension: 0.4,
+						pointRadius: 0,
+						yAxisID: 'temp'
+					},
+					{
+						type: 'bar',
+						label: 'Rain %',
+						data: slice(hourly.precipitation_probability),
+						backgroundColor: 'rgba(34, 211, 238, 0.35)',
+						borderRadius: 3,
+						yAxisID: 'rain'
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				animation: { duration: 900, easing: 'easeOutQuart' },
+				interaction: { mode: 'index', intersect: false },
+				plugins: { legend: { display: false } },
+				scales: {
+					x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { display: false } },
+					temp: { position: 'left', ticks: { color: '#c4b5fd' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+					rain: { position: 'right', min: 0, max: 100, display: false }
+				}
+			}
+		});
+	}
+
+	$('city').addEventListener('change', () => {
+		const city = $('city').value.trim();
+		if (!city) return;
+		store.set('city', city);
+		loadWeather(city);
+	});
+
+	// ── Focus timer: the end time is saved, so it keeps running across restarts
+	const FULL = 2 * Math.PI * 66;
+	$('bar').style.strokeDasharray = FULL;
+	let timer = null;
+
+	function renderTimer() {
+		const left = timer ? Math.max(0, timer.endsAt - Date.now()) : 25 * 60e3;
+		const total = timer ? timer.minutes * 60e3 : 25 * 60e3;
+		const secs = Math.ceil(left / 1000);
+		$('left').textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+		$('bar').style.strokeDashoffset = FULL * (1 - left / total);
+		if (timer && left === 0) finishTimer();
+	}
+
+	async function finishTimer() {
+		if (timer.kind === 'focus') {
+			const today = new Date().toDateString();
+			const streak = (await store.get('streak')) ?? {};
+			const count = streak.day === today ? streak.count + 1 : 1;
+			await store.set('streak', { day: today, count });
+			renderStreak(count);
+		}
+		timer = null;
+		store.remove('timer');
+		renderTimer();
+	}
+
+	function startTimer(minutes, kind) {
+		timer = { endsAt: Date.now() + minutes * 60e3, minutes, kind };
+		store.set('timer', timer);
+		renderTimer();
+	}
+
+	function renderStreak(count) {
+		$('streak').replaceChildren(
+			...Array.from({ length: 8 }, (_, i) => {
+				const dot = document.createElement('i');
+				if (i < count) dot.className = 'on';
+				return dot;
+			})
+		);
+	}
+
+	$('start').addEventListener('click', () => startTimer(25, 'focus'));
+	$('short').addEventListener('click', () => startTimer(5, 'break'));
+	$('stop').addEventListener('click', () => {
+		timer = null;
+		store.remove('timer');
+		renderTimer();
+	});
+	setInterval(renderTimer, 1000);
+
+	// ── News: Hacker News top stories, links open in the browser
+	let newsLoadedAt = 0;
+	async function loadNews() {
+		if (Date.now() - newsLoadedAt < 10 * 60e3) return;
+		newsLoadedAt = Date.now();
+		$('news-err').textContent = '';
+		try {
+			const ids = (await getJson('https://hacker-news.firebaseio.com/v0/topstories.json')).slice(0, 12);
+			const stories = await Promise.all(
+				ids.map((id) => getJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).catch(() => null))
+			);
+			$('stories').replaceChildren(
+				...stories.filter(Boolean).map((story) => {
+					const link = document.createElement('a');
+					link.href = story.url ?? `https://news.ycombinator.com/item?id=${story.id}`;
+					link.innerHTML = '<span class="score"></span><span class="title"></span>';
+					link.querySelector('.score').textContent = `▲${story.score}`;
+					link.querySelector('.title').textContent = story.title;
+					link.title = story.title;
+					return link;
+				})
+			);
+		} catch (error) {
+			newsLoadedAt = 0;
+			$('news-err').textContent = String(error.message ?? error);
+		}
+	}
+
+	// ── Notes: saved half a second after you stop typing
+	let noteTimer = 0;
+	function saveNote() {
+		clearTimeout(noteTimer);
+		store.set('note', $('note').value).then(() => ($('saved').textContent = 'Saved'));
+	}
+	$('note').addEventListener('input', () => {
+		$('saved').textContent = 'Editing…';
+		clearTimeout(noteTimer);
+		noteTimer = setTimeout(saveNote, 500);
+	});
+
+	// ── Restore everything that was saved
+	(async () => {
+		const [tab, city, savedTimer, streak, note] = await Promise.all(
+			['tab', 'city', 'timer', 'streak', 'note'].map((key) => store.get(key))
+		);
+		// A timer that ran out while Odeko was closed still counts.
+		timer = savedTimer;
+		renderTimer();
+		renderStreak(streak?.day === new Date().toDateString() ? streak.count : 0);
+		$('note').value = note ?? '';
+		$('city').value = city ?? 'Tokyo';
+		showTab(TABS.includes(tab) ? tab : 'weather');
+		loadWeather($('city').value);
+		setInterval(() => loadWeather($('city').value), 30 * 60e3);
+	})();
+</script>

@@ -15,15 +15,16 @@ helper for saved data and network access.
 
 ## Examples
 
-| File                  | What it is                                                     | Uses                   |
-| --------------------- | -------------------------------------------------------------- | ---------------------- |
-| `link-hub.html`       | Styled link list; links open in your browser                   |                        |
-| `world-clock.html`    | Three time zones, ticking every second                         |                        |
-| `pomodoro.html`       | 25/5 minute timer that keeps running across restarts           | `odeko.storage`        |
-| `checklist.html`      | A checklist that remembers its items                           | `odeko.storage`        |
-| `game-of-life.html`   | Conway's Game of Life; click cells, the board is saved         | `odeko.storage`        |
-| `weather-ticker.html` | Current weather for a city you type (Open-Meteo)               | `odeko.fetch`, storage |
-| `crypto-ticker.html`  | BTC/ETH price and 24h change, refreshing every 30s (CoinGecko) | `odeko.fetch`          |
+| File                  | What it is                                                                                           | Uses                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
+| `command-deck.html`   | **Showcase.** Weather chart (Chart.js from a CDN), focus timer, Hacker News, notes; tabs on keys 1–4 | `odeko.fetch`, storage |
+| `link-hub.html`       | Styled link list; links open in your browser                                                         |                        |
+| `world-clock.html`    | Three time zones, ticking every second                                                               |                        |
+| `pomodoro.html`       | 25/5 minute timer that keeps running across restarts                                                 | `odeko.storage`        |
+| `checklist.html`      | A checklist that remembers its items                                                                 | `odeko.storage`        |
+| `game-of-life.html`   | Conway's Game of Life; click cells, the board is saved                                               | `odeko.storage`        |
+| `weather-ticker.html` | Current weather for a city you type (Open-Meteo)                                                     | `odeko.fetch`, storage |
+| `crypto-ticker.html`  | BTC/ETH price and 24h change, refreshing every 30s (CoinGecko)                                       | `odeko.fetch`          |
 
 ## How it runs
 
