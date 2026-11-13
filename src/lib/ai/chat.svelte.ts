@@ -11,6 +11,12 @@ import {
 	type PermissionRequest
 } from './tools';
 
+export interface ToolChange {
+	summary: string;
+	reverted: boolean;
+	note?: string;
+}
+
 export type ChatPart =
 	| { type: 'text'; text: string }
 	| { type: 'image'; image: ChatImage }
@@ -22,7 +28,7 @@ export type ChatPart =
 			input?: unknown;
 			status: 'running' | 'done' | 'error';
 			output?: string;
-			change?: { summary: string; reverted: boolean; note?: string };
+			change?: ToolChange;
 	  };
 
 export interface ChatMessage {
@@ -183,6 +189,7 @@ export function createChatSession(options: {
 	let resolvePermission: ((answer: PermissionAnswer) => void) | null = null;
 	let controller: AbortController | null = null;
 	const undos = new Map<string, () => Promise<void>>();
+	const changes = new Map<string, ToolChange>();
 
 	let disposed = false;
 
@@ -295,9 +302,10 @@ export function createChatSession(options: {
 		const tools = createTools({
 			onApplied: (change: AppliedChange) => {
 				undos.set(change.toolCallId, change.undo);
+				const record: ToolChange = { summary: change.summary, reverted: false };
+				changes.set(change.toolCallId, record);
 				const part = findToolPart(change.toolCallId);
-				if (part && part.type === 'tool')
-					part.change = { summary: change.summary, reverted: false };
+				if (part && part.type === 'tool') part.change = record;
 			},
 			askPermission,
 			configAllowed,
@@ -373,15 +381,18 @@ export function createChatSession(options: {
 						if (last?.type === 'reasoning') last.text += part.text;
 						else reply.parts.push({ type: 'reasoning', text: part.text });
 						break;
-					case 'tool-call':
+					case 'tool-call': {
+						const record = changes.get(part.toolCallId);
 						reply.parts.push({
 							type: 'tool',
 							id: part.toolCallId,
 							name: part.toolName,
 							input: part.input,
-							status: 'running'
+							status: 'running',
+							...(record ? { change: record } : {})
 						});
 						break;
+					}
 					case 'tool-result': {
 						const toolPart = findToolPart(part.toolCallId);
 						if (toolPart && toolPart.type === 'tool') {
@@ -443,19 +454,20 @@ export function createChatSession(options: {
 	async function revert(toolCallId: string) {
 		const undo = undos.get(toolCallId);
 		const part = findToolPart(toolCallId);
-		if (!undo || !part || part.type !== 'tool' || !part.change) return;
+		const record = changes.get(toolCallId) ?? (part?.type === 'tool' ? part.change : undefined);
+		if (!undo || !record) return;
 		try {
 			await undo();
 		} catch (error) {
-			part.change.note = (error as Error).message;
+			record.note = (error as Error).message;
 			return;
 		}
 		undos.delete(toolCallId);
-		part.change.reverted = true;
-		part.change.note = undefined;
+		record.reverted = true;
+		record.note = undefined;
 		history.push({
 			role: 'user',
-			content: `(The user reverted your change "${part.change.summary}".)`
+			content: `(The user reverted your change "${record.summary}".)`
 		});
 		persist();
 	}
