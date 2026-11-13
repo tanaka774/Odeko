@@ -4,13 +4,9 @@ import path from 'node:path';
 import { $, browser, expect } from '@wdio/globals';
 import { openSettingsModal } from '../helpers';
 
-// The app resolves the XDG autostart dir through dirs::config_dir(), which
-// honors XDG_CONFIG_HOME — mirror that here so the spec works when the suite
-// runs with a redirected config home.
-const AUTOSTART_DIR = path.join(
-	process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), '.config'),
-	'autostart'
-);
+// auto-launch (the plugin's Linux backend) always writes to ~/.config/autostart,
+// ignoring XDG_CONFIG_HOME.
+const AUTOSTART_DIR = path.join(os.homedir(), '.config', 'autostart');
 
 /**
  * The XDG autostart entry that points at Odeko, if one exists — the
@@ -36,23 +32,29 @@ function waitForOdekoAutostartEntry(expected: boolean) {
 }
 
 /**
- * The "Launch Odeko at login" checkbox lives in the Startup section of the
- * settings modal's Appearance tab.
+ * The "Launch Odeko at login" checkbox lives in the Behavior section of the
+ * settings modal's Appearance tab. Read and click it through the page because
+ * WebKitGTK's WebDriver cannot resolve the label's parent element.
  */
-async function launchAtLoginCheckbox() {
-	// XPath instead of parentElement(): the WebKitGTK embedded driver cannot
-	// resolve the element returned by wdio's parentElement().
-	return $('//h3[normalize-space(text())="Startup"]/following::input[@type="checkbox"][1]');
+async function launchAtLoginChecked(): Promise<boolean> {
+	return (await browser.execute(() => {
+		const label = [...document.querySelectorAll('label')].find(
+			(el) => el.textContent?.trim() === 'Launch Odeko at login'
+		);
+		const input = label?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+		if (!input) throw new Error('Launch at login checkbox not found');
+		return input.checked;
+	})) as boolean;
 }
 
 /** Click the checkbox through the page (real clicks on checkboxes are
  * unreliable under WebKitGTK's WebDriver synthesis, same as icon dragging). */
 async function clickLaunchAtLoginCheckbox() {
 	await browser.execute(() => {
-		const heading = [...document.querySelectorAll('h3')].find(
-			(h) => h.textContent?.trim() === 'Startup'
+		const label = [...document.querySelectorAll('label')].find(
+			(el) => el.textContent?.trim() === 'Launch Odeko at login'
 		);
-		const input = heading?.parentElement?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+		const input = label?.querySelector<HTMLInputElement>('input[type="checkbox"]');
 		if (!input) throw new Error('Launch at login checkbox not found');
 		input.click();
 	});
@@ -71,10 +73,9 @@ describe('autostart', () => {
 		// Start from a known-off state (the suite may run on a machine that
 		// had autostart enabled before this spec ran).
 		await openSettingsModal();
-		const checkbox = await launchAtLoginCheckbox();
-		if (await checkbox.isSelected()) {
+		if (await launchAtLoginChecked()) {
 			await clickLaunchAtLoginCheckbox();
-			await browser.waitUntil(async () => !(await checkbox.isSelected()), {
+			await browser.waitUntil(async () => !(await launchAtLoginChecked()), {
 				timeout: 10000,
 				timeoutMsg: 'checkbox did not turn off'
 			});
@@ -83,7 +84,7 @@ describe('autostart', () => {
 
 		// Enable: the checkbox ticks and an autostart .desktop entry appears.
 		await clickLaunchAtLoginCheckbox();
-		await browser.waitUntil(async () => (await launchAtLoginCheckbox()).isSelected(), {
+		await browser.waitUntil(async () => await launchAtLoginChecked(), {
 			timeout: 10000,
 			timeoutMsg: 'checkbox did not stay ticked after enabling'
 		});
@@ -93,9 +94,9 @@ describe('autostart', () => {
 
 		// The OS registration is the source of truth: reopening the modal
 		// reads it back, so the checkbox must still be ticked.
-		await (await $('button=Cancel')).click();
+		await (await $('//div[@role="dialog"]//button[normalize-space(text())="Cancel"]')).click();
 		await openSettingsModal();
-		await browser.waitUntil(async () => (await launchAtLoginCheckbox()).isSelected(), {
+		await browser.waitUntil(async () => await launchAtLoginChecked(), {
 			timeout: 10000,
 			timeoutMsg: 'checkbox was not ticked after reopening the modal'
 		});
@@ -103,6 +104,6 @@ describe('autostart', () => {
 		// Disable again and leave the machine clean for other specs.
 		await clickLaunchAtLoginCheckbox();
 		await waitForOdekoAutostartEntry(false);
-		await (await $('button=Cancel')).click();
+		await (await $('//div[@role="dialog"]//button[normalize-space(text())="Cancel"]')).click();
 	});
 });

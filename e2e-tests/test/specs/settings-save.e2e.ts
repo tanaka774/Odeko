@@ -1,19 +1,43 @@
-import { $, expect } from '@wdio/globals';
-import { openSettingsModal, setColorInput } from '../helpers';
+import { $, browser, expect } from '@wdio/globals';
+import { openSettingsModal } from '../helpers';
+
+async function backdropBlurChecked(): Promise<boolean> {
+	return (await browser.execute(() => {
+		const label = [...document.querySelectorAll('label')].find(
+			(el) => el.textContent?.trim() === 'Backdrop Blur'
+		);
+		const input = label?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+		if (!input) throw new Error('Backdrop Blur checkbox not found');
+		return input.checked;
+	})) as boolean;
+}
+
+async function clickBackdropBlur() {
+	await browser.execute(() => {
+		const label = [...document.querySelectorAll('label')].find(
+			(el) => el.textContent?.trim() === 'Backdrop Blur'
+		);
+		const input = label?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+		if (!input) throw new Error('Backdrop Blur checkbox not found');
+		input.click();
+	});
+}
 
 describe('settings save', () => {
-	it('saves a background color change and reflects it on reopen', async () => {
+	it('saves a toggle change and reflects it on reopen', async () => {
 		await (await $('.icon-grid')).waitForExist({ timeout: 15000 });
 		await openSettingsModal();
 
-		await setColorInput('#ff8800');
+		const before = await backdropBlurChecked();
+		await clickBackdropBlur();
 
 		const saveButton = await $('button=Save Changes');
 		await saveButton.click();
 
-		// Reopen the modal: the saved value must be shown again.
 		await openSettingsModal();
-		const valueAfterSave = await (await $('.color-picker')).getValue();
-		expect(valueAfterSave).toBe('#ff8800');
+		expect(await backdropBlurChecked()).toBe(!before);
+
+		await clickBackdropBlur();
+		await (await $('button=Save Changes')).click();
 	});
 });

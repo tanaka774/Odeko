@@ -50,4 +50,8 @@ jobs:
 
       - name: Run WebdriverIO suite
         working-directory: e2e-tests
+        env:
+          # Throwaway config home: wdio.conf.ts seeds the fixture preset there,
+          # so every run starts from the same canvas.
+          XDG_CONFIG_HOME: ${{ runner.temp }}/odeko-e2e
         run: xvfb-run -a npm test

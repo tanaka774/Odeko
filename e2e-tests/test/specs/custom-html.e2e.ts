@@ -160,7 +160,7 @@ describe('Custom HTML widget', () => {
 		await openCustomWidgetSettings();
 		await (await $('button=Run')).click();
 		await waitForMessage('runs:2', 'storage did not survive a reload');
-		await (await $('button=Cancel')).click();
+		await (await $('//div[@role="dialog"]//button[normalize-space(text())="Cancel"]')).click();
 
 		await removeAllCustomWidgets();
 		await (await $('button=Save & Exit')).click();

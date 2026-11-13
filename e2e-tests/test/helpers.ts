@@ -60,7 +60,11 @@ export async function openSettingsModal() {
 	const settingsButton = await $('button=Settings');
 	await settingsButton.waitForExist({ timeout: 10000 });
 	await settingsButton.click();
-	await (await $('.color-picker')).waitForExist({ timeout: 10000 });
+	await (
+		await $('[role="dialog"][aria-modal="true"] .settings-content')
+	).waitForExist({
+		timeout: 10000
+	});
 }
 
 /**
@@ -92,18 +96,4 @@ export async function dragIconBy(dx: number, dy: number) {
 		dx,
 		dy
 	);
-}
-
-/**
- * Set an input[type=color] value and fire the input event, because WebDriver's
- * typing does not work for color inputs.
- */
-export async function setColorInput(value: string) {
-	await browser.execute((v) => {
-		const input = document.querySelector<HTMLInputElement>('.color-picker');
-		if (!input) throw new Error('color input not found');
-		const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-		setter?.call(input, v);
-		input.dispatchEvent(new Event('input', { bubbles: true }));
-	}, value);
 }

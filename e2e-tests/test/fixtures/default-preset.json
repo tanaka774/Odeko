@@ -1,0 +1,181 @@
+{
+	"icons": [
+		{
+			"id": "e2e-app",
+			"name": "E2E App",
+			"path": "/usr/bin/true",
+			"icon_path": null,
+			"icon_type": "app",
+			"widget_type": null,
+			"widget_config": null,
+			"url": null,
+			"x": 620.0,
+			"y": 40.0,
+			"width": 80.0,
+			"height": 80.0,
+			"z": 1
+		},
+		{
+			"id": "e2e-clock",
+			"name": "Clock",
+			"path": "",
+			"icon_path": null,
+			"icon_type": "widget",
+			"widget_type": "clock",
+			"widget_config": {
+				"format": "24h",
+				"showSeconds": true,
+				"showDate": true,
+				"timezone": "local",
+				"refreshInterval": 1000,
+				"appearance": {}
+			},
+			"url": null,
+			"x": 620.0,
+			"y": 140.0,
+			"width": 220.0,
+			"height": 160.0,
+			"z": 5
+		},
+		{
+			"id": "e2e-system",
+			"name": "System Monitor",
+			"path": "",
+			"icon_path": null,
+			"icon_type": "widget",
+			"widget_type": "system",
+			"widget_config": {
+				"appearance": {
+					"borderRadius": 0
+				},
+				"refreshInterval": 2000,
+				"showCpu": true,
+				"showDisk": true,
+				"showMemory": true
+			},
+			"url": null,
+			"x": 40.0,
+			"y": 40.0,
+			"width": 250.0,
+			"height": 200.0,
+			"z": 2
+		},
+		{
+			"id": "e2e-terminal",
+			"name": "Terminal",
+			"path": "",
+			"icon_path": null,
+			"icon_type": "widget",
+			"widget_type": "terminal",
+			"widget_config": {
+				"appearance": {}
+			},
+			"url": null,
+			"x": 40.0,
+			"y": 270.0,
+			"width": 300.0,
+			"height": 200.0,
+			"z": 3
+		},
+		{
+			"id": "e2e-custom",
+			"name": "Custom HTML",
+			"path": "",
+			"icon_path": null,
+			"icon_type": "widget",
+			"widget_type": "custom",
+			"widget_config": {
+				"appearance": {},
+				"content": "<h1>E2E</h1>",
+				"file": null,
+				"scripts": true,
+				"watch": false
+			},
+			"url": null,
+			"x": 360.0,
+			"y": 40.0,
+			"width": 240.0,
+			"height": 200.0,
+			"z": 4
+		}
+	],
+	"settings": {
+		"width_percent": 90.0,
+		"height_percent": 85.0,
+		"background_layers": [
+			{
+				"angle": 180,
+				"blend": "normal",
+				"color": "20, 20, 30",
+				"color2": null,
+				"enabled": true,
+				"id": "layer-e2e",
+				"name": "Tint",
+				"opacity": 0.75,
+				"placement": "below",
+				"type": "color"
+			}
+		],
+		"border_radius": 24.0,
+		"position_x": 50.0,
+		"position_y": 50.0,
+		"backdrop_darkness": 0.3,
+		"backdrop_blur": true,
+		"blur_strength": "full",
+		"open_animation": "fade",
+		"close_animation": "fade",
+		"slide_edge": "bottom",
+		"tile_cascade": false,
+		"hide_on_link_open": true,
+		"animation_duration_ms": 220.0,
+		"magnetic_snap": true,
+		"grid_size": 40.0,
+		"grid_line_color": "255, 255, 255",
+		"keybind_toggle_canvas": {
+			"key": "KeyZ",
+			"ctrl": false,
+			"alt": true,
+			"shift": false,
+			"meta": true
+		},
+		"keybind_toggle_edit": {
+			"key": "F2",
+			"ctrl": false,
+			"alt": false,
+			"shift": false,
+			"meta": false
+		},
+		"keybind_hide_canvas": {
+			"key": "Escape",
+			"ctrl": false,
+			"alt": false,
+			"shift": false,
+			"meta": false
+		},
+		"keybind_undo": {
+			"key": "KeyZ",
+			"ctrl": true,
+			"alt": false,
+			"shift": false,
+			"meta": false
+		},
+		"keybind_prev_preset": {
+			"key": "ArrowLeft",
+			"ctrl": true,
+			"alt": true,
+			"shift": false,
+			"meta": false
+		},
+		"keybind_next_preset": {
+			"key": "ArrowRight",
+			"ctrl": true,
+			"alt": true,
+			"shift": false,
+			"meta": false
+		},
+		"network_grants": [],
+		"allow_local_network": false,
+		"default_appearance": {},
+		"modal_appearance": {}
+	}
+}
