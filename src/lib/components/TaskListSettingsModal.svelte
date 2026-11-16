@@ -26,13 +26,16 @@
 
 	let activeTab = $state('settings');
 	let localConfig = $state<TaskListWidgetConfig>({});
-	let choice = $state<NoteChoice>({ shared: true, selected: 'main' });
+	let choice = $state<NoteChoice>({ shared: true, selected: 'main', newName: '' });
 	let groups = $state<TaskGroup[]>([]);
+	let baseGroups: TaskGroup[] = [];
+	const dirty = $derived(JSON.stringify(groups) !== JSON.stringify(baseGroups));
 
 	function loadGroups(id: string) {
-		groups = structuredClone(
+		baseGroups = structuredClone(
 			$state.snapshot(normalizeTaskGroups(notesStore.get('tasks', id)?.data))
 		);
+		groups = structuredClone(baseGroups);
 	}
 
 	$effect(() => {
@@ -40,10 +43,12 @@
 			localConfig = { autoDisappearEnabled: true, autoDisappearHours: 24, ...config };
 			activeTab = 'settings';
 			const current = notesStore.effectiveId('tasks', config.noteId);
-			void notesStore.load('tasks', current).then(() => {
-				choice = notesStore.initialChoice('tasks', config.noteId);
-				loadGroups(notesStore.sourceId('tasks', config.noteId, choice));
-			});
+			void Promise.all([notesStore.load('tasks', current), notesStore.refreshList('tasks')]).then(
+				() => {
+					choice = notesStore.initialChoice('tasks', config.noteId);
+					loadGroups(notesStore.sourceId('tasks', config.noteId, choice));
+				}
+			);
 		}
 	});
 
@@ -57,6 +62,7 @@
 			config.noteId,
 			choice,
 			{ groups: $state.snapshot(groups) },
+			{ groups: baseGroups },
 			'Tasks'
 		);
 		onSave({ ...localConfig, noteId });
@@ -116,7 +122,13 @@
 				{confirmDelete}
 			/>
 		{:else if activeTab === 'settings'}
-			<NoteSourceSection kind="tasks" noteId={config.noteId} bind:choice onswitch={loadGroups} />
+			<NoteSourceSection
+				kind="tasks"
+				noteId={config.noteId}
+				bind:choice
+				{dirty}
+				onswitch={loadGroups}
+			/>
 			<SettingSection title="Auto-Disappear">
 				<SettingRow>
 					<label class="checkbox-label">

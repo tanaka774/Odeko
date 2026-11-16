@@ -2,8 +2,9 @@
 	import SettingSection from './SettingSection.svelte';
 	import SettingRow from './SettingRow.svelte';
 	import {
-		KEEP_AS_SHARED,
 		MAIN_NOTE,
+		NEW_NOTE,
+		OWN_AS_SHARED,
 		notesStore,
 		type NoteChoice,
 		type NoteKind
@@ -14,59 +15,74 @@
 		/** The widget's saved noteId. */
 		noteId: string | undefined;
 		choice: NoteChoice;
-		/** Lets the dialog drop its edits when the shown note changes. */
+		/** The dialog has unsaved tab edits. */
+		dirty: boolean;
+		/** The shown note changed; the dialog reloads its tabs from it. */
 		onswitch: (id: string) => void;
 	}
 
-	let { kind, noteId, choice = $bindable(), onswitch }: Props = $props();
+	let { kind, noteId, choice = $bindable(), dirty, onswitch }: Props = $props();
 
 	const ownPrivate = $derived(notesStore.isPrivate(kind, notesStore.effectiveId(kind, noteId)));
 	const notes = $derived(notesStore.lists[kind]);
 	const selected = $derived(notesStore.get(kind, choice.selected));
-	const canEditSelected = $derived(
-		choice.shared && choice.selected !== KEEP_AS_SHARED && !!selected?.loaded
+	const existing = $derived(
+		choice.shared && choice.selected !== OWN_AS_SHARED && choice.selected !== NEW_NOTE
 	);
+	const loses = $derived(notesStore.losesOwnContent(kind, noteId, choice));
 
 	let renaming = $state(false);
 	let draftName = $state('');
 
-	function emit() {
-		onswitch(notesStore.sourceId(kind, noteId, choice));
+	function confirmDiscardEdits(): boolean {
+		return !dirty || confirm('Discard your unsaved tab changes?');
 	}
 
-	async function select(id: string) {
+	async function apply(next: NoteChoice) {
+		const before = notesStore.sourceId(kind, noteId, choice);
+		if (next.shared && ![OWN_AS_SHARED, NEW_NOTE].includes(next.selected)) {
+			await notesStore.load(kind, next.selected);
+		}
+		const after = notesStore.sourceId(kind, noteId, next);
+		if (after !== before && !confirmDiscardEdits()) return false;
+		choice = next;
+		if (after !== before) onswitch(after);
+		return true;
+	}
+
+	async function select(event: Event & { currentTarget: HTMLSelectElement }) {
+		const value = event.currentTarget.value;
 		renaming = false;
-		choice = { ...choice, selected: id };
-		if (id !== KEEP_AS_SHARED) await notesStore.load(kind, id);
-		emit();
+		if (!(await apply({ ...choice, selected: value }))) event.currentTarget.value = choice.selected;
 	}
 
-	async function toggleShared(shared: boolean) {
-		choice = { ...choice, shared };
-		if (shared && choice.selected !== KEEP_AS_SHARED) await notesStore.load(kind, choice.selected);
-		emit();
+	async function toggleShared(event: Event & { currentTarget: HTMLInputElement }) {
+		const shared = event.currentTarget.checked;
+		if (!(await apply({ ...choice, shared }))) event.currentTarget.checked = choice.shared;
 	}
 
-	async function createShared() {
+	async function startNew() {
 		const name = notesStore.uniqueName(kind, kind === 'memo' ? 'Memo' : 'Tasks');
-		const id = await notesStore.create(kind, { name, shared: true, data: null });
-		await select(id);
+		if (!(await apply({ ...choice, selected: NEW_NOTE, newName: name }))) return;
 		draftName = name;
 		renaming = true;
 	}
 
 	async function commitRename() {
+		if (!renaming) return;
 		renaming = false;
-		await notesStore.rename(kind, choice.selected, draftName);
+		if (choice.selected === NEW_NOTE) {
+			choice = { ...choice, newName: draftName.trim() || choice.newName };
+		} else {
+			await notesStore.rename(kind, choice.selected, draftName);
+		}
 	}
 
 	async function removeSelected() {
-		const name = selected?.name ?? '';
-		if (!confirm(`Delete the shared note "${name}" for every preset? This cannot be undone.`))
-			return;
-		const id = choice.selected;
-		await notesStore.remove(kind, id);
-		await select(MAIN_NOTE);
+		if (!confirm(`Delete the shared note "${selected?.name ?? ''}" for every preset?`)) return;
+		await notesStore.remove(kind, choice.selected);
+		choice = { ...choice, selected: MAIN_NOTE };
+		onswitch(notesStore.sourceId(kind, noteId, choice));
 	}
 
 	$effect(() => {
@@ -77,11 +93,7 @@
 <SettingSection title="Content">
 	<SettingRow>
 		<label class="checkbox-label">
-			<input
-				type="checkbox"
-				checked={choice.shared}
-				onchange={(event) => toggleShared(event.currentTarget.checked)}
-			/>
+			<input type="checkbox" checked={choice.shared} onchange={toggleShared} />
 			<span>Shared between presets</span>
 		</label>
 	</SettingRow>
@@ -104,34 +116,43 @@
 						id="note-source-{kind}"
 						class="select-input"
 						value={choice.selected}
-						onchange={(event) => select(event.currentTarget.value)}
+						onchange={select}
 					>
-						{#if ownPrivate}
-							<option value={KEEP_AS_SHARED}>This widget's content (new shared note)</option>
-						{/if}
 						{#each notes as note (note.id)}
 							<option value={note.id}>{note.name || 'Untitled'}</option>
 						{/each}
+						{#if ownPrivate}
+							<option value={OWN_AS_SHARED}>Keep this widget's content as a new shared note</option>
+						{/if}
+						{#if choice.selected === NEW_NOTE}
+							<option value={NEW_NOTE}>{choice.newName} (new)</option>
+						{/if}
 					</select>
 				{/if}
-				<button class="action-btn" type="button" onclick={createShared}>New</button>
+				<button class="action-btn" type="button" disabled={renaming} onclick={startNew}>New</button>
 				<button
 					class="action-btn"
 					type="button"
-					disabled={!canEditSelected || renaming}
+					disabled={renaming || !(existing || choice.selected === NEW_NOTE)}
 					onclick={() => {
-						draftName = selected?.name ?? '';
+						draftName = choice.selected === NEW_NOTE ? choice.newName : (selected?.name ?? '');
 						renaming = true;
 					}}>Rename</button
 				>
 				<button
 					class="action-btn danger"
 					type="button"
-					disabled={!canEditSelected || choice.selected === MAIN_NOTE}
+					disabled={renaming || !existing || choice.selected === MAIN_NOTE}
 					onclick={removeSelected}>Delete</button
 				>
 			</div>
 		</SettingRow>
+		{#if loses}
+			<p class="note-warning">
+				This widget's own content is replaced by the shared note and deleted on save. To keep it,
+				pick "Keep this widget's content as a new shared note".
+			</p>
+		{/if}
 	{/if}
 </SettingSection>
 
@@ -150,5 +171,11 @@
 	.note-row .action-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.note-warning {
+		margin: 0;
+		color: var(--modal-warning, #f5b85c);
+		font-size: calc(0.9286 * var(--modal-font-size));
 	}
 </style>

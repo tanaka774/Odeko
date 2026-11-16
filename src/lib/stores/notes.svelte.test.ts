@@ -28,7 +28,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 	})
 }));
 
-import { KEEP_AS_SHARED, MAIN_NOTE, notesStore } from './notes.svelte';
+import { MAIN_NOTE, NEW_NOTE, OWN_AS_SHARED, mergeTabs, notesStore } from './notes.svelte';
 import MemoWidget from '$lib/widgets/MemoWidget.svelte';
 import TaskListWidget from '$lib/widgets/TaskListWidget.svelte';
 
@@ -69,58 +69,112 @@ describe('notesStore', () => {
 		expect(notesStore.effectiveId('memo', undefined)).toBe(MAIN_NOTE);
 	});
 
-	it('gives an unshared widget its own note, then reuses it', async () => {
-		await notesStore.load('tasks', MAIN_NOTE);
-		const own = await notesStore.applyChoice(
-			'tasks',
-			undefined,
-			{ shared: false, selected: MAIN_NOTE },
-			{ groups: [] },
-			'Tasks'
-		);
-		expect(own).toMatch(/^n-/);
-		expect(disk.get(`tasks/${own}`)?.shared).toBe(false);
-		expect(notesStore.initialChoice('tasks', own)).toEqual({
-			shared: false,
-			selected: KEEP_AS_SHARED
-		});
+	const choice = (shared: boolean, selected: string, newName = '') => ({
+		shared,
+		selected,
+		newName
+	});
+	const text = (id: string) =>
+		(notesStore.get('memo', id)?.data as { tabs: { content: string }[] }).tabs[0].content;
+	const typeIn = (id: string, value: string) => notesStore.setData('memo', id, memo(value));
+	const save = (noteId: string | undefined, next: ReturnType<typeof choice>) =>
+		notesStore.applyChoice('memo', noteId, next, {}, {}, 'Memo');
 
-		const again = await notesStore.applyChoice(
-			'tasks',
-			own,
-			{ shared: false, selected: KEEP_AS_SHARED },
-			{ groups: [{ id: 'g', name: 'x', color: '#fff', tasks: [] }] },
-			'Tasks'
-		);
-		expect(again).toBe(own);
+	async function freshMain(value: string) {
+		await notesStore.load('memo', MAIN_NOTE);
+		typeIn(MAIN_NOTE, value);
+		await notesStore.flush('memo', MAIN_NOTE);
+		await notesStore.refreshList('memo');
+	}
+
+	it('unsharing A copies Main; typing in A leaves B on Main alone', async () => {
+		await freshMain('X');
+		const a = await save(undefined, choice(false, MAIN_NOTE));
+		expect(a).toMatch(/^n-/);
+		expect(text(a!)).toBe('X');
+		typeIn(a!, 'X + a');
+		typeIn(MAIN_NOTE, 'X + b');
+		expect(text(a!)).toBe('X + a');
+		expect(text(MAIN_NOTE)).toBe('X + b');
 	});
 
-	it('turns a widget note into a named shared note', async () => {
+	it('re-sharing A defaults back to the note it was copied from', async () => {
+		await freshMain('X');
+		const a = await save(undefined, choice(false, MAIN_NOTE));
+		typeIn(a!, 'X + a');
+		const initial = notesStore.initialChoice('memo', a);
+		expect(initial).toEqual(choice(false, MAIN_NOTE));
+
+		const resharing = { ...initial, shared: true };
+		expect(notesStore.losesOwnContent('memo', a, resharing)).toBe(true);
+		const back = await save(a, resharing);
+		expect(back).toBeUndefined();
+		typeIn(MAIN_NOTE, 'together');
+		expect(text(notesStore.effectiveId('memo', back))).toBe('together');
+	});
+
+	it('does not warn when own content matches the shared note', async () => {
+		await freshMain('X');
+		const a = await save(undefined, choice(false, MAIN_NOTE));
+		expect(notesStore.losesOwnContent('memo', a, choice(true, MAIN_NOTE))).toBe(false);
+	});
+
+	it('repeated unshare and reshare never piles up shared notes', async () => {
+		await freshMain('X');
+		const before = notesStore.lists.memo.length;
+		let id: string | undefined;
+		for (let i = 0; i < 3; i++) {
+			id = await save(id, choice(false, MAIN_NOTE));
+			id = await save(id, { ...notesStore.initialChoice('memo', id), shared: true });
+		}
+		expect(id).toBeUndefined();
+		expect(notesStore.lists.memo.length).toBe(before);
+	});
+
+	it('keeps own content as a new shared note when asked', async () => {
 		const own = await notesStore.create('memo', { name: '', shared: false, data: memo('mine') });
-		const id = await notesStore.applyChoice(
-			'memo',
-			own,
-			{ shared: true, selected: KEEP_AS_SHARED },
-			memo('mine'),
-			'Memo'
-		);
+		const id = await save(own, choice(true, OWN_AS_SHARED));
 		expect(id).toBe(own);
-		expect(disk.get(`memo/${own}`)).toMatchObject({ shared: true, name: expect.any(String) });
+		expect(disk.get(`memo/${own}`)).toMatchObject({ shared: true, data: memo('mine') });
 		expect(notesStore.lists.memo.some((note) => note.id === own)).toBe(true);
 	});
 
-	it('switches a widget to Main without touching its old note', async () => {
-		const own = await notesStore.create('memo', { name: '', shared: false, data: memo('old') });
-		const id = await notesStore.applyChoice(
+	it('creates a new shared note only on save', async () => {
+		await notesStore.refreshList('memo');
+		const before = notesStore.lists.memo.length;
+		const id = await save(undefined, choice(true, NEW_NOTE, 'Ideas'));
+		expect(disk.get(`memo/${id}`)).toMatchObject({ name: 'Ideas', shared: true });
+		expect(notesStore.lists.memo.length).toBe(before + 1);
+	});
+
+	it('saving without tab edits does not overwrite newer typing', async () => {
+		await freshMain('old');
+		const opened = $state.snapshot(notesStore.get('memo', MAIN_NOTE)?.data);
+		typeIn(MAIN_NOTE, 'typed meanwhile');
+		await notesStore.applyChoice(
 			'memo',
-			own,
-			{ shared: true, selected: MAIN_NOTE },
-			memo('main text'),
+			undefined,
+			choice(true, MAIN_NOTE),
+			opened,
+			opened,
 			'Memo'
 		);
-		expect(id).toBeUndefined();
-		expect(disk.get('memo/main')?.data).toEqual(memo('main text'));
-		expect(disk.get(`memo/${own}`)?.data).toEqual(memo('old'));
+		expect(text(MAIN_NOTE)).toBe('typed meanwhile');
+	});
+
+	it('tab renames merge with text typed meanwhile', async () => {
+		await freshMain('old');
+		const base = structuredClone(
+			$state.snapshot(notesStore.get('memo', MAIN_NOTE)?.data) as { tabs: { name: string }[] }
+		);
+		const edited = structuredClone(base);
+		edited.tabs[0].name = 'Renamed';
+		typeIn(MAIN_NOTE, 'typed meanwhile');
+		await notesStore.applyChoice('memo', undefined, choice(true, MAIN_NOTE), edited, base, 'Memo');
+		const tab = (
+			notesStore.get('memo', MAIN_NOTE)?.data as { tabs: { name: string; content: string }[] }
+		).tabs[0];
+		expect(tab).toMatchObject({ name: 'Renamed', content: 'typed meanwhile' });
 	});
 
 	it('copies private notes on fork but shares shared ones', async () => {
@@ -177,5 +231,20 @@ describe('note widgets', () => {
 		const { container } = render(TaskListWidget, { config: { noteId: id } });
 		await waitFor(() => expect(container.textContent).toContain('buy milk'));
 		expect(container.querySelector('.task-tab')?.textContent).toContain('daily');
+	});
+});
+
+describe('mergeTabs', () => {
+	const tab = (id: string, name: string, content: string) => ({ id, name, color: '#fff', content });
+
+	it('keeps live text, dialog renames, deletions and tabs added meanwhile', () => {
+		const base = [tab('a', 'A', '1'), tab('b', 'B', '2')];
+		const edited = [tab('a', 'A!', '1'), tab('c', 'C', '')];
+		const live = [tab('a', 'A', '1 typed'), tab('b', 'B', '2'), tab('d', 'D', 'new')];
+		expect(mergeTabs(edited, base, live)).toEqual([
+			tab('a', 'A!', '1 typed'),
+			tab('c', 'C', ''),
+			tab('d', 'D', 'new')
+		]);
 	});
 });

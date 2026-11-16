@@ -26,11 +26,16 @@
 
 	let activeTab = $state('settings');
 	let localConfig = $state<MemoWidgetConfig>({ wordWrap: true });
-	let choice = $state<NoteChoice>({ shared: true, selected: 'main' });
+	let choice = $state<NoteChoice>({ shared: true, selected: 'main', newName: '' });
 	let tabs = $state<MemoTab[]>([]);
+	let baseTabs: MemoTab[] = [];
+	const dirty = $derived(JSON.stringify(tabs) !== JSON.stringify(baseTabs));
 
 	function loadTabs(id: string) {
-		tabs = structuredClone($state.snapshot(normalizeMemoTabs(notesStore.get('memo', id)?.data)));
+		baseTabs = structuredClone(
+			$state.snapshot(normalizeMemoTabs(notesStore.get('memo', id)?.data))
+		);
+		tabs = structuredClone(baseTabs);
 	}
 
 	$effect(() => {
@@ -38,10 +43,12 @@
 			localConfig = { wordWrap: true, ...config };
 			activeTab = 'settings';
 			const current = notesStore.effectiveId('memo', config.noteId);
-			void notesStore.load('memo', current).then(() => {
-				choice = notesStore.initialChoice('memo', config.noteId);
-				loadTabs(notesStore.sourceId('memo', config.noteId, choice));
-			});
+			void Promise.all([notesStore.load('memo', current), notesStore.refreshList('memo')]).then(
+				() => {
+					choice = notesStore.initialChoice('memo', config.noteId);
+					loadTabs(notesStore.sourceId('memo', config.noteId, choice));
+				}
+			);
 		}
 	});
 
@@ -51,6 +58,7 @@
 			config.noteId,
 			choice,
 			{ tabs: $state.snapshot(tabs) },
+			{ tabs: baseTabs },
 			'Memo'
 		);
 		onSave({ ...localConfig, noteId });
@@ -87,7 +95,13 @@
 		/>
 
 		{#if activeTab === 'settings'}
-			<NoteSourceSection kind="memo" noteId={config.noteId} bind:choice onswitch={loadTabs} />
+			<NoteSourceSection
+				kind="memo"
+				noteId={config.noteId}
+				bind:choice
+				{dirty}
+				onswitch={loadTabs}
+			/>
 			<SettingSection title="Text Appearance">
 				<SettingRow>
 					<label class="checkbox-label">

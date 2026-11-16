@@ -25,6 +25,8 @@ pub struct Note {
     pub shared: bool,
     #[serde(default)]
     pub data: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -367,6 +369,7 @@ fn migrate_in(root: &Path, presets: &Path, active: Option<&str>) -> usize {
                     name,
                     shared: true,
                     data,
+                    from: None,
                 };
                 let Ok(note_file) = note_path(root, kind, &id) else {
                     continue;
@@ -492,6 +495,7 @@ mod tests {
             name: id.to_string(),
             shared,
             data,
+            from: None,
         };
         write_note(&note_path(root, kind, id).unwrap(), &note).unwrap();
     }
