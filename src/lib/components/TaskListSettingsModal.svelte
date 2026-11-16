@@ -4,10 +4,15 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
+	import NoteSourceSection from './settings/NoteSourceSection.svelte';
+	import TabListEditor from './settings/TabListEditor.svelte';
+	import { notesStore, type NoteChoice } from '$lib/stores/notes.svelte';
 	import {
 		createTaskGroup,
 		normalizeTaskGroups,
+		TASK_GROUP_COLORS,
 		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type TaskGroup,
 		type TaskListWidgetConfig
 	} from '$lib/widgets/types';
 
@@ -19,38 +24,42 @@
 
 	let { isOpen = $bindable(false), config = {}, onSave }: Props = $props();
 
-	let activeTab = $state('tabs');
+	let activeTab = $state('settings');
+	let localConfig = $state<TaskListWidgetConfig>({});
+	let choice = $state<NoteChoice>({ shared: true, selected: 'main' });
+	let groups = $state<TaskGroup[]>([]);
 
-	// Build a local config that always contains a normalized list of tabs
-	function buildLocalConfig(cfg: TaskListWidgetConfig = {}): TaskListWidgetConfig {
-		const merged = {
-			autoDisappearEnabled: true,
-			autoDisappearHours: 24,
-			...cfg
-		};
-		return {
-			autoDisappearEnabled: merged.autoDisappearEnabled,
-			autoDisappearHours: merged.autoDisappearHours,
-			appearance: merged.appearance,
-			groups: normalizeTaskGroups(merged)
-		};
+	function loadGroups(id: string) {
+		groups = structuredClone(
+			$state.snapshot(normalizeTaskGroups(notesStore.get('tasks', id)?.data))
+		);
 	}
-
-	let localConfig = $state<TaskListWidgetConfig>(buildLocalConfig(config));
 
 	$effect(() => {
 		if (isOpen) {
-			localConfig = buildLocalConfig(config);
-			activeTab = 'tabs';
+			localConfig = { autoDisappearEnabled: true, autoDisappearHours: 24, ...config };
+			activeTab = 'settings';
+			const current = notesStore.effectiveId('tasks', config.noteId);
+			void notesStore.load('tasks', current).then(() => {
+				choice = notesStore.initialChoice('tasks', config.noteId);
+				loadGroups(notesStore.sourceId('tasks', config.noteId, choice));
+			});
 		}
 	});
 
 	const defaultAppearance = WIDGET_TYPE_APPEARANCE_DEFAULTS.tasklist ?? {};
 
-	const allTasks = $derived((localConfig.groups ?? []).flatMap((group) => group.tasks));
+	const allTasks = $derived(groups.flatMap((group) => group.tasks));
 
-	function handleSave() {
-		onSave(localConfig);
+	async function handleSave() {
+		const noteId = await notesStore.applyChoice(
+			'tasks',
+			config.noteId,
+			choice,
+			{ groups: $state.snapshot(groups) },
+			'Tasks'
+		);
+		onSave({ ...localConfig, noteId });
 		isOpen = false;
 	}
 
@@ -58,50 +67,24 @@
 		isOpen = false;
 	}
 
-	function handleAddGroup() {
-		localConfig = {
-			...localConfig,
-			groups: [...(localConfig.groups ?? []), createTaskGroup()]
-		};
-	}
-
-	function handleDeleteGroup(groupId: string) {
-		const target = localConfig.groups?.find((group) => group.id === groupId);
-		if (!target) return;
-
-		const taskCount = target.tasks.length;
-		const message =
+	function confirmDelete(group: TaskGroup): boolean {
+		const taskCount = group.tasks.length;
+		return confirm(
 			taskCount > 0
-				? `Delete tab "${target.name}" and its ${taskCount} task(s)?`
-				: `Delete tab "${target.name}"?`;
-		if (!confirm(message)) return;
-
-		localConfig = {
-			...localConfig,
-			groups: localConfig.groups?.filter((group) => group.id !== groupId) ?? []
-		};
+				? `Delete tab "${group.name}" and its ${taskCount} task(s)?`
+				: `Delete tab "${group.name}"?`
+		);
 	}
 
 	function handleClearCompleted() {
-		localConfig = {
-			...localConfig,
-			groups:
-				localConfig.groups?.map((group) => ({
-					...group,
-					tasks: group.tasks.filter((task) => !task.completed)
-				})) ?? []
-		};
+		groups = groups.map((group) => ({
+			...group,
+			tasks: group.tasks.filter((task) => !task.completed)
+		}));
 	}
 
 	function handleClearAll() {
-		localConfig = {
-			...localConfig,
-			groups:
-				localConfig.groups?.map((group) => ({
-					...group,
-					tasks: []
-				})) ?? []
-		};
+		groups = groups.map((group) => ({ ...group, tasks: [] }));
 	}
 </script>
 
@@ -118,69 +101,22 @@
 			{activeTab}
 			onTabChange={(key) => (activeTab = key)}
 			tabs={[
-				{ key: 'tabs', label: 'Tabs' },
 				{ key: 'settings', label: 'Settings' },
+				{ key: 'tabs', label: 'Tabs' },
 				{ key: 'appearance', label: 'Appearance' }
 			]}
 		/>
 
 		{#if activeTab === 'tabs'}
-			<SettingSection title="Tabs">
-				{#each localConfig.groups ?? [] as group (group.id)}
-					<div class="group-editor">
-						<input
-							type="color"
-							class="group-color-input"
-							bind:value={group.color}
-							title="Tab color"
-						/>
-						<input type="text" class="group-name-input" bind:value={group.name} />
-						<span class="group-task-count">{group.tasks.length} tasks</span>
-						<button
-							class="action-btn danger group-delete-btn"
-							onclick={() => handleDeleteGroup(group.id)}
-							title="Delete tab"
-							type="button"
-							disabled={(localConfig.groups?.length ?? 0) <= 1}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<polyline points="3 6 5 6 21 6"></polyline>
-								<path
-									d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-								></path>
-							</svg>
-						</button>
-					</div>
-				{/each}
-				<button class="action-btn secondary" onclick={handleAddGroup} type="button">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<line x1="12" y1="5" x2="12" y2="19"></line>
-						<line x1="5" y1="12" x2="19" y2="12"></line>
-					</svg>
-					Add Tab
-				</button>
-			</SettingSection>
+			<TabListEditor
+				bind:tabs={groups}
+				count={(group) => `${group.tasks.length} tasks`}
+				create={() =>
+					createTaskGroup('', TASK_GROUP_COLORS[groups.length % TASK_GROUP_COLORS.length])}
+				{confirmDelete}
+			/>
 		{:else if activeTab === 'settings'}
+			<NoteSourceSection kind="tasks" noteId={config.noteId} bind:choice onswitch={loadGroups} />
 			<SettingSection title="Auto-Disappear">
 				<SettingRow>
 					<label class="checkbox-label">
@@ -307,63 +243,5 @@
 		display: block;
 		color: rgba(255, 255, 255, 0.5);
 		font-size: calc(0.8571 * var(--modal-font-size));
-	}
-
-	.group-editor {
-		display: flex;
-		align-items: center;
-		gap: calc(0.7143 * var(--modal-font-size));
-		padding: calc(0.5714 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
-		margin-bottom: calc(0.5714 * var(--modal-font-size));
-		background: rgba(255, 255, 255, 0.05);
-		border-radius: 8px;
-	}
-
-	.group-color-input {
-		width: calc(2.2857 * var(--modal-font-size));
-		height: calc(2.2857 * var(--modal-font-size));
-		padding: 0;
-		border: none;
-		border-radius: 6px;
-		background: none;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-
-	.group-name-input {
-		flex: 1;
-		min-width: 0;
-		padding: calc(0.5714 * var(--modal-font-size)) calc(0.7143 * var(--modal-font-size));
-		background: rgba(0, 0, 0, 0.3);
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 6px;
-		color: white;
-		font-size: calc(1 * var(--modal-font-size));
-		outline: none;
-	}
-
-	.group-name-input:focus {
-		border-color: rgba(120, 160, 200, 0.8);
-	}
-
-	.group-task-count {
-		color: rgba(255, 255, 255, 0.5);
-		font-size: calc(0.8571 * var(--modal-font-size));
-		white-space: nowrap;
-	}
-
-	.group-delete-btn {
-		width: calc(2.1429 * var(--modal-font-size));
-		height: calc(2.1429 * var(--modal-font-size));
-		padding: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-	}
-
-	.group-delete-btn:disabled {
-		opacity: 0.3;
-		cursor: not-allowed;
 	}
 </style>

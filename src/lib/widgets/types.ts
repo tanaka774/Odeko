@@ -288,7 +288,7 @@ let taskGroupIdCounter = 0;
 
 export function createTaskGroup(
 	name = '',
-	color = TASK_GROUP_COLORS[0],
+	color: string = TASK_GROUP_COLORS[0],
 	tasks: Task[] = []
 ): TaskGroup {
 	return {
@@ -299,21 +299,21 @@ export function createTaskGroup(
 	};
 }
 
-// Returns the tabs of a task list config. Old configs stored a flat `tasks`
-// array; those are migrated into a single "General" tab so nothing is lost.
-export function normalizeTaskGroups(config: TaskListWidgetConfig): TaskGroup[] {
-	if (config.groups && config.groups.length > 0) {
-		return config.groups;
-	}
-	const legacyTasks = config.tasks ?? [];
-	return [createTaskGroup('', TASK_GROUP_COLORS[0], legacyTasks)];
+// Task list contents, stored in a note outside the preset.
+export interface TaskNoteData {
+	groups?: TaskGroup[];
 }
 
-// Task list widget config
+export function normalizeTaskGroups(data: unknown): TaskGroup[] {
+	const groups = (data as TaskNoteData | null)?.groups;
+	return Array.isArray(groups) && groups.length > 0 ? groups : [createTaskGroup()];
+}
+
+// Task list widget config. `noteId` picks the note holding the tasks; without
+// one the widget shows the shared Main note.
 export interface TaskListWidgetConfig extends WidgetConfig {
-	groups?: TaskGroup[];
+	noteId?: string;
 	activeGroupId?: string;
-	tasks?: Task[];
 	autoDisappearEnabled?: boolean;
 	autoDisappearHours?: number;
 }
@@ -354,9 +354,38 @@ export interface DividerWidgetConfig extends WidgetConfig {
 	label?: string;
 }
 
-// Memo widget config
+export interface MemoTab {
+	id: string;
+	name: string;
+	color: string;
+	content: string;
+}
+
+// Memo contents, stored in a note outside the preset.
+export interface MemoNoteData {
+	tabs?: MemoTab[];
+}
+
+let memoTabIdCounter = 0;
+
+export function createMemoTab(
+	name = '',
+	color: string = TASK_GROUP_COLORS[0],
+	content = ''
+): MemoTab {
+	return { id: `tab-${Date.now()}-${memoTabIdCounter++}`, name, color, content };
+}
+
+export function normalizeMemoTabs(data: unknown): MemoTab[] {
+	const tabs = (data as MemoNoteData | null)?.tabs;
+	return Array.isArray(tabs) && tabs.length > 0 ? tabs : [createMemoTab()];
+}
+
+// Memo widget config. `noteId` picks the note holding the text; without one
+// the widget shows the shared Main note.
 export interface MemoWidgetConfig extends WidgetConfig {
-	content?: string;
+	noteId?: string;
+	activeTabId?: string;
 	wordWrap?: boolean;
 }
 
@@ -708,15 +737,11 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			};
 		case 'terminal':
 			return {};
-		case 'tasklist': {
-			const generalTab = createTaskGroup();
+		case 'tasklist':
 			return {
-				groups: [generalTab],
-				activeGroupId: generalTab.id,
 				autoDisappearEnabled: true,
 				autoDisappearHours: 24
 			};
-		}
 		case 'music':
 			return {
 				showAlbumArt: true,
@@ -749,7 +774,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			};
 		case 'memo':
 			return {
-				content: '',
 				wordWrap: true
 			};
 		case 'drawing':

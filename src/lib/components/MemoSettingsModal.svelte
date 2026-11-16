@@ -4,8 +4,17 @@
 	import TabBar from './settings/TabBar.svelte';
 	import SettingSection from './settings/SettingSection.svelte';
 	import SettingRow from './settings/SettingRow.svelte';
-	import type { MemoWidgetConfig } from '$lib/widgets/types';
-	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from '$lib/widgets/types';
+	import NoteSourceSection from './settings/NoteSourceSection.svelte';
+	import TabListEditor from './settings/TabListEditor.svelte';
+	import { notesStore, type NoteChoice } from '$lib/stores/notes.svelte';
+	import {
+		createMemoTab,
+		normalizeMemoTabs,
+		TASK_GROUP_COLORS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type MemoTab,
+		type MemoWidgetConfig
+	} from '$lib/widgets/types';
 
 	interface Props {
 		isOpen?: boolean;
@@ -16,31 +25,44 @@
 	let { isOpen = $bindable(false), config = {}, onSave }: Props = $props();
 
 	let activeTab = $state('settings');
+	let localConfig = $state<MemoWidgetConfig>({ wordWrap: true });
+	let choice = $state<NoteChoice>({ shared: true, selected: 'main' });
+	let tabs = $state<MemoTab[]>([]);
 
-	let localConfig = $state<MemoWidgetConfig>({
-		content: '',
-		wordWrap: true,
-		...config
-	});
+	function loadTabs(id: string) {
+		tabs = structuredClone($state.snapshot(normalizeMemoTabs(notesStore.get('memo', id)?.data)));
+	}
 
 	$effect(() => {
 		if (isOpen) {
-			localConfig = {
-				content: '',
-				wordWrap: true,
-				...config
-			};
+			localConfig = { wordWrap: true, ...config };
 			activeTab = 'settings';
+			const current = notesStore.effectiveId('memo', config.noteId);
+			void notesStore.load('memo', current).then(() => {
+				choice = notesStore.initialChoice('memo', config.noteId);
+				loadTabs(notesStore.sourceId('memo', config.noteId, choice));
+			});
 		}
 	});
 
-	function handleSave() {
-		onSave({ ...localConfig });
+	async function handleSave() {
+		const noteId = await notesStore.applyChoice(
+			'memo',
+			config.noteId,
+			choice,
+			{ tabs: $state.snapshot(tabs) },
+			'Memo'
+		);
+		onSave({ ...localConfig, noteId });
 		isOpen = false;
 	}
 
 	function handleClose() {
 		isOpen = false;
+	}
+
+	function confirmDelete(tab: MemoTab): boolean {
+		return !tab.content.trim() || confirm(`Delete tab "${tab.name}" and its text?`);
 	}
 </script>
 
@@ -59,11 +81,13 @@
 			onTabChange={(key) => (activeTab = key)}
 			tabs={[
 				{ key: 'settings', label: 'Settings' },
+				{ key: 'tabs', label: 'Tabs' },
 				{ key: 'appearance', label: 'Appearance' }
 			]}
 		/>
 
 		{#if activeTab === 'settings'}
+			<NoteSourceSection kind="memo" noteId={config.noteId} bind:choice onswitch={loadTabs} />
 			<SettingSection title="Text Appearance">
 				<SettingRow>
 					<label class="checkbox-label">
@@ -72,6 +96,13 @@
 					</label>
 				</SettingRow>
 			</SettingSection>
+		{:else if activeTab === 'tabs'}
+			<TabListEditor
+				bind:tabs
+				count={(tab) => `${tab.content.length} chars`}
+				create={() => createMemoTab('', TASK_GROUP_COLORS[tabs.length % TASK_GROUP_COLORS.length])}
+				{confirmDelete}
+			/>
 		{:else}
 			<WidgetAppearanceSettings
 				widgetType="memo"

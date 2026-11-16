@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
+use super::notes;
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum IconType {
@@ -543,6 +545,16 @@ fn read_config() -> AppConfig {
     }
 }
 
+/// Writes through a temporary file, so a crash mid-write never leaves a
+/// half-written preset behind.
+fn write_preset_file(path: &PathBuf, data: &PresetData) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data)
+        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json).map_err(|e| format!("Failed to write preset: {}", e))?;
+    std::fs::rename(&tmp, path).map_err(|e| format!("Failed to write preset: {}", e))
+}
+
 fn write_config(config: &AppConfig) -> Result<(), String> {
     let config_dir = get_config_dir();
     std::fs::create_dir_all(&config_dir)
@@ -968,7 +980,12 @@ fn read_preset(path: &PathBuf, name: &str) -> Result<PresetData, String> {
     let mut data: PresetData = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
     drop_retired_widgets(&mut data.icons);
+    notes::strip_content(&mut data.icons);
     Ok(data)
+}
+
+pub(crate) fn active_preset_name() -> Option<String> {
+    read_config().active_preset
 }
 
 /// Rewrites every preset file that still holds retired widgets, so their
@@ -1016,6 +1033,7 @@ fn purge_retired_in(dir: &std::path::Path) -> usize {
 /// loads that preset file. On first run with no preset, returns defaults.
 #[tauri::command]
 pub fn load_active_layout() -> Result<CanvasLayout, String> {
+    notes::ensure_ready();
     let config = read_config();
 
     match &config.active_preset {
@@ -1044,6 +1062,7 @@ pub fn load_active_layout() -> Result<CanvasLayout, String> {
 /// racing a preset switch cannot land in the newly activated preset.
 /// Without one, the active preset (auto-creating "Default").
 fn save_target(preset: Option<String>) -> Result<String, String> {
+    notes::ensure_ready();
     if let Some(name) = preset.filter(|name| !name.is_empty()) {
         validate_preset_name(&name)?;
         if !get_presets_dir().join(format!("{}.json", name)).exists() {
@@ -1067,6 +1086,7 @@ fn save_target(preset: Option<String>) -> Result<String, String> {
 #[tauri::command]
 pub fn load_preset(name: String) -> Result<CanvasLayout, String> {
     validate_preset_name(&name)?;
+    notes::ensure_ready();
     let preset_path = get_presets_dir().join(format!("{}.json", name));
     let data = read_preset(&preset_path, &name)?;
     Ok(CanvasLayout {
@@ -1091,11 +1111,9 @@ pub fn save_active_layout(
         .map_err(|e| format!("Failed to create presets directory: {}", e))?;
 
     let preset_path = presets_dir.join(format!("{}.json", preset_name));
-    let data = PresetData { icons, settings };
-    let json = serde_json::to_string_pretty(&data)
-        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
-    std::fs::write(&preset_path, json)
-        .map_err(|e| format!("Failed to write preset: {}", e))?;
+    let mut data = PresetData { icons, settings };
+    notes::strip_content(&mut data.icons);
+    write_preset_file(&preset_path, &data)?;
 
     log::info!("Saved active preset: {}", preset_name);
     Ok(preset_name)
@@ -1130,11 +1148,9 @@ pub fn save_active_settings(
         Vec::new()
     };
 
-    let data = PresetData { icons, settings };
-    let json = serde_json::to_string_pretty(&data)
-        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
-    std::fs::write(&preset_path, json)
-        .map_err(|e| format!("Failed to write preset: {}", e))?;
+    let mut data = PresetData { icons, settings };
+    notes::strip_content(&mut data.icons);
+    write_preset_file(&preset_path, &data)?;
 
     log::info!("Saved settings for active preset: {}", preset_name);
     Ok(preset_name)
@@ -1164,17 +1180,17 @@ pub fn save_preset_as(
     icons: Vec<AppIcon>,
     settings: CanvasSettings,
 ) -> Result<(), String> {
+    notes::ensure_ready();
     validate_preset_name(&name)?;
     let presets_dir = get_presets_dir();
     std::fs::create_dir_all(&presets_dir)
         .map_err(|e| format!("Failed to create presets directory: {}", e))?;
 
     let preset_path = presets_dir.join(format!("{}.json", name));
-    let data = PresetData { icons, settings };
-    let json = serde_json::to_string_pretty(&data)
-        .map_err(|e| format!("Failed to serialize preset: {}", e))?;
-    std::fs::write(&preset_path, json)
-        .map_err(|e| format!("Failed to write preset: {}", e))?;
+    let mut data = PresetData { icons, settings };
+    notes::strip_content(&mut data.icons);
+    notes::fork_private(&mut data.icons);
+    write_preset_file(&preset_path, &data)?;
 
     log::info!("Saved preset as: {}", name);
     Ok(())
@@ -1223,6 +1239,7 @@ pub fn list_presets() -> Result<Vec<PresetSummary>, String> {
 /// Copy a preset file under a new name. The active preset is left alone.
 #[tauri::command]
 pub fn duplicate_preset(name: String, new_name: String) -> Result<(), String> {
+    notes::ensure_ready();
     validate_preset_name(&name)?;
     validate_preset_name(&new_name)?;
     let presets_dir = get_presets_dir();
@@ -1234,7 +1251,9 @@ pub fn duplicate_preset(name: String, new_name: String) -> Result<(), String> {
     if dest.exists() {
         return Err(format!("Preset '{}' already exists", new_name));
     }
-    std::fs::copy(&source, &dest).map_err(|e| format!("Failed to duplicate preset: {}", e))?;
+    let mut data = read_preset(&source, &name)?;
+    notes::fork_private(&mut data.icons);
+    write_preset_file(&dest, &data)?;
     log::info!("Duplicated preset '{}' as '{}'", name, new_name);
     Ok(())
 }
@@ -1281,6 +1300,7 @@ pub fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn export_preset(name: String, path: String) -> Result<(), String> {
+    notes::ensure_ready();
     validate_preset_name(&name)?;
     let preset_path = get_presets_dir().join(format!("{}.json", name));
     if !preset_path.exists() {
@@ -1291,7 +1311,10 @@ pub fn export_preset(name: String, path: String) -> Result<(), String> {
     let mut value: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| format!("Failed to parse preset: {}", e))?;
     strip_private_widget_data(&mut value);
-    let json = serde_json::to_string_pretty(&value)
+    let mut data: PresetData =
+        serde_json::from_value(value).map_err(|e| format!("Failed to parse preset: {}", e))?;
+    notes::strip_for_sharing(&mut data.icons);
+    let json = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Failed to serialize preset: {}", e))?;
     std::fs::write(PathBuf::from(path), json).map_err(|e| format!("Failed to export preset: {}", e))
 }
@@ -1357,6 +1380,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
     let mut data: PresetData = serde_json::from_str(&content)
         .map_err(|e| format!("Invalid preset file (not a valid Odeko preset): {}", e))?;
     drop_retired_widgets(&mut data.icons);
+    notes::strip_for_sharing(&mut data.icons);
     if data.icons.len() > MAX_PRESET_ICONS {
         return Err(format!(
             "Preset contains too many icons (max {})",

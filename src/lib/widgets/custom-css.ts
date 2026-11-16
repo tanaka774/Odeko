@@ -181,7 +181,17 @@ export const WIDGET_CSS_API: Record<
 	},
 	memo: {
 		states: ['[data-empty]'],
-		classes: ['.memo-widget', '.memo-content'],
+		classes: [
+			'.memo-widget',
+			'.memo-content',
+			'.tab-bar-container',
+			'.tab-bar',
+			'.memo-tab',
+			'.tab-name',
+			'.tab-scroll-btn',
+			'.add-tab-btn',
+			'.active'
+		],
 		example:
 			'.memo-widget { background: linear-gradient(180deg, #ffe066, #ffd43b); color: #4a3b00; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }\n.memo-content { font-family: "Segoe Print", "Comic Sans MS", cursive; }'
 	},
