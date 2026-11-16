@@ -14,7 +14,6 @@ export type WidgetType =
 	| 'sleep'
 	| 'restart'
 	| 'shutdown'
-	| 'clipboard'
 	| 'custom'
 	| 'aichat'
 	| 'divider';
@@ -184,11 +183,6 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 	},
 	shutdown: {
 		padding: 16
-	},
-	clipboard: {
-		backgroundColor: 'rgba(30, 30, 40, 0.95)',
-		backgroundOpacity: 0.95,
-		padding: 0
 	},
 	aichat: {
 		backgroundColor: 'rgba(24, 24, 32, 0.95)',
@@ -403,25 +397,6 @@ export type RestartWidgetConfig = PowerControlWidgetConfig;
 // Shutdown widget config
 export type ShutdownWidgetConfig = PowerControlWidgetConfig;
 
-// A single item in the clipboard history. Text entries keep the copied text;
-// image entries keep a PNG data URL (downscaled so the saved layout stays small).
-export interface ClipboardEntry {
-	id: string;
-	type: 'text' | 'image';
-	text?: string;
-	image?: string; // PNG data URL
-	createdAt: number;
-	pinned: boolean;
-}
-
-// Clipboard widget config
-export interface ClipboardWidgetConfig extends WidgetConfig {
-	history?: ClipboardEntry[];
-	maxEntries?: number;
-	showTimestamps?: boolean;
-	captureImages?: boolean;
-}
-
 // Custom HTML widget config. The raw HTML lives here; it is sanitized at
 // render time (see custom-html.ts), so the user's original text is kept
 // intact for editing.
@@ -484,7 +459,6 @@ export type WidgetConfigType =
 	| SleepWidgetConfig
 	| RestartWidgetConfig
 	| ShutdownWidgetConfig
-	| ClipboardWidgetConfig
 	| CustomWidgetConfig
 	| AiChatWidgetConfig
 	| DividerWidgetConfig;
@@ -644,16 +618,6 @@ export const WIDGET_REGISTRY: WidgetMeta[] = [
 		defaultHeight: 160,
 		minWidth: 120,
 		minHeight: 140
-	},
-	{
-		type: 'clipboard',
-		name: 'Clipboard',
-		description: 'Clipboard history manager',
-		icon: 'clipboard',
-		defaultWidth: 300,
-		defaultHeight: 360,
-		minWidth: 220,
-		minHeight: 240
 	},
 	{
 		type: 'custom',
@@ -828,13 +792,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 				buttonText: 'Shutdown',
 				iconType: 'default',
 				iconPath: ''
-			};
-		case 'clipboard':
-			return {
-				history: [],
-				maxEntries: 20,
-				showTimestamps: true,
-				captureImages: true
 			};
 		case 'aichat':
 			return { profileId: null, instructions: '' };

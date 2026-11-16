@@ -11,13 +11,12 @@ import {
 	type SlideshowWidgetConfig,
 	type SystemWidgetConfig,
 	type PowerControlWidgetConfig,
-	type ClipboardWidgetConfig,
 	type CustomWidgetConfig
 } from './types';
 
 describe('WIDGET_REGISTRY', () => {
-	it('registers all 17 widget types', () => {
-		expect(WIDGET_REGISTRY).toHaveLength(17);
+	it('registers all 16 widget types', () => {
+		expect(WIDGET_REGISTRY).toHaveLength(16);
 	});
 });
 
@@ -71,14 +70,6 @@ describe('createDefaultWidgetConfig', () => {
 			expect(cfg.showLabel).toBe(true);
 			expect(cfg.buttonText).toBeDefined();
 		}
-	});
-
-	it('creates clipboard defaults', () => {
-		const cfg = createDefaultWidgetConfig('clipboard') as ClipboardWidgetConfig;
-		expect(cfg.history).toEqual([]);
-		expect(cfg.maxEntries).toBe(20);
-		expect(cfg.showTimestamps).toBe(true);
-		expect(cfg.captureImages).toBe(true);
 	});
 
 	it('creates custom defaults with a starter page that uses storage', () => {

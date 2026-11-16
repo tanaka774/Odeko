@@ -36,14 +36,12 @@ function makeState(): LayoutState {
 			z: 1
 		},
 		{
-			id: 'widget-clip',
-			name: 'Clipboard',
+			id: 'widget-draw',
+			name: 'Drawing',
 			path: '',
 			icon_type: 'widget',
-			widget_type: 'clipboard',
-			widget_config: {
-				history: [{ id: 'a', type: 'text', text: 'secret', createdAt: 1, pinned: false }]
-			},
+			widget_type: 'drawing',
+			widget_config: { canvasState: '{"version":"5.3.0","objects":[{"text":"secret"}]}' },
 			x: 300,
 			y: 20,
 			width: 300,
@@ -74,16 +72,16 @@ describe('buildView', () => {
 		const { view, hidden } = buildView(makeState());
 		expect(view.settings).not.toHaveProperty('network_grants');
 		expect(view.settings).not.toHaveProperty('allow_local_network');
-		const clip = view.icons['widget-clip'].widget_config as Record<string, unknown>;
-		expect(clip.history).toMatch(/^<<hidden:/);
-		expect(hidden.get('/icons/widget-clip/widget_config/history')).toHaveLength(1);
+		const drawing = view.icons['widget-draw'].widget_config as Record<string, unknown>;
+		expect(drawing.canvasState).toMatch(/^<<hidden:/);
+		expect(hidden.get('/icons/widget-draw/widget_config/canvasState')).toContain('secret');
 		expect(JSON.stringify(view)).not.toContain('secret');
 	});
 
 	it('keys icons by id', () => {
 		expect(Object.keys(buildView(makeState()).view.icons)).toEqual([
 			'widget-clock',
-			'widget-clip',
+			'widget-draw',
 			'widget-chat'
 		]);
 		expect(readView(makeState(), '/icons/widget-clock/x')).toBe(10);
@@ -126,11 +124,11 @@ describe('applyConfigPatch', () => {
 		const state = makeState();
 		const { next } = applyConfigPatch(
 			state,
-			[{ op: 'replace', path: '/icons/widget-clip/x', value: 50 }],
+			[{ op: 'replace', path: '/icons/widget-draw/x', value: 50 }],
 			normalize
 		);
-		const clip = next.icons.find((icon) => icon.id === 'widget-clip')!;
-		expect((clip.widget_config as { history: unknown[] }).history).toHaveLength(1);
+		const drawing = next.icons.find((icon) => icon.id === 'widget-draw')!;
+		expect((drawing.widget_config as { canvasState: string }).canvasState).toContain('secret');
 		expect(next.settings.network_grants).toEqual(['api.example.com']);
 		expect(next.settings.allow_local_network).toBe(true);
 	});

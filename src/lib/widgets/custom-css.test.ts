@@ -110,7 +110,6 @@ describe('WIDGET_CSS_API', () => {
 			'sleep',
 			'restart',
 			'shutdown',
-			'clipboard',
 			'custom',
 			'divider',
 			'icon'

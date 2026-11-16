@@ -106,6 +106,8 @@ pub fn run() {
                 )?;
             }
 
+            commands::canvas::purge_retired_widgets();
+
             match TerminalState::new() {
                 Ok(terminal_state) => {
                     app.manage(terminal_state);

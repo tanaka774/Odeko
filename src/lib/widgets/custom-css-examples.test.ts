@@ -28,7 +28,6 @@ const MARKUP_SOURCES: Record<CssApiItemType, string | string[]> = {
 	sleep: 'src/lib/widgets/PowerControlBaseWidget.svelte',
 	restart: 'src/lib/widgets/PowerControlBaseWidget.svelte',
 	shutdown: 'src/lib/widgets/PowerControlBaseWidget.svelte',
-	clipboard: 'src/lib/widgets/ClipboardWidget.svelte',
 	custom: 'src/lib/widgets/CustomWidget.svelte',
 	aichat: ['src/lib/widgets/AiChatWidget.svelte', 'src/lib/widgets/ChatTabBar.svelte'],
 	divider: 'src/lib/widgets/DividerWidget.svelte',

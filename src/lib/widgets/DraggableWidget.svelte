@@ -22,7 +22,6 @@
 	import SlideshowSettingsModal from '$lib/components/SlideshowSettingsModal.svelte';
 	import DrawingSettingsModal from '$lib/components/DrawingSettingsModal.svelte';
 	import PowerControlSettingsModal from '$lib/components/PowerControlSettingsModal.svelte';
-	import ClipboardSettingsModal from '$lib/components/ClipboardSettingsModal.svelte';
 	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
 	import AiChatSettingsModal from '$lib/components/AiChatSettingsModalLazy.svelte';
 	import DividerSettingsModal from '$lib/components/DividerSettingsModal.svelte';
@@ -588,12 +587,6 @@
 			onSave={handleConfigSave}
 			onUpdateKeybind={(nextKeybind) => onKeybindChange(id, nextKeybind)}
 			onUpdateKeybindGlobal={(global) => onKeybindGlobalChange(id, global)}
-		/>
-	{:else if widgetType === 'clipboard'}
-		<ClipboardSettingsModal
-			bind:isOpen={showSettings}
-			config={config as import('./types').ClipboardWidgetConfig}
-			onSave={handleConfigSave}
 		/>
 	{:else if widgetType === 'custom'}
 		<CustomSettingsModal

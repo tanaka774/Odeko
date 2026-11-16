@@ -241,33 +241,6 @@ export const WIDGET_CSS_API: Record<
 		example:
 			'.power-widget { background: #160607; border: 1px solid #ff4d4d; box-shadow: 0 0 22px rgba(255, 77, 77, 0.4); }\n.label { color: #ff8080; letter-spacing: 0.14em; text-transform: uppercase; }'
 	},
-	clipboard: {
-		states: ['[data-empty]'],
-		classes: [
-			'.clipboard-widget',
-			'.toolbar',
-			'.toolbar-btn',
-			'.search-box',
-			'.search-icon',
-			'.entry-list',
-			'.entry',
-			'.entry-main',
-			'.entry-thumb',
-			'.entry-preview',
-			'.entry-time',
-			'.entry-actions',
-			'.action-btn',
-			'.edit-box',
-			'.edit-actions',
-			'.confirm',
-			'.danger',
-			'.copied-badge',
-			'.copied',
-			'.clickable'
-		],
-		example:
-			'.clipboard-widget { background: rgba(17, 24, 39, 0.78); }\n.entry { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }\n.entry-preview { color: #cbd5e1; }'
-	},
 	custom: {
 		states: ['[data-scripts]', '[data-linked]'],
 		classes: [

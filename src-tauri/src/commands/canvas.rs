@@ -947,6 +947,71 @@ fn open_url_sync(url: &str) -> Result<(), String> {
     }
 }
 
+/// Widget types that no longer exist. The clipboard widget kept copied
+/// passwords and screenshots inside the preset file, so its icons and data
+/// are dropped wherever a preset is read.
+const RETIRED_WIDGETS: &[&str] = &["clipboard"];
+
+fn is_retired(widget_type: Option<&str>) -> bool {
+    widget_type.is_some_and(|t| RETIRED_WIDGETS.contains(&t))
+}
+
+fn drop_retired_widgets(icons: &mut Vec<AppIcon>) -> bool {
+    let before = icons.len();
+    icons.retain(|icon| !is_retired(icon.widget_type.as_deref()));
+    icons.len() != before
+}
+
+fn read_preset(path: &PathBuf, name: &str) -> Result<PresetData, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
+    let mut data: PresetData = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+    drop_retired_widgets(&mut data.icons);
+    Ok(data)
+}
+
+/// Rewrites every preset file that still holds retired widgets, so their
+/// data does not linger on disk. Unreadable files are left alone.
+pub fn purge_retired_widgets() {
+    purge_retired_in(&get_presets_dir());
+}
+
+fn purge_retired_in(dir: &std::path::Path) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut purged = 0;
+    for path in entries.flatten().map(|e| e.path()) {
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let Some(icons) = value.get_mut("icons").and_then(|i| i.as_array_mut()) else {
+            continue;
+        };
+        let before = icons.len();
+        icons.retain(|icon| !is_retired(icon.get("widget_type").and_then(|t| t.as_str())));
+        if icons.len() == before {
+            continue;
+        }
+        let Ok(json) = serde_json::to_string_pretty(&value) else {
+            continue;
+        };
+        let tmp = path.with_extension("json.tmp");
+        if std::fs::write(&tmp, json).is_ok() && std::fs::rename(&tmp, &path).is_ok() {
+            log::info!("Removed retired widgets from {}", path.display());
+            purged += 1;
+        }
+    }
+    purged
+}
+
 /// Load the active layout: reads config.json to find the active preset, then
 /// loads that preset file. On first run with no preset, returns defaults.
 #[tauri::command]
@@ -960,10 +1025,7 @@ pub fn load_active_layout() -> Result<CanvasLayout, String> {
                 log::info!("Active preset '{}' not found, using defaults", name);
                 return Ok(CanvasLayout::default());
             }
-            let content = std::fs::read_to_string(&preset_path)
-                .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
-            let data: PresetData = serde_json::from_str(&content)
-                .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+            let data = read_preset(&preset_path, name)?;
             log::info!("Loaded active preset: {}", name);
             Ok(CanvasLayout {
                 icons: data.icons,
@@ -1006,10 +1068,7 @@ fn save_target(preset: Option<String>) -> Result<String, String> {
 pub fn load_preset(name: String) -> Result<CanvasLayout, String> {
     validate_preset_name(&name)?;
     let preset_path = get_presets_dir().join(format!("{}.json", name));
-    let content = std::fs::read_to_string(&preset_path)
-        .map_err(|e| format!("Failed to read preset '{}': {}", name, e))?;
-    let data: PresetData = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse preset '{}': {}", name, e))?;
+    let data = read_preset(&preset_path, &name)?;
     Ok(CanvasLayout {
         icons: data.icons,
         settings: data.settings,
@@ -1063,8 +1122,9 @@ pub fn save_active_settings(
     let icons = if preset_path.exists() {
         let content = std::fs::read_to_string(&preset_path)
             .map_err(|e| format!("Failed to read preset '{}': {}", preset_name, e))?;
-        let data: PresetData = serde_json::from_str(&content)
+        let mut data: PresetData = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse preset '{}': {}", preset_name, e))?;
+        drop_retired_widgets(&mut data.icons);
         data.icons
     } else {
         Vec::new()
@@ -1221,6 +1281,7 @@ pub fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn export_preset(name: String, path: String) -> Result<(), String> {
+    validate_preset_name(&name)?;
     let preset_path = get_presets_dir().join(format!("{}.json", name));
     if !preset_path.exists() {
         return Err(format!("Preset '{}' not found", name));
@@ -1241,6 +1302,7 @@ pub(crate) fn strip_private_widget_data(preset: &mut serde_json::Value) {
     let Some(icons) = preset.get_mut("icons").and_then(|i| i.as_array_mut()) else {
         return;
     };
+    icons.retain(|icon| !is_retired(icon.get("widget_type").and_then(|t| t.as_str())));
     for icon in icons {
         if icon.get("widget_type").and_then(|t| t.as_str()) != Some("aichat") {
             continue;
@@ -1294,6 +1356,7 @@ pub fn import_preset(path: String) -> Result<ImportResult, String> {
         .map_err(|e| format!("Failed to read preset file: {}", e))?;
     let mut data: PresetData = serde_json::from_str(&content)
         .map_err(|e| format!("Invalid preset file (not a valid Odeko preset): {}", e))?;
+    drop_retired_widgets(&mut data.icons);
     if data.icons.len() > MAX_PRESET_ICONS {
         return Err(format!(
             "Preset contains too many icons (max {})",
@@ -1407,6 +1470,41 @@ mod strip_tests {
         assert!(preset["icons"][0]["widget_config"].get("chat").is_none());
         assert_eq!(preset["icons"][0]["widget_config"]["profileId"], "p");
         assert_eq!(preset["icons"][1]["widget_config"]["chat"], "kept");
+    }
+
+    #[test]
+    fn export_drops_retired_widgets() {
+        let mut preset = serde_json::json!({
+            "icons": [
+                { "widget_type": "clipboard", "widget_config": { "history": [{ "text": "pw" }] } },
+                { "widget_type": "memo", "widget_config": {} }
+            ],
+            "settings": {}
+        });
+        strip_private_widget_data(&mut preset);
+        let icons = preset["icons"].as_array().unwrap();
+        assert_eq!(icons.len(), 1);
+        assert_eq!(icons[0]["widget_type"], "memo");
+    }
+
+    #[test]
+    fn purge_rewrites_only_presets_with_retired_widgets() {
+        let dir = std::env::temp_dir().join(format!("odeko-purge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let with = r#"{ "icons": [{ "id": "c", "widget_type": "clipboard", "widget_config": { "history": ["pw"] } }, { "id": "m", "widget_type": "memo" }], "settings": {} }"#;
+        let without = r#"{ "icons": [{ "id": "m", "widget_type": "memo" }], "settings": {} }"#;
+        std::fs::write(dir.join("a.json"), with).unwrap();
+        std::fs::write(dir.join("b.json"), without).unwrap();
+        std::fs::write(dir.join("broken.json"), "{ nope").unwrap();
+
+        assert_eq!(purge_retired_in(&dir), 1);
+        let a = std::fs::read_to_string(dir.join("a.json")).unwrap();
+        assert!(!a.contains("clipboard") && !a.contains("pw"));
+        assert!(a.contains("memo"));
+        assert_eq!(std::fs::read_to_string(dir.join("b.json")).unwrap(), without);
+        assert_eq!(std::fs::read_to_string(dir.join("broken.json")).unwrap(), "{ nope");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

@@ -11,6 +11,5 @@ export { default as SlideshowWidget } from './SlideshowWidget.svelte';
 export { default as SleepWidget } from './SleepWidget.svelte';
 export { default as RestartWidget } from './RestartWidget.svelte';
 export { default as ShutdownWidget } from './ShutdownWidget.svelte';
-export { default as ClipboardWidget } from './ClipboardWidget.svelte';
 export { default as CustomWidget } from './CustomWidget.svelte';
 export * from './types';

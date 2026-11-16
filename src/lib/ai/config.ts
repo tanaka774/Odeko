@@ -22,7 +22,7 @@ export interface LayoutState {
 export const PROTECTED_SETTINGS = ['network_grants', 'allow_local_network'] as const;
 
 /** Runtime data inside widget configs; never shown to or edited by the AI. */
-const HIDDEN_WIDGET_FIELDS = ['history', 'canvasState', 'chat'];
+const HIDDEN_WIDGET_FIELDS = ['canvasState', 'chat'];
 const LARGE_STRING = 4000;
 const HIDDEN_PREFIX = '<<hidden:';
 
