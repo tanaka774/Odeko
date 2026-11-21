@@ -222,6 +222,8 @@ export interface ClockWidgetConfig extends WidgetConfig {
 	showSeconds?: boolean;
 	showDate?: boolean;
 	timezone?: string; // e.g., 'local', 'UTC', 'America/New_York'
+	/** Digital mode: scale the time and date to fill the widget. */
+	fitText?: boolean;
 	analogBackgroundColor?: string;
 	analogBackgroundOpacity?: number;
 	analogNumberColor?: string;
