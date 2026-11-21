@@ -1,0 +1,145 @@
+<!--
+	Flashcards: click the card to flip it, then rate it. Cards you miss come
+	back sooner (a small Leitner box). Edit CARDS below; progress is saved
+	with odeko.storage.
+-->
+<style>
+	:root {
+		--accent: #f472b6;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		padding: 8px;
+		gap: 8px;
+		user-select: none;
+	}
+	#card {
+		flex: 1;
+		display: grid;
+		place-items: center;
+		text-align: center;
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.06);
+		cursor: pointer;
+		padding: 10px;
+		perspective: 600px;
+	}
+	#front {
+		font-size: 2.6em;
+		font-weight: 700;
+	}
+	#back {
+		display: none;
+	}
+	#card.flipped #back {
+		display: block;
+	}
+	#reading {
+		font-size: 1.2em;
+		color: var(--accent);
+	}
+	#meaning {
+		opacity: 0.8;
+		margin-top: 4px;
+	}
+	.actions {
+		display: flex;
+		gap: 6px;
+	}
+	.actions button {
+		flex: 1;
+		font: inherit;
+		padding: 5px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		background: rgba(0, 0, 0, 0.25);
+		color: inherit;
+		cursor: pointer;
+	}
+	.actions button:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+	#stats {
+		font-size: 0.72em;
+		opacity: 0.5;
+		text-align: center;
+	}
+</style>
+<div id="card" title="Click to flip">
+	<div>
+		<div id="front"></div>
+		<div id="back">
+			<div id="reading"></div>
+			<div id="meaning"></div>
+		</div>
+	</div>
+</div>
+<div class="actions">
+	<button id="again" disabled>Again</button>
+	<button id="good" disabled>Got it</button>
+</div>
+<div id="stats"></div>
+<script>
+	const CARDS = [
+		['紅葉', 'こうよう', 'autumn leaves'],
+		['花見', 'はなみ', 'cherry-blossom viewing'],
+		['木漏れ日', 'こもれび', 'sunlight through the trees'],
+		['夜長', 'よなが', 'long autumn night'],
+		['積ん読', 'つんどく', 'buying books and not reading them'],
+		['物の哀れ', 'もののあわれ', 'the gentle sadness of passing things'],
+		['一期一会', 'いちごいちえ', 'once in a lifetime encounter'],
+		['侘び寂び', 'わびさび', 'beauty in imperfection'],
+		['生き甲斐', 'いきがい', 'a reason for being'],
+		['猫舌', 'ねこじた', 'can’t handle hot food']
+	];
+	let boxes = {};
+	let current = null;
+
+	function pick() {
+		const weights = CARDS.map(([front]) => 1 / 2 ** (boxes[front] ?? 0));
+		let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+		for (let i = 0; i < CARDS.length; i++) {
+			r -= weights[i];
+			if (r <= 0 && CARDS[i] !== current) return CARDS[i];
+		}
+		return CARDS[(CARDS.indexOf(current) + 1) % CARDS.length];
+	}
+
+	function show() {
+		current = pick();
+		document.getElementById('front').textContent = current[0];
+		document.getElementById('reading').textContent = current[1];
+		document.getElementById('meaning').textContent = current[2];
+		document.getElementById('card').classList.remove('flipped');
+		document.getElementById('again').disabled = true;
+		document.getElementById('good').disabled = true;
+		const learned = CARDS.filter(([front]) => (boxes[front] ?? 0) >= 3).length;
+		document.getElementById('stats').textContent = `${learned} / ${CARDS.length} learned`;
+	}
+
+	function rate(good) {
+		const box = boxes[current[0]] ?? 0;
+		boxes[current[0]] = good ? Math.min(5, box + 1) : 0;
+		odeko.storage.set('boxes', boxes);
+		show();
+	}
+
+	document.getElementById('card').addEventListener('click', () => {
+		document.getElementById('card').classList.add('flipped');
+		document.getElementById('again').disabled = false;
+		document.getElementById('good').disabled = false;
+	});
+	document.getElementById('again').addEventListener('click', () => rate(false));
+	document.getElementById('good').addEventListener('click', () => rate(true));
+
+	odeko.storage.get('boxes').then((saved) => {
+		boxes = saved ?? {};
+		show();
+	});
+</script>

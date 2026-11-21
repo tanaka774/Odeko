@@ -1,0 +1,151 @@
+<!--
+	Countdown: days until an event. Click the widget to edit the name and
+	date; both are saved with odeko.storage.
+-->
+<style>
+	:root {
+		--accent: #fbbf24;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: grid;
+		place-items: center;
+		height: 100vh;
+		text-align: center;
+		padding: 8px;
+	}
+	#view {
+		cursor: pointer;
+	}
+	#days {
+		font-size: 3.4em;
+		font-weight: 800;
+		line-height: 1;
+		color: var(--accent);
+		font-variant-numeric: tabular-nums;
+	}
+	#unit {
+		font-size: 0.85em;
+		opacity: 0.6;
+		margin-top: 2px;
+	}
+	#name {
+		font-size: 1.1em;
+		font-weight: 600;
+		margin-top: 8px;
+	}
+	#date {
+		font-size: 0.75em;
+		opacity: 0.5;
+	}
+	form {
+		display: none;
+		flex-direction: column;
+		gap: 6px;
+		width: 100%;
+		max-width: 260px;
+	}
+	form.open {
+		display: flex;
+	}
+	form.open + #view,
+	#view.hidden {
+		display: none;
+	}
+	input,
+	button {
+		font: inherit;
+		padding: 4px 8px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		background: rgba(0, 0, 0, 0.3);
+		color: inherit;
+	}
+	button {
+		cursor: pointer;
+	}
+</style>
+<form id="form">
+	<input id="nameInput" type="text" placeholder="Event" aria-label="Event name" />
+	<input id="dateInput" type="date" aria-label="Event date" />
+	<button type="submit">Save</button>
+</form>
+<div id="view" title="Click to edit">
+	<div id="days">–</div>
+	<div id="unit">days</div>
+	<div id="name"></div>
+	<div id="date"></div>
+</div>
+<script>
+	const form = document.getElementById('form');
+	const view = document.getElementById('view');
+	let event = null;
+
+	function daysUntil(iso) {
+		const [y, m, d] = iso.split('-').map(Number);
+		const target = new Date(y, m - 1, d);
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		return Math.round((target - today) / 86400000);
+	}
+
+	function render() {
+		if (!event) {
+			document.getElementById('days').textContent = '+';
+			document.getElementById('unit').textContent = 'click to set an event';
+			document.getElementById('name').textContent = '';
+			document.getElementById('date').textContent = '';
+			return;
+		}
+		const days = daysUntil(event.date);
+		document.getElementById('days').textContent = Math.abs(days);
+		document.getElementById('unit').textContent =
+			days === 0
+				? 'today!'
+				: days > 0
+					? days === 1
+						? 'day to go'
+						: 'days to go'
+					: days === -1
+						? 'day ago'
+						: 'days ago';
+		document.getElementById('name').textContent = event.name;
+		const [y, m, d] = event.date.split('-').map(Number);
+		document.getElementById('date').textContent = new Date(y, m - 1, d).toLocaleDateString(
+			undefined,
+			{
+				weekday: 'short',
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric'
+			}
+		);
+	}
+
+	view.addEventListener('click', () => {
+		document.getElementById('nameInput').value = event?.name ?? '';
+		document.getElementById('dateInput').value = event?.date ?? '';
+		form.classList.add('open');
+		document.getElementById('nameInput').focus();
+	});
+
+	form.addEventListener('submit', (submit) => {
+		submit.preventDefault();
+		const name = document.getElementById('nameInput').value.trim();
+		const date = document.getElementById('dateInput').value;
+		if (date) {
+			event = { name: name || 'Event', date };
+			odeko.storage.set('event', event);
+		}
+		form.classList.remove('open');
+		render();
+	});
+
+	odeko.storage.get('event').then((saved) => {
+		event = saved;
+		render();
+	});
+	setInterval(render, 60000);
+</script>

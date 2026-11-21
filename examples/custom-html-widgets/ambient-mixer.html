@@ -1,0 +1,169 @@
+<!--
+	Ambient mixer: rain, wind, waves and a warm hum, generated in the page
+	with the Web Audio API (nothing to download). Move a slider to fade a
+	sound in. Volumes are saved; sound pauses while the canvas is hidden.
+-->
+<style>
+	:root {
+		--accent: #67e8f9;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		height: 100vh;
+		padding: 8px 12px;
+		gap: 8px;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 1.6em 4.5em 1fr;
+		align-items: center;
+		gap: 8px;
+	}
+	.icon {
+		font-size: 1.2em;
+		text-align: center;
+	}
+	input[type='range'] {
+		width: 100%;
+		accent-color: var(--accent);
+	}
+	#hint {
+		font-size: 0.72em;
+		opacity: 0.5;
+		text-align: center;
+	}
+</style>
+<div id="rows"></div>
+<div id="hint">Move a slider to start</div>
+<script>
+	const SOUNDS = [
+		{ id: 'rain', icon: '🌧️', name: 'Rain' },
+		{ id: 'wind', icon: '🍃', name: 'Wind' },
+		{ id: 'waves', icon: '🌊', name: 'Waves' },
+		{ id: 'hum', icon: '🔥', name: 'Hum' }
+	];
+	let audio = null;
+	const gains = {};
+	let levels = {};
+
+	function noiseBuffer(ctx, brown) {
+		const buffer = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+		const data = buffer.getChannelData(0);
+		let last = 0;
+		for (let i = 0; i < data.length; i++) {
+			const white = Math.random() * 2 - 1;
+			last = brown ? (last + 0.02 * white) / 1.02 : white;
+			data[i] = brown ? last * 3.5 : white;
+		}
+		return buffer;
+	}
+
+	function source(ctx, buffer) {
+		const node = ctx.createBufferSource();
+		node.buffer = buffer;
+		node.loop = true;
+		node.start();
+		return node;
+	}
+
+	function build() {
+		const ctx = new AudioContext();
+		const white = noiseBuffer(ctx, false);
+		const brown = noiseBuffer(ctx, true);
+		const out = ctx.createGain();
+		out.connect(ctx.destination);
+		for (const { id } of SOUNDS) {
+			gains[id] = ctx.createGain();
+			gains[id].gain.value = 0;
+			gains[id].connect(out);
+		}
+		const rain = ctx.createBiquadFilter();
+		rain.type = 'highpass';
+		rain.frequency.value = 1200;
+		source(ctx, white).connect(rain).connect(gains.rain);
+
+		const wind = ctx.createBiquadFilter();
+		wind.type = 'bandpass';
+		wind.Q.value = 0.8;
+		wind.frequency.value = 500;
+		const windLfo = ctx.createOscillator();
+		const windDepth = ctx.createGain();
+		windLfo.frequency.value = 0.12;
+		windDepth.gain.value = 300;
+		windLfo.connect(windDepth).connect(wind.frequency);
+		windLfo.start();
+		source(ctx, brown).connect(wind).connect(gains.wind);
+
+		const waves = ctx.createGain();
+		const waveLfo = ctx.createOscillator();
+		const waveDepth = ctx.createGain();
+		waveLfo.frequency.value = 0.08;
+		waveDepth.gain.value = 0.5;
+		waves.gain.value = 0.5;
+		waveLfo.connect(waveDepth).connect(waves.gain);
+		waveLfo.start();
+		const waveFilter = ctx.createBiquadFilter();
+		waveFilter.type = 'lowpass';
+		waveFilter.frequency.value = 700;
+		source(ctx, brown).connect(waveFilter).connect(waves).connect(gains.waves);
+
+		for (const [freq, level] of [
+			[55, 0.5],
+			[110, 0.2],
+			[165, 0.08]
+		]) {
+			const osc = ctx.createOscillator();
+			const g = ctx.createGain();
+			osc.frequency.value = freq;
+			g.gain.value = level;
+			osc.connect(g).connect(gains.hum);
+			osc.start();
+		}
+		return ctx;
+	}
+
+	function apply() {
+		if (!audio) return;
+		for (const { id } of SOUNDS)
+			gains[id].gain.setTargetAtTime((levels[id] ?? 0) ** 2, audio.currentTime, 0.3);
+	}
+
+	function ensureAudio() {
+		if (!audio) audio = build();
+		if (audio.state === 'suspended' && !odeko.paused) void audio.resume();
+		document.getElementById('hint').style.display = 'none';
+		apply();
+	}
+
+	document.getElementById('rows').replaceChildren(
+		...SOUNDS.map(({ id, icon, name }) => {
+			const row = document.createElement('label');
+			row.className = 'row';
+			row.innerHTML = `<span class="icon">${icon}</span><span>${name}</span><input type="range" min="0" max="1" step="0.01" value="0">`;
+			const slider = row.querySelector('input');
+			slider.dataset.id = id;
+			slider.addEventListener('input', () => {
+				levels[id] = Number(slider.value);
+				ensureAudio();
+				odeko.storage.set('levels', levels);
+			});
+			return row;
+		})
+	);
+
+	odeko.on('pause', () => audio?.suspend());
+	odeko.on('resume', () => {
+		if (audio && Object.values(levels).some((v) => v > 0)) void audio.resume();
+	});
+
+	odeko.storage.get('levels').then((saved) => {
+		levels = saved ?? {};
+		for (const slider of document.querySelectorAll('input[type=range]'))
+			slider.value = levels[slider.dataset.id] ?? 0;
+	});
+</script>

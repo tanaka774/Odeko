@@ -1,0 +1,175 @@
+<!--
+	GitHub repo: stars, forks, open issues and the latest commits of one
+	repository (public API, no key needed for light use). Click the name to
+	change the repo. Add a token in TOKEN to raise the rate limit; it is sent
+	as an Authorization header through odeko.fetch.
+-->
+<style>
+	:root {
+		--accent: #a78bfa;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		padding: 8px 10px;
+		gap: 6px;
+	}
+	#repo {
+		font-weight: 700;
+		cursor: pointer;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	#desc {
+		font-size: 0.8em;
+		opacity: 0.6;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.stats {
+		display: flex;
+		gap: 14px;
+		font-variant-numeric: tabular-nums;
+	}
+	.stats b {
+		color: var(--accent);
+	}
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		overflow-y: auto;
+		flex: 1;
+		font-size: 0.85em;
+	}
+	li {
+		padding: 4px 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	li a {
+		color: inherit;
+		text-decoration: none;
+	}
+	li a:hover {
+		color: var(--accent);
+	}
+	.when {
+		opacity: 0.5;
+		margin-right: 6px;
+		font-variant-numeric: tabular-nums;
+	}
+	#err {
+		color: #fca5a5;
+		font-size: 0.8em;
+	}
+	.edit {
+		font: inherit;
+		width: 100%;
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.35);
+		color: inherit;
+	}
+</style>
+<div id="repo" title="Click to change the repository">Loading…</div>
+<div id="desc"></div>
+<div class="stats">
+	<span>★ <b id="stars">–</b></span
+	><span>⑂ <b id="forks">–</b></span
+	><span>◎ <b id="issues">–</b></span>
+</div>
+<ul id="commits"></ul>
+<div id="err"></div>
+<script>
+	const TOKEN = '';
+	let repo = 'tauri-apps/tauri';
+
+	// Sandboxed pages cannot open prompt(); edit in place instead.
+	function editInPlace(element, value, onDone) {
+		const input = document.createElement('input');
+		input.className = 'edit';
+		input.value = value;
+		element.replaceWith(input);
+		input.focus();
+		input.select();
+		let finished = false;
+		const finish = (commit) => {
+			if (finished) return;
+			finished = true;
+			input.replaceWith(element);
+			if (commit) onDone(input.value.trim());
+		};
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') finish(true);
+			if (event.key === 'Escape') finish(false);
+		});
+		input.addEventListener('blur', () => finish(true));
+	}
+
+	async function get(path) {
+		const headers = { Accept: 'application/vnd.github+json' };
+		if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`;
+		const { status, body } = await odeko.fetch(`https://api.github.com/repos/${repo}${path}`, {
+			headers
+		});
+		if (status !== 200) throw new Error(`HTTP ${status}${status === 403 ? ' (rate limited)' : ''}`);
+		return JSON.parse(body);
+	}
+
+	function ago(iso) {
+		const hours = Math.round((Date.now() - new Date(iso)) / 3600000);
+		return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+	}
+
+	async function load() {
+		const err = document.getElementById('err');
+		err.textContent = '';
+		document.getElementById('repo').textContent = repo;
+		try {
+			const [info, commits] = await Promise.all([get(''), get('/commits?per_page=8')]);
+			document.getElementById('desc').textContent = info.description ?? '';
+			document.getElementById('stars').textContent = info.stargazers_count.toLocaleString();
+			document.getElementById('forks').textContent = info.forks_count.toLocaleString();
+			document.getElementById('issues').textContent = info.open_issues_count.toLocaleString();
+			document.getElementById('commits').replaceChildren(
+				...commits.map((c) => {
+					const li = document.createElement('li');
+					li.innerHTML = '<span class="when"></span><a></a>';
+					li.querySelector('.when').textContent = ago(c.commit.author.date);
+					const a = li.querySelector('a');
+					a.href = c.html_url;
+					a.textContent = c.commit.message.split('\n')[0];
+					return li;
+				})
+			);
+		} catch (error) {
+			err.textContent = String(error.message ?? error);
+		}
+	}
+
+	document.getElementById('repo').addEventListener('click', (event) =>
+		editInPlace(event.currentTarget, repo, async (next) => {
+			if (!/^[\w.-]+\/[\w.-]+$/.test(next)) return;
+			repo = next;
+			await odeko.storage.set('repo', repo);
+			load();
+		})
+	);
+
+	odeko.storage.get('repo').then((saved) => {
+		repo = saved ?? repo;
+		load();
+	});
+	setInterval(load, 30 * 60000);
+</script>

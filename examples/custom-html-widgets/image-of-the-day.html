@@ -1,0 +1,99 @@
+<!--
+	Image of the day: NASA's Astronomy Picture of the Day, refreshed daily.
+	Click to open the full page. DEMO_KEY allows a few requests an hour; get a
+	free key at api.nasa.gov and put it in API_KEY. The last picture is kept
+	in odeko.storage so it shows instantly and offline.
+-->
+<style>
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		height: 100vh;
+		overflow: hidden;
+		cursor: pointer;
+	}
+	img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.caption {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		padding: 22px 10px 8px;
+		background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+	}
+	#title {
+		font-weight: 700;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	#date {
+		font-size: 0.72em;
+		opacity: 0.7;
+	}
+	#err {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		text-align: center;
+		padding: 10px;
+		color: #fca5a5;
+		font-size: 0.85em;
+	}
+</style>
+<img id="img" alt="" />
+<div class="caption">
+	<div id="title">Loading…</div>
+	<div id="date"></div>
+</div>
+<div id="err"></div>
+<script>
+	const API_KEY = 'DEMO_KEY';
+	let current = null;
+
+	function show(apod) {
+		current = apod;
+		const image = apod.media_type === 'image' ? apod.url : apod.thumbnail_url;
+		if (image) document.getElementById('img').src = image;
+		document.getElementById('title').textContent = apod.title;
+		document.getElementById('date').textContent = `NASA APOD · ${apod.date}`;
+	}
+
+	async function load() {
+		const today = new Date().toISOString().slice(0, 10);
+		if (current?.date === today) return;
+		try {
+			const { status, body } = await odeko.fetch(
+				`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&thumbs=true`
+			);
+			if (status !== 200) throw new Error(`HTTP ${status}`);
+			const apod = JSON.parse(body);
+			show(apod);
+			document.getElementById('err').textContent = '';
+			odeko.storage.set('apod', apod);
+		} catch (error) {
+			if (!current)
+				document.getElementById('err').textContent =
+					`NASA API: ${error.message ?? error}. DEMO_KEY is rate-limited; set your own API_KEY.`;
+		}
+	}
+
+	document.body.addEventListener('click', () => {
+		if (current)
+			odeko.open(`https://apod.nasa.gov/apod/ap${current.date.slice(2).replace(/-/g, '')}.html`);
+	});
+
+	odeko.storage.get('apod').then((saved) => {
+		if (saved) show(saved);
+		load();
+	});
+	setInterval(load, 3600000);
+</script>
