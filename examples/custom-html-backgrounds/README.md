@@ -19,6 +19,7 @@ add an **HTML** layer and paste the content into its editor.
 | `start-page.html`     | A start page docked on the right: clock, tabs, todo list, notes, weather |            |
 | `meteor-defense.html` | A game: meteors aim at your icons, click to blast them                   |            |
 | `garden.html`         | Click to plant flowers that lean away from the pointer                   |            |
+| `aquarium.html`       | A detailed ASCII fish tank; click to feed the fish                       |            |
 | `snow.html`           | Snow that settles on the icons                                           | Over icons |
 | `icon-sparks.html`    | Sparks around the hovered and clicked icons                              | Over icons |
 | `big-clock.html`      | A large clock                                                            |            |

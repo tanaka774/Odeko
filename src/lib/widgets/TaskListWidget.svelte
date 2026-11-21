@@ -6,9 +6,12 @@
 		getAppearanceBorder,
 		getWidgetAppearance
 	} from './appearance';
+	import NoteTabBar from './NoteTabBar.svelte';
+	import { notesStore } from '$lib/stores/notes.svelte';
 	import {
 		createTaskGroup,
 		normalizeTaskGroups,
+		TASK_GROUP_COLORS,
 		WIDGET_TYPE_APPEARANCE_DEFAULTS,
 		type TaskListWidgetConfig,
 		type Task,
@@ -20,11 +23,12 @@
 
 	let { config = {}, isEditMode = false, borderRadius = 12, onConfigChange }: Props = $props();
 
-	// Config values with defaults
-	const groups = $derived(normalizeTaskGroups(config));
-	const activeGroupId = $derived(config.activeGroupId ?? groups[0]?.id);
+	const noteId = $derived(notesStore.effectiveId('tasks', config.noteId));
+	const note = $derived(notesStore.get('tasks', noteId));
+	const ready = $derived(!!note?.loaded);
+	const groups = $derived(normalizeTaskGroups(note?.data));
 	const activeGroup = $derived(
-		groups.find((group: TaskGroup) => group.id === activeGroupId) ?? groups[0]
+		groups.find((group: TaskGroup) => group.id === config.activeGroupId) ?? groups[0]
 	);
 	const autoDisappearEnabled = $derived(config.autoDisappearEnabled ?? true);
 	const autoDisappearHours = $derived(config.autoDisappearHours ?? 24);
@@ -37,78 +41,22 @@
 	const textColor50 = $derived(colorWithOpacity(appearance.textColor, 0.5));
 	const textColor40 = $derived(colorWithOpacity(appearance.textColor, 0.4));
 
-	// Local state
 	let newTaskText = $state('');
-	let inputRef = $state<HTMLInputElement | null>(null);
-	let tabBarRef = $state<HTMLDivElement | null>(null);
-	let canScrollLeft = $state(false);
-	let canScrollRight = $state(false);
-
-	// Track whether the tab bar overflows so the scroll buttons can appear
-	let previousTabCount: number | null = null;
 
 	$effect(() => {
-		const bar = tabBarRef;
-		const currentCount = groups.length;
-		if (!bar) return;
-
-		// Initialize on first run (the guard prevents scrolling on mount)
-		if (previousTabCount === null) {
-			previousTabCount = currentCount;
-		}
-
-		const update = () => {
-			canScrollLeft = bar.scrollLeft > 2;
-			canScrollRight = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 2;
-		};
-
-		update();
-		bar.addEventListener('scroll', update);
-		const observer = new ResizeObserver(update);
-		observer.observe(bar);
-
-		// Scroll to the newest tab when one is added
-		if (currentCount > previousTabCount) {
-			bar.scrollTo({ left: bar.scrollWidth, behavior: 'smooth' });
-		}
-		previousTabCount = currentCount;
-
-		return () => {
-			bar.removeEventListener('scroll', update);
-			observer.disconnect();
-		};
+		void notesStore.load('tasks', noteId);
 	});
 
-	// Scroll the tab bar by a fixed amount
-	function scrollTabs(direction: -1 | 1) {
-		tabBarRef?.scrollBy({ left: direction * 120, behavior: 'smooth' });
-	}
-
-	// Filter and separate tasks of the active tab
 	const taskSections = $derived.by(() => {
 		const now = Date.now();
 		const disappearMs = autoDisappearHours * 60 * 60 * 1000;
-		const activeTasks = activeGroup?.tasks ?? [];
-
 		const uncompleted: Task[] = [];
 		const completed: Task[] = [];
-
-		activeTasks.forEach((task: Task) => {
-			if (!task.completed) {
-				uncompleted.push(task);
-			} else {
-				// Check auto-disappear for completed tasks
-				if (!autoDisappearEnabled) {
-					completed.push(task);
-				} else if (task.completedAt) {
-					const age = now - task.completedAt;
-					if (age < disappearMs) {
-						completed.push(task);
-					}
-				}
-			}
-		});
-
+		for (const task of ready ? (activeGroup?.tasks ?? []) : []) {
+			if (!task.completed) uncompleted.push(task);
+			else if (!autoDisappearEnabled) completed.push(task);
+			else if (task.completedAt && now - task.completedAt < disappearMs) completed.push(task);
+		}
 		return { uncompletedTasks: uncompleted, completedTasks: completed };
 	});
 
@@ -116,99 +64,64 @@
 		taskSections.uncompletedTasks.length + taskSections.completedTasks.length
 	);
 
-	// Generate unique ID
 	function generateId(): string {
-		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+		return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 	}
 
-	// Add new task to the active tab
+	function writeGroups(next: TaskGroup[]) {
+		notesStore.setData('tasks', noteId, { groups: next });
+	}
+
+	function updateActiveTasks(update: (tasks: Task[]) => Task[]) {
+		if (!ready || !activeGroup) return;
+		writeGroups(
+			groups.map((group) =>
+				group.id === activeGroup.id ? { ...group, tasks: update(group.tasks) } : group
+			)
+		);
+	}
+
 	function addTask() {
 		const text = newTaskText.trim();
-		if (!text || !activeGroup) return;
-
-		const newTask: Task = {
-			id: generateId(),
-			text,
-			completed: false,
-			createdAt: Date.now()
-		};
-
-		const updatedGroups = groups.map((group: TaskGroup) =>
-			group.id === activeGroup.id ? { ...group, tasks: [...group.tasks, newTask] } : group
-		);
-		updateGroups(updatedGroups);
+		if (!text) return;
+		updateActiveTasks((tasks) => [
+			...tasks,
+			{ id: generateId(), text, completed: false, createdAt: Date.now() }
+		]);
 		newTaskText = '';
 	}
 
-	// Toggle task completion (active tab only)
 	function toggleTask(taskId: string) {
-		const updatedGroups = groups.map((group: TaskGroup) => {
-			if (group.id === activeGroup?.id) {
-				return {
-					...group,
-					tasks: group.tasks.map((task: Task) => {
-						if (task.id === taskId) {
-							return {
-								...task,
-								completed: !task.completed,
-								completedAt: !task.completed ? Date.now() : undefined
-							};
+		updateActiveTasks((tasks) =>
+			tasks.map((task) =>
+				task.id === taskId
+					? {
+							...task,
+							completed: !task.completed,
+							completedAt: !task.completed ? Date.now() : undefined
 						}
-						return task;
-					})
-				};
-			}
-			return group;
-		});
-		updateGroups(updatedGroups);
+					: task
+			)
+		);
 	}
 
-	// Delete task (active tab only)
 	function deleteTask(taskId: string) {
-		const updatedGroups = groups.map((group: TaskGroup) => {
-			if (group.id === activeGroup?.id) {
-				return {
-					...group,
-					tasks: group.tasks.filter((task: Task) => task.id !== taskId)
-				};
-			}
-			return group;
-		});
-		updateGroups(updatedGroups);
+		updateActiveTasks((tasks) => tasks.filter((task) => task.id !== taskId));
 	}
 
-	// Switch to a tab
 	function selectGroup(groupId: string) {
-		if (groupId === activeGroupId || !onConfigChange) return;
-		onConfigChange({ ...config, activeGroupId: groupId });
+		if (groupId !== activeGroup?.id) onConfigChange?.({ ...config, activeGroupId: groupId });
 	}
 
-	// Add a new tab and switch to it
 	function addGroup() {
-		if (!onConfigChange) return;
-		const newGroup = createTaskGroup();
-		onConfigChange({
-			...config,
-			groups: [...groups, newGroup],
-			activeGroupId: newGroup.id
-		});
+		if (!ready) return;
+		const group = createTaskGroup('', TASK_GROUP_COLORS[groups.length % TASK_GROUP_COLORS.length]);
+		writeGroups([...groups, group]);
+		onConfigChange?.({ ...config, activeGroupId: group.id });
 	}
 
-	// Update config and persist
-	function updateGroups(updatedGroups: TaskGroup[]) {
-		if (onConfigChange) {
-			onConfigChange({
-				...config,
-				groups: updatedGroups
-			});
-		}
-	}
-
-	// Handle Enter key in input
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			addTask();
-		}
+		if (event.key === 'Enter') addTask();
 	}
 </script>
 
@@ -230,94 +143,19 @@
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 >
-	<div class="tab-bar-container">
-		{#if canScrollLeft}
-			<button
-				type="button"
-				class="tab-scroll-btn"
-				onclick={() => scrollTabs(-1)}
-				title="Scroll tabs left"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<polyline points="15 18 9 12 15 6"></polyline>
-				</svg>
-			</button>
-		{/if}
-
-		<div class="tab-bar" bind:this={tabBarRef} role="tablist">
-			{#each groups as group (group.id)}
-				<button
-					type="button"
-					class="task-tab"
-					class:active={group.id === activeGroupId}
-					role="tab"
-					aria-selected={group.id === activeGroupId}
-					style:--tab-color={group.color}
-					onclick={() => selectGroup(group.id)}
-					title={group.name}
-				>
-					<span class="tab-name">{group.name}</span>
-				</button>
-			{/each}
-		</div>
-
-		{#if !isEditMode}
-			<button type="button" class="add-tab-btn" onclick={addGroup} title="Add tab">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<line x1="12" y1="5" x2="12" y2="19"></line>
-					<line x1="5" y1="12" x2="19" y2="12"></line>
-				</svg>
-			</button>
-		{/if}
-
-		{#if canScrollRight}
-			<button
-				type="button"
-				class="tab-scroll-btn"
-				onclick={() => scrollTabs(1)}
-				title="Scroll tabs right"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<polyline points="9 18 15 12 9 6"></polyline>
-				</svg>
-			</button>
-		{/if}
-	</div>
+	<NoteTabBar
+		tabs={groups}
+		activeId={activeGroup?.id}
+		canAdd={!isEditMode}
+		tabClass="task-tab"
+		onselect={selectGroup}
+		onadd={addGroup}
+	/>
 
 	<div class="task-input-container">
 		<input
-			bind:this={inputRef}
 			class="task-input"
+			disabled={!ready}
 			type="text"
 			bind:value={newTaskText}
 			onkeydown={handleKeyDown}
@@ -394,104 +232,6 @@
 		color: var(--appearance-text-color);
 		padding: var(--appearance-padding);
 		opacity: var(--appearance-opacity);
-	}
-
-	.tab-bar-container {
-		display: flex;
-		align-items: stretch;
-		gap: 4px;
-		padding: 8px 8px 0;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-		flex-shrink: 0;
-	}
-
-	.tab-bar {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		overflow-x: auto;
-		scrollbar-width: none; /* Firefox */
-	}
-
-	.tab-bar::-webkit-scrollbar {
-		display: none; /* WebKit: hide the overlay scrollbar so it never overlaps the tabs */
-	}
-
-	.tab-scroll-btn {
-		width: 24px;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: rgba(255, 255, 255, 0.08);
-		border: none;
-		border-radius: 6px;
-		color: var(--widget-text-color-50);
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.tab-scroll-btn:hover {
-		background: rgba(255, 255, 255, 0.15);
-		color: var(--widget-text-color-90);
-	}
-
-	.task-tab {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		height: 28px;
-		padding: 0 10px;
-		background: color-mix(in srgb, var(--tab-color) 20%, rgba(255, 255, 255, 0.04));
-		border: none;
-		border-radius: 8px 8px 0 0;
-		color: var(--widget-text-color-50);
-		font-size: 0.8125em;
-		cursor: pointer;
-		white-space: nowrap;
-		transition: background 0.2s ease;
-		flex-shrink: 0;
-		min-width: 30px;
-		max-width: 140px;
-	}
-
-	.task-tab:hover {
-		background: color-mix(in srgb, var(--tab-color) 28%, rgba(255, 255, 255, 0.06));
-		color: var(--widget-text-color-90);
-	}
-
-	.task-tab.active {
-		background: color-mix(in srgb, var(--tab-color) 45%, rgba(255, 255, 255, 0.08));
-		color: var(--widget-text-color-90);
-		box-shadow: inset 0 -2px 0 var(--tab-color);
-	}
-
-	.tab-name {
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.add-tab-btn {
-		width: 28px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: none;
-		border: 1px dashed rgba(255, 255, 255, 0.3);
-		border-radius: 8px 8px 0 0;
-		color: var(--widget-text-color-50);
-		cursor: pointer;
-		transition: all 0.2s ease;
-		flex-shrink: 0;
-		margin-left: 2px;
-	}
-
-	.add-tab-btn:hover {
-		border-color: var(--widget-text-color-90);
-		color: var(--widget-text-color-90);
 	}
 
 	.task-input-container {

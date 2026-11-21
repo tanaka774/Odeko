@@ -1,8 +1,17 @@
 <script lang="ts">
 	import { flag } from './widget-state';
 	import { getAppearanceBackground, getAppearanceBorder, getWidgetAppearance } from './appearance';
-	import type { MemoWidgetConfig, WidgetComponentProps } from './types';
-	import { WIDGET_TYPE_APPEARANCE_DEFAULTS } from './types';
+	import NoteTabBar from './NoteTabBar.svelte';
+	import { notesStore } from '$lib/stores/notes.svelte';
+	import {
+		createMemoTab,
+		normalizeMemoTabs,
+		TASK_GROUP_COLORS,
+		WIDGET_TYPE_APPEARANCE_DEFAULTS,
+		type MemoTab,
+		type MemoWidgetConfig,
+		type WidgetComponentProps
+	} from './types';
 
 	type Props = WidgetComponentProps<MemoWidgetConfig>;
 
@@ -19,48 +28,40 @@
 	const widgetBackground = $derived(getAppearanceBackground(appearance));
 	const widgetBorder = $derived(getAppearanceBorder(appearance));
 
-	let currentContent = $state(config.content ?? '');
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+	const noteId = $derived(notesStore.effectiveId('memo', config.noteId));
+	const note = $derived(notesStore.get('memo', noteId));
+	const ready = $derived(!!note?.loaded);
+	const tabs = $derived(normalizeMemoTabs(note?.data));
+	const activeTab = $derived(tabs.find((tab) => tab.id === config.activeTabId) ?? tabs[0]);
+	const content = $derived(ready ? (activeTab?.content ?? '') : '');
 
 	$effect(() => {
-		currentContent = config.content ?? '';
+		void notesStore.load('memo', noteId);
 	});
 
-	function handleInput(event: Event) {
-		const target = event.target as HTMLTextAreaElement;
-		const newContent = target.value;
-		currentContent = newContent;
-
-		if (saveTimeout) {
-			clearTimeout(saveTimeout);
-		}
-
-		saveTimeout = setTimeout(() => {
-			if (onConfigChange) {
-				onConfigChange({
-					...config,
-					content: newContent
-				});
-			}
-		}, 1000);
+	function writeTabs(next: MemoTab[]) {
+		notesStore.setData('memo', noteId, { tabs: next });
 	}
 
-	function handleBlur() {
-		if (saveTimeout) {
-			clearTimeout(saveTimeout);
-		}
-		if (onConfigChange) {
-			onConfigChange({
-				...config,
-				content: currentContent
-			});
-		}
+	function handleInput(event: Event) {
+		const value = (event.target as HTMLTextAreaElement).value;
+		writeTabs(tabs.map((tab) => (tab.id === activeTab.id ? { ...tab, content: value } : tab)));
+	}
+
+	function selectTab(id: string) {
+		if (id !== activeTab?.id) onConfigChange?.({ ...config, activeTabId: id });
+	}
+
+	function addTab() {
+		const tab = createMemoTab('', TASK_GROUP_COLORS[tabs.length % TASK_GROUP_COLORS.length]);
+		writeTabs([...tabs, tab]);
+		onConfigChange?.({ ...config, activeTabId: tab.id });
 	}
 </script>
 
 <div
 	class="memo-widget"
-	data-empty={flag(!currentContent.trim())}
+	data-empty={flag(!content.trim())}
 	style="
 			--appearance-text-color: {appearance.textColor};
 			--appearance-font-family: {appearance.fontFamily};
@@ -74,12 +75,22 @@
 			--white-space: {wordWrap ? 'pre-wrap' : 'pre'};
 		"
 >
+	{#if tabs.length > 1}
+		<NoteTabBar
+			{tabs}
+			activeId={activeTab?.id}
+			canAdd={!isEditMode}
+			tabClass="memo-tab"
+			onselect={selectTab}
+			onadd={addTab}
+		/>
+	{/if}
 	<textarea
 		class="memo-content"
-		value={currentContent}
+		value={content}
+		readonly={!ready}
 		oninput={handleInput}
-		onblur={handleBlur}
-		placeholder=""
+		onblur={() => notesStore.flush('memo', noteId)}
 		spellcheck="false"
 	></textarea>
 </div>
@@ -117,11 +128,6 @@
 		overflow-y: auto;
 		word-wrap: var(--word-wrap);
 		white-space: var(--white-space);
-	}
-
-	.memo-content::placeholder {
-		color: var(--appearance-text-color);
-		opacity: 0.4;
 	}
 
 	.memo-content:focus {

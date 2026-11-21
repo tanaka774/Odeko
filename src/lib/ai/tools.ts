@@ -127,8 +127,8 @@ export function createTools(host: ToolHost): ToolSet {
 						kind: 'config',
 						title: 'Let the AI read and change this canvas config?',
 						details: [
-							'It can see icon names, app paths, widget settings and notes in memo/text widgets.',
-							'Clipboard history, drawings and network permissions stay hidden.'
+							'It can see icon names, app paths, widget settings and text box text.',
+							'Memo and task list contents, drawings and network permissions stay hidden.'
 						]
 					});
 					if (answer === 'deny') {

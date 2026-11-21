@@ -1,0 +1,88 @@
+<!--
+	Visualizer: an animated equalizer and orbiting particles in your theme
+	colors, for decoration. It stops drawing while the canvas is hidden
+	(odeko.on('pause'/'resume')), so it costs nothing in the background.
+-->
+<style>
+	:root {
+		--a: #f0abfc;
+		--b: #67e8f9;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		height: 100vh;
+		overflow: hidden;
+	}
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+</style>
+<canvas></canvas>
+<script>
+	const canvas = document.querySelector('canvas');
+	const ctx = canvas.getContext('2d');
+	const css = getComputedStyle(document.documentElement);
+	const colorA = css.getPropertyValue('--a').trim();
+	const colorB = css.getPropertyValue('--b').trim();
+	const BARS = 32;
+	const levels = Array(BARS).fill(0);
+	let raf = 0;
+
+	function frame(now) {
+		raf = requestAnimationFrame(frame);
+		const ratio = window.devicePixelRatio || 1;
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
+			canvas.width = w * ratio;
+			canvas.height = h * ratio;
+			ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		}
+		ctx.clearRect(0, 0, w, h);
+		const t = now / 1000;
+		const gradient = ctx.createLinearGradient(0, h, 0, 0);
+		gradient.addColorStop(0, colorB);
+		gradient.addColorStop(1, colorA);
+		const gap = 3;
+		const barWidth = (w - gap * (BARS - 1)) / BARS;
+		for (let i = 0; i < BARS; i++) {
+			const beat =
+				Math.max(0, Math.sin(t * 2.1 + i * 0.35)) * 0.5 +
+				Math.max(0, Math.sin(t * 3.7 - i * 0.6)) * 0.35;
+			const target = 0.12 + beat * (0.6 + 0.4 * Math.sin(i * 0.9 + t * 0.4) ** 2);
+			levels[i] += (target - levels[i]) * 0.18;
+			const bh = levels[i] * h * 0.85;
+			ctx.fillStyle = gradient;
+			ctx.globalAlpha = 0.9;
+			ctx.beginPath();
+			ctx.roundRect(i * (barWidth + gap), h - bh, barWidth, bh, Math.min(4, barWidth / 2));
+			ctx.fill();
+			ctx.globalAlpha = 0.18;
+			ctx.fillRect(i * (barWidth + gap), h - bh - 6, barWidth, 2);
+		}
+		ctx.globalAlpha = 1;
+		for (let p = 0; p < 24; p++) {
+			const angle = t * (0.3 + (p % 5) * 0.05) + p * 1.7;
+			const r = Math.min(w, h) * (0.18 + (p % 7) * 0.03);
+			const x = w / 2 + Math.cos(angle) * r * 1.6;
+			const y = h * 0.35 + Math.sin(angle) * r * 0.5;
+			ctx.fillStyle = p % 2 ? colorA : colorB;
+			ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + p);
+			ctx.beginPath();
+			ctx.arc(x, y, 1.5 + (p % 3), 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.globalAlpha = 1;
+	}
+
+	odeko.on('pause', () => cancelAnimationFrame(raf));
+	odeko.on('resume', () => {
+		cancelAnimationFrame(raf);
+		raf = requestAnimationFrame(frame);
+	});
+	raf = requestAnimationFrame(frame);
+</script>

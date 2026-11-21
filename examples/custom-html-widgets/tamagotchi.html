@@ -1,0 +1,661 @@
+<!--
+	Tamagotchi: an egg-shaped pocket pet. It hatches, grows from baby to adult
+	as real time passes, and gets hungry, sad and dirty while you are away.
+	A selects a menu icon, B confirms, C cancels (or use the icons directly):
+	feed, play, clean, medicine, lights, status. Everything is saved with
+	odeko.storage, and time keeps running while the canvas is hidden.
+	Suggested size: 440 x 520. Recolor the shell with the variables in :root.
+-->
+<style>
+	:root {
+		--shell: #ff6fae;
+		--shell-dark: #c2307a;
+		--shell-light: #ffc2df;
+		--lcd: #b7c79a;
+		--pixel: #1d2416;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	html {
+		color-scheme: light;
+	}
+	html,
+	body {
+		margin: 0;
+		height: 100vh;
+		overflow: hidden;
+		background: transparent;
+		user-select: none;
+		font-family: 'Courier New', monospace;
+	}
+	/* Contact shadow on whatever surface the widget sits on. */
+	.shadow {
+		position: absolute;
+		left: 16%;
+		right: 2%;
+		bottom: 3%;
+		height: 11%;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.85) 45%, transparent);
+		filter: blur(6px);
+	}
+	.shadow.soft {
+		left: 2%;
+		right: -12%;
+		bottom: -1%;
+		height: 22%;
+		background: radial-gradient(
+			closest-side,
+			rgba(0, 0, 0, 0.75),
+			rgba(0, 0, 0, 0.3) 60%,
+			transparent
+		);
+		filter: blur(16px);
+	}
+	.device {
+		position: absolute;
+		inset: 2% 8% 12%;
+		border-radius: 50% 50% 46% 46% / 56% 56% 44% 44%;
+		background:
+			radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.55), transparent 22%),
+			radial-gradient(circle at 70% 85%, var(--shell-dark), transparent 60%),
+			radial-gradient(circle at 40% 35%, var(--shell-light), var(--shell) 55%, var(--shell-dark));
+		box-shadow:
+			inset -10px -14px 26px rgba(0, 0, 0, 0.28),
+			inset 8px 10px 18px rgba(255, 255, 255, 0.35),
+			0 2px 0 rgba(0, 0, 0, 0.15);
+	}
+	.dots {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background-image: radial-gradient(rgba(255, 255, 255, 0.25) 1.5px, transparent 2px);
+		background-size: 22px 22px;
+		mask-image: radial-gradient(circle at 50% 45%, transparent 40%, #000 62%);
+	}
+	.brand {
+		position: absolute;
+		top: 10%;
+		width: 100%;
+		text-align: center;
+		font:
+			800 clamp(10px, 3.2vmin, 18px) / 1 'Trebuchet MS',
+			sans-serif;
+		letter-spacing: 0.2em;
+		color: rgba(255, 255, 255, 0.85);
+		text-shadow: 0 1px 0 var(--shell-dark);
+	}
+	.bezel {
+		position: absolute;
+		left: 18%;
+		right: 18%;
+		top: 20%;
+		height: 46%;
+		border-radius: 16% / 18%;
+		background: linear-gradient(160deg, #f6f1e7, #d9d0c1);
+		box-shadow:
+			inset 0 3px 6px rgba(0, 0, 0, 0.35),
+			0 1px 0 rgba(255, 255, 255, 0.6);
+		padding: 7%;
+	}
+	.lcd {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		border-radius: 6px;
+		background: var(--lcd);
+		box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
+		overflow: hidden;
+	}
+	.lcd::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background:
+			repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px),
+			repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 3px);
+		pointer-events: none;
+	}
+	.lcd.dark {
+		background: #2a3324;
+	}
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+	.icons {
+		position: absolute;
+		left: 0;
+		right: 0;
+		display: flex;
+		justify-content: space-around;
+		padding: 0 4px;
+	}
+	.icons.top {
+		top: 2px;
+	}
+	.icons.bottom {
+		bottom: 2px;
+	}
+	.icon {
+		width: 13%;
+		aspect-ratio: 1;
+		opacity: 0.22;
+		cursor: pointer;
+		display: grid;
+		place-items: center;
+	}
+	.icon svg {
+		shape-rendering: crispEdges;
+	}
+	.icon.sel {
+		opacity: 0.95;
+	}
+	.icon svg {
+		width: 100%;
+		height: 100%;
+		fill: var(--pixel);
+	}
+	.buttons {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 71%;
+		height: 14%;
+	}
+	.btn {
+		position: absolute;
+		width: 13%;
+		aspect-ratio: 1;
+		border: none;
+		border-radius: 50%;
+		cursor: pointer;
+		background: radial-gradient(circle at 35% 30%, #fff6c9, #f2c94c 55%, #b8860b);
+		box-shadow:
+			0 3px 0 #8a6408,
+			0 5px 6px rgba(0, 0, 0, 0.3),
+			inset 0 -2px 3px rgba(0, 0, 0, 0.2);
+	}
+	.btn:active {
+		transform: translateY(3px);
+		box-shadow:
+			0 0 0 #8a6408,
+			0 2px 3px rgba(0, 0, 0, 0.3);
+	}
+	.btn span {
+		position: absolute;
+		top: 112%;
+		left: 0;
+		right: 0;
+		text-align: center;
+		font: 700 clamp(8px, 2vmin, 12px) sans-serif;
+		color: rgba(255, 255, 255, 0.8);
+	}
+	#a {
+		left: 26%;
+		top: 10%;
+	}
+	#b {
+		left: 43.5%;
+		top: 35%;
+	}
+	#c {
+		left: 61%;
+		top: 10%;
+	}
+	.chain {
+		position: absolute;
+		top: -1%;
+		left: 50%;
+		width: 12%;
+		aspect-ratio: 1;
+		transform: translateX(-50%);
+		border-radius: 50%;
+		border: 4px solid #c9ccd1;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+	}
+</style>
+<div class="soft shadow"></div>
+<div class="shadow"></div>
+<div class="chain"></div>
+<div class="device">
+	<div class="dots"></div>
+	<div class="brand">ODEKO-PET</div>
+	<div class="bezel">
+		<div class="lcd" id="lcd">
+			<div class="icons top" id="iconsTop"></div>
+			<canvas id="screen" width="64" height="48"></canvas>
+			<div class="icons bottom" id="iconsBottom"></div>
+		</div>
+	</div>
+	<div class="buttons">
+		<button class="btn" id="a" aria-label="Select"><span>A</span></button>
+		<button class="btn" id="b" aria-label="Confirm"><span>B</span></button>
+		<button class="btn" id="c" aria-label="Cancel"><span>C</span></button>
+	</div>
+</div>
+<script>
+	const MINUTE = 60000;
+	// Real time per stage. Shorten these to watch it grow quickly.
+	const STAGE_AT = {
+		baby: 2 * MINUTE,
+		child: 60 * MINUTE,
+		teen: 6 * 60 * MINUTE,
+		adult: 24 * 60 * MINUTE
+	};
+	const HUNGER_EVERY = 45 * MINUTE;
+	const HAPPY_EVERY = 60 * MINUTE;
+	const POOP_EVERY = 90 * MINUTE;
+
+	const ICONS = [
+		['feed', 'M3 9h10v2H3zM4 6h8v3H4zM6 3h4v3H6zM5 11h6v2H5z'],
+		['play', 'M2 6h3v4H2zM11 6h3v4h-3zM5 5h6v6H5zM6 3h1v2H6zM9 3h1v2H9z'],
+		['clean', 'M7 1h2v8H7zM4 9h8v2H4zM3 11h10v4H3z'],
+		['medicine', 'M6 2h4v4h4v4h-4v4H6v-4H2V6h4z'],
+		['lights', 'M6 1h4v2h2v6h-2v2H6V9H4V3h2zM6 12h4v3H6z'],
+		['status', 'M2 3h12v2H2zM2 7h8v2H2zM2 11h10v2H2z'],
+		['', ''],
+		['', '']
+	];
+	const ATTENTION = 6;
+
+	// 16-px wide sprites, one string per row, '#' = pixel.
+	const SPRITES = {
+		egg: [
+			'.....####.....',
+			'...##....##...',
+			'..#..#.....#..',
+			'.#..###.....#.',
+			'.#...#...#..#.',
+			'#.......###..#',
+			'#........#...#',
+			'#..#.........#',
+			'#.###........#',
+			'.#.#.......#.',
+			'.#.........#.',
+			'..##.....##..',
+			'....#####....'
+		],
+		baby: [
+			'....####....',
+			'..##....##..',
+			'.#........#.',
+			'#..#....#..#',
+			'#..........#',
+			'#...####...#',
+			'.#........#.',
+			'..########..'
+		],
+		child: [
+			'...######...',
+			'..#......#..',
+			'.#.#....#.#.',
+			'.#........#.',
+			'.#..####..#.',
+			'..#......#..',
+			'.##########.',
+			'#..#....#..#',
+			'...##..##...'
+		],
+		teen: [
+			'..#......#..',
+			'..##....##..',
+			'.#..####..#.',
+			'#..........#',
+			'#..#....#..#',
+			'#..........#',
+			'#....##....#',
+			'.#........#.',
+			'.##########.',
+			'.#.#....#.#.',
+			'.#.#....#.#.',
+			'.##......##.'
+		],
+		adult: [
+			'.#..........#.',
+			'.##........##.',
+			'..#.######.#..',
+			'.#..........#.',
+			'#...#....#...#',
+			'#..###..###..#',
+			'#............#',
+			'#....####....#',
+			'#...#....#...#',
+			'.#..........#.',
+			'..##########..',
+			'.#..#....#..#.',
+			'.#..#....#..#.',
+			'.##.#....#.##.'
+		],
+		ghost: [
+			'...####...',
+			'.##....##.',
+			'#..#..#..#',
+			'#........#',
+			'#...##...#',
+			'#........#',
+			'#.#.##.#.#',
+			'.#.#..#.#.'
+		],
+		poop: ['..#...', '.##...', '.###..', '#####.', '######'],
+		food: ['..#..', '.###.', '#####', '#.#.#', '.###.'],
+		heart: ['.#.#.', '#####', '#####', '.###.', '..#..'],
+		zz: ['###..', '..#..', '.#...', '###..', '...##', '....#', '...##'],
+		skull: ['.###.', '#.#.#', '#####', '.#.#.'],
+		ball: ['.##.', '####', '####', '.##.']
+	};
+
+	const canvas = document.getElementById('screen');
+	const g = canvas.getContext('2d');
+	const W = canvas.width;
+	const H = canvas.height;
+	let pet = null;
+	let menu = -1;
+	let anim = null;
+	let frame = 0;
+
+	function newPet() {
+		const now = Date.now();
+		return {
+			born: now,
+			last: now,
+			hunger: 2,
+			happy: 2,
+			poop: 0,
+			sick: false,
+			sleeping: false,
+			lights: true,
+			weight: 5,
+			age: 0,
+			care: 0,
+			dead: false,
+			t: { hunger: now, happy: now, poop: now }
+		};
+	}
+
+	function stage(p) {
+		if (p.dead) return 'ghost';
+		const age = Date.now() - p.born;
+		if (age < STAGE_AT.baby) return 'egg';
+		if (age < STAGE_AT.child) return 'baby';
+		if (age < STAGE_AT.teen) return 'child';
+		if (age < STAGE_AT.adult) return 'teen';
+		return 'adult';
+	}
+
+	// Catches up on everything that happened since the last tick (also after
+	// days with the canvas hidden or the app closed).
+	function simulate(now) {
+		if (!pet || pet.dead || stage(pet) === 'egg') {
+			if (pet) pet.last = now;
+			return;
+		}
+		const hour = new Date(now).getHours();
+		pet.sleeping = hour >= 22 || hour < 7;
+		const slow = pet.sleeping ? 3 : 1;
+		while (now - pet.t.hunger >= HUNGER_EVERY * slow) {
+			pet.t.hunger += HUNGER_EVERY * slow;
+			pet.hunger = Math.max(0, pet.hunger - 1);
+		}
+		while (now - pet.t.happy >= HAPPY_EVERY * slow) {
+			pet.t.happy += HAPPY_EVERY * slow;
+			pet.happy = Math.max(0, pet.happy - 1);
+		}
+		while (now - pet.t.poop >= POOP_EVERY * slow) {
+			pet.t.poop += POOP_EVERY * slow;
+			pet.poop = Math.min(3, pet.poop + 1);
+			if (pet.poop >= 3) pet.sick = true;
+		}
+		if (pet.hunger === 0 && pet.happy === 0 && pet.sick) {
+			pet.neglect = (pet.neglect ?? 0) + (now - pet.last);
+			if (pet.neglect > 12 * 60 * MINUTE) pet.dead = true;
+		} else pet.neglect = 0;
+		pet.last = now;
+	}
+
+	function save() {
+		odeko.storage.set('pet', pet);
+	}
+
+	function needsCare() {
+		return (
+			!pet.dead &&
+			stage(pet) !== 'egg' &&
+			(pet.hunger === 0 || pet.happy === 0 || pet.poop > 0 || pet.sick)
+		);
+	}
+
+	function sprite(name, x, y, flip = false, scale = 2) {
+		const rows = SPRITES[name];
+		const w = rows[0].length;
+		g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel');
+		rows.forEach((row, r) => {
+			for (let c = 0; c < w; c++) {
+				if (row[flip ? w - 1 - c : c] === '#')
+					g.fillRect(x + c * scale, y + r * scale, scale, scale);
+			}
+		});
+		return { w: w * scale, h: rows.length * scale };
+	}
+
+	function text(str, x, y) {
+		g.font = '7px monospace';
+		g.textBaseline = 'top';
+		g.fillText(str, x, y);
+	}
+
+	function hearts(n, y, label) {
+		text(label, 2, y);
+		for (let i = 0; i < 4; i++) {
+			g.globalAlpha = i < n ? 1 : 0.2;
+			sprite('heart', 30 + i * 8, y, false, 1);
+		}
+		g.globalAlpha = 1;
+	}
+
+	function draw() {
+		const lcd = document.getElementById('lcd');
+		lcd.classList.toggle('dark', !pet.lights);
+		g.clearRect(0, 0, W, H);
+		g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel');
+		if (!pet.lights) {
+			g.globalAlpha = 0.6;
+			sprite('zz', 44, 8, false, 2);
+			g.globalAlpha = 1;
+			return;
+		}
+		if (anim?.kind === 'status') {
+			const ageDays = Math.floor((Date.now() - pet.born) / (24 * 60 * MINUTE));
+			text(`${stage(pet).toUpperCase()}  ${ageDays}d ${pet.weight}g`, 2, 7);
+			hearts(pet.hunger, 18, 'FOOD');
+			hearts(pet.happy, 28, 'JOY');
+			return;
+		}
+		const name = stage(pet);
+		const bob = frame % 2;
+		let x = 22;
+		if (anim?.kind === 'play') x = 10 + Math.abs(((frame * 3) % 40) - 20);
+		else if (name !== 'egg' && !pet.sleeping && !pet.dead)
+			x = 18 + ((frame >> 1) % 8 < 4 ? (frame >> 1) % 4 : 4 - ((frame >> 1) % 4)) * 2;
+		const flip = anim?.kind === 'play' ? (frame * 3) % 40 >= 20 : (frame >> 3) % 2 === 1;
+		const s = SPRITES[name];
+		const sx = name === 'egg' ? 20 + (frame % 4 === 0 ? 1 : 0) : x;
+		const sy = H - 10 - s.length * 2 + (pet.sleeping || pet.dead ? 0 : bob);
+		sprite(name, sx, sy, flip);
+		if (pet.sleeping && !pet.dead) sprite('zz', sx + s[0].length * 2 + 2, sy - 6, false, 1);
+		if (pet.sick && !pet.dead) sprite('skull', 2, 2, false, 1);
+		for (let i = 0; i < pet.poop; i++) sprite('poop', 3 + i * 8, H - 16, false, 1);
+		if (anim?.kind === 'feed')
+			sprite(
+				'food',
+				flip ? sx - 8 : sx + s[0].length * 2 + 3,
+				sy + s.length - (frame % 2),
+				false,
+				1
+			);
+		if (anim?.kind === 'play')
+			sprite(
+				'ball',
+				4 + ((frame * 7) % (W - 16)),
+				2 + Math.abs(Math.sin(frame * 1.3)) * 8,
+				false,
+				1
+			);
+		if (anim?.kind === 'clean') {
+			g.fillRect((frame * 6) % W, 10, 2, H - 20);
+		}
+		if (anim?.kind === 'heart') sprite('heart', sx + 4, sy - 8 - (frame % 3), false, 1);
+		if (anim?.kind === 'no') text('NO!', sx + 2, sy - 9);
+	}
+
+	const iconEls = [];
+	function buildIcons() {
+		const top = document.getElementById('iconsTop');
+		const bottom = document.getElementById('iconsBottom');
+		ICONS.forEach(([name, path], i) => {
+			const el = document.createElement('div');
+			el.className = 'icon';
+			if (path) {
+				el.innerHTML = `<svg viewBox="0 0 16 16"><path d="${path}"/></svg>`;
+				el.title = name;
+				el.addEventListener('click', () => {
+					menu = i;
+					confirm();
+					draw();
+					renderIcons();
+				});
+			} else if (i === ATTENTION) {
+				el.innerHTML = '<svg viewBox="0 0 16 16"><path d="M7 1h2v9H7zM7 12h2v2H7z"/></svg>';
+			}
+			(i < 4 ? top : bottom).append(el);
+			iconEls.push(el);
+		});
+	}
+
+	// Only toggles classes: replacing the elements every tick would swallow
+	// clicks that land between mousedown and mouseup.
+	function renderIcons() {
+		const attention = needsCare();
+		iconEls.forEach((el, i) =>
+			el.classList.toggle('sel', i === menu || (i === ATTENTION && attention))
+		);
+	}
+
+	function play(kind, ms = 1600) {
+		anim = { kind, until: Date.now() + ms };
+	}
+
+	function confirm() {
+		if (menu < 0 || !ICONS[menu][0]) return;
+		const action = ICONS[menu][0];
+		if (pet.dead) {
+			pet = newPet();
+			save();
+			return;
+		}
+		if (stage(pet) === 'egg' && action !== 'status') return;
+		if (pet.sleeping && pet.lights && action !== 'lights' && action !== 'status') {
+			play('no', 900);
+			return;
+		}
+		const now = Date.now();
+		switch (action) {
+			case 'feed':
+				if (pet.hunger >= 4) {
+					play('no', 900);
+					break;
+				}
+				pet.hunger += 1;
+				pet.weight += 1;
+				pet.t.hunger = now;
+				pet.care += 1;
+				play('feed');
+				break;
+			case 'play':
+				pet.happy = Math.min(4, pet.happy + 1);
+				pet.weight = Math.max(1, pet.weight - 1);
+				pet.t.happy = now;
+				pet.care += 1;
+				play('play', 2400);
+				break;
+			case 'clean':
+				pet.poop = 0;
+				pet.t.poop = now;
+				play('clean', 1200);
+				break;
+			case 'medicine':
+				if (!pet.sick) {
+					play('no', 900);
+					break;
+				}
+				pet.sick = false;
+				play('heart');
+				break;
+			case 'lights':
+				pet.lights = !pet.lights;
+				break;
+			case 'status':
+				play('status', 3500);
+				break;
+		}
+		save();
+	}
+
+	document.getElementById('a').addEventListener('click', () => {
+		const options = ICONS.map((icon, i) => (icon[0] ? i : -1)).filter((i) => i >= 0);
+		menu = options[(options.indexOf(menu) + 1) % options.length];
+		renderIcons();
+	});
+	document.getElementById('b').addEventListener('click', () => {
+		confirm();
+		draw();
+		renderIcons();
+	});
+	document.getElementById('c').addEventListener('click', () => {
+		menu = -1;
+		anim = null;
+	});
+	document.getElementById('screen').addEventListener('click', () => {
+		if (!pet.dead && stage(pet) !== 'egg' && !pet.sleeping) {
+			pet.happy = Math.min(4, pet.happy + (Math.random() < 0.3 ? 1 : 0));
+			play('heart', 900);
+			save();
+		}
+	});
+
+	let timer = null;
+	function tick() {
+		frame++;
+		if (anim && Date.now() > anim.until) anim = null;
+		if (frame % 10 === 0) {
+			simulate(Date.now());
+			if (frame % 60 === 0) save();
+		}
+		draw();
+		renderIcons();
+	}
+	const start = () => {
+		clearInterval(timer);
+		timer = setInterval(tick, 500);
+	};
+	odeko.on('pause', () => {
+		clearInterval(timer);
+		save();
+	});
+	odeko.on('resume', () => {
+		simulate(Date.now());
+		start();
+	});
+
+	buildIcons();
+	odeko.storage.get('pet').then((saved) => {
+		pet = saved ?? newPet();
+		simulate(Date.now());
+		save();
+		tick();
+		start();
+	});
+</script>

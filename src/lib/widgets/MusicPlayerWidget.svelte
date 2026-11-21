@@ -265,179 +265,181 @@
 	style:--appearance-padding="{appearance.padding}px"
 	style:--appearance-opacity={appearance.opacity}
 >
-	<!-- Album Art -->
-	{#if showAlbumArt}
-		<div
-			class="album-art"
-			style="background: linear-gradient(135deg, {themeColor}33, {themeColor}1a)"
-		>
-			{#if mediaInfo.art_url}
-				<img src={mediaInfo.art_url} alt="" class="album-image" />
-			{:else}
-				<div class="placeholder-art" style="color: {themeColor}">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="64"
-						height="64"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-					>
-						<path d="M9 18V5l12-2v13"></path>
-						<circle cx="6" cy="18" r="3"></circle>
-						<circle cx="18" cy="16" r="3"></circle>
-					</svg>
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Song Info -->
-	<div class="song-info">
-		{#if mediaInfo.has_player}
-			<div class="song-title" title={mediaInfo.title || 'Unknown Title'}>
-				{mediaInfo.title || 'Unknown Title'}
-			</div>
-			<div class="song-artist" title={mediaInfo.artist || 'Unknown Artist'}>
-				{mediaInfo.artist || 'Unknown Artist'}
-			</div>
-		{:else}
-			<div class="song-title">No Media Player</div>
-			<div class="song-artist">Open Spotify, VLC, Firefox, etc.</div>
-		{/if}
-	</div>
-
-	<!-- Progress Bar -->
-	{#if showProgressBar}
-		<div class="progress-section">
-			<div class="progress-bar" onclick={setPosition}>
-				<div
-					class="progress-fill"
-					style="width: {progress}%; background: {generateGradient(themeColor)}"
-				></div>
-			</div>
-			<div class="time-display">
-				<span>{formatTime(mediaInfo.position)}</span>
-				<span>{formatTime(mediaInfo.duration)}</span>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Controls -->
-	<div class="controls" class:disabled={!mediaInfo.has_player}>
-		<div class="main-controls">
-			<button
-				class="control-btn"
-				onclick={previousTrack}
-				aria-label="Previous track"
-				disabled={!mediaInfo.has_player}
+	<div class="music-body" class:with-art={showAlbumArt}>
+		{#if showAlbumArt}
+			<div
+				class="album-art"
+				style="background: linear-gradient(135deg, {themeColor}33, {themeColor}1a)"
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="currentColor"
-				>
-					<path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
-				</svg>
-			</button>
-
-			<button
-				class="control-btn play-btn"
-				onclick={togglePlay}
-				aria-label={mediaInfo.is_playing ? 'Pause' : 'Play'}
-				disabled={!mediaInfo.has_player}
-				style="background: {themeColor}cc"
-			>
-				{#if mediaInfo.is_playing}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="32"
-						height="32"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
-					</svg>
+				{#if mediaInfo.art_url}
+					<img src={mediaInfo.art_url} alt="" class="album-image" />
 				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="32"
-						height="32"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path d="M8 5v14l11-7z"></path>
-					</svg>
-				{/if}
-			</button>
-
-			<button
-				class="control-btn"
-				onclick={nextTrack}
-				aria-label="Next track"
-				disabled={!mediaInfo.has_player}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="currentColor"
-				>
-					<path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
-				</svg>
-			</button>
-		</div>
-
-		<!-- Player Selector Dropdown -->
-		{#if activePlayers.length > 0}
-			<div class="player-selector">
-				<button
-					class="player-dropdown-btn"
-					onclick={() => (showPlayerDropdown = !showPlayerDropdown)}
-					title="Select media source ({activePlayers.length} active)"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<line x1="4" y1="6" x2="20" y2="6"></line>
-						<line x1="4" y1="12" x2="20" y2="12"></line>
-						<line x1="4" y1="18" x2="20" y2="18"></line>
-					</svg>
-				</button>
-
-				{#if showPlayerDropdown}
-					<div class="player-dropdown-menu">
-						{#each activePlayers as player}
-							<button
-								class="player-option"
-								class:selected={selectedPlayer === player.identity}
-								onclick={() => selectPlayer(player.identity)}
-								style={selectedPlayer === player.identity ? `background: ${themeColor}4d;` : ''}
-							>
-								<span class="option-name">{player.name}</span>
-								{#if player.is_playing}
-									<span class="option-playing" style="color: {themeColor}">▶ Playing</span>
-								{:else}
-									<span class="option-paused">⏸ Paused</span>
-								{/if}
-							</button>
-						{/each}
+					<div class="placeholder-art" style="color: {themeColor}">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="64"
+							height="64"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path d="M9 18V5l12-2v13"></path>
+							<circle cx="6" cy="18" r="3"></circle>
+							<circle cx="18" cy="16" r="3"></circle>
+						</svg>
 					</div>
 				{/if}
 			</div>
 		{/if}
+
+		<div class="music-meta">
+			<div class="song-info">
+				{#if mediaInfo.has_player}
+					<div class="song-title" title={mediaInfo.title || 'Unknown Title'}>
+						{mediaInfo.title || 'Unknown Title'}
+					</div>
+					<div class="song-artist" title={mediaInfo.artist || 'Unknown Artist'}>
+						{mediaInfo.artist || 'Unknown Artist'}
+					</div>
+				{:else}
+					<div class="song-title">No Media Player</div>
+					<div class="song-artist">Open Spotify, VLC, Firefox, etc.</div>
+				{/if}
+			</div>
+
+			<!-- Progress Bar -->
+			{#if showProgressBar}
+				<div class="progress-section">
+					<div class="progress-bar" onclick={setPosition}>
+						<div
+							class="progress-fill"
+							style="width: {progress}%; background: {generateGradient(themeColor)}"
+						></div>
+					</div>
+					<div class="time-display">
+						<span>{formatTime(mediaInfo.position)}</span>
+						<span>{formatTime(mediaInfo.duration)}</span>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Controls -->
+			<div class="controls" class:disabled={!mediaInfo.has_player}>
+				<div class="main-controls">
+					<button
+						class="control-btn"
+						onclick={previousTrack}
+						aria-label="Previous track"
+						disabled={!mediaInfo.has_player}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
+						</svg>
+					</button>
+
+					<button
+						class="control-btn play-btn"
+						onclick={togglePlay}
+						aria-label={mediaInfo.is_playing ? 'Pause' : 'Play'}
+						disabled={!mediaInfo.has_player}
+						style="background: {themeColor}cc"
+					>
+						{#if mediaInfo.is_playing}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="32"
+								height="32"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+							>
+								<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
+							</svg>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="32"
+								height="32"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+							>
+								<path d="M8 5v14l11-7z"></path>
+							</svg>
+						{/if}
+					</button>
+
+					<button
+						class="control-btn"
+						onclick={nextTrack}
+						aria-label="Next track"
+						disabled={!mediaInfo.has_player}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
+						</svg>
+					</button>
+				</div>
+
+				<!-- Player Selector Dropdown -->
+				{#if activePlayers.length > 0}
+					<div class="player-selector">
+						<button
+							class="player-dropdown-btn"
+							onclick={() => (showPlayerDropdown = !showPlayerDropdown)}
+							title="Select media source ({activePlayers.length} active)"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<line x1="4" y1="6" x2="20" y2="6"></line>
+								<line x1="4" y1="12" x2="20" y2="12"></line>
+								<line x1="4" y1="18" x2="20" y2="18"></line>
+							</svg>
+						</button>
+
+						{#if showPlayerDropdown}
+							<div class="player-dropdown-menu">
+								{#each activePlayers as player}
+									<button
+										class="player-option"
+										class:selected={selectedPlayer === player.identity}
+										onclick={() => selectPlayer(player.identity)}
+										style={selectedPlayer === player.identity ? `background: ${themeColor}4d;` : ''}
+									>
+										<span class="option-name">{player.name}</span>
+										{#if player.is_playing}
+											<span class="option-playing" style="color: {themeColor}">▶ Playing</span>
+										{:else}
+											<span class="option-paused">⏸ Paused</span>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</div>
 	</div>
 </div>
 
@@ -450,9 +452,9 @@
 		align-items: center;
 		justify-content: space-between;
 		box-sizing: border-box;
+		container-type: size;
 		font-size: var(--appearance-font-size);
 		font-family: var(--appearance-font-family);
-		gap: 12px;
 		position: relative;
 		background: var(--appearance-background);
 		border: var(--appearance-border);
@@ -540,9 +542,18 @@
 		margin-left: 8px;
 	}
 
+	.music-body {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
 	.album-art {
-		width: 70%;
-		min-width: 60px;
+		width: max(0px, min(70cqw, 100cqh - 170px));
 		max-width: 100%;
 		aspect-ratio: 1;
 		flex-shrink: 0;
@@ -675,5 +686,61 @@
 	.play-btn {
 		width: 48px;
 		height: 48px;
+	}
+
+	@container (max-height: 240px) {
+		.album-art {
+			display: none;
+		}
+	}
+
+	.music-meta {
+		display: contents;
+	}
+
+	@container (max-width: 220px) {
+		.main-controls {
+			gap: 4px;
+		}
+
+		.control-btn {
+			padding: 4px;
+		}
+
+		.play-btn {
+			width: 38px;
+			height: 38px;
+		}
+	}
+
+	@container (min-aspect-ratio: 4/3) and (min-width: 360px) {
+		.music-body.with-art {
+			flex-direction: row;
+			justify-content: flex-start;
+			gap: 16px;
+		}
+
+		.with-art .album-art {
+			display: flex;
+			width: auto;
+			height: min(100cqh, 45cqw);
+		}
+
+		.with-art .music-meta {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 10px;
+			flex: 1;
+			min-width: 0;
+		}
+
+		.with-art .song-info {
+			text-align: left;
+		}
+
+		.with-art .main-controls {
+			justify-content: flex-start;
+		}
 	}
 </style>

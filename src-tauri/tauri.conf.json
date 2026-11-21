@@ -30,7 +30,7 @@
       "dangerousDisableAssetCspModification": true,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": ["**", "$CONFIG/odeko/**"]
       }
     }
   },

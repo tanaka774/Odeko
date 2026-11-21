@@ -9,6 +9,7 @@ pub mod canvas;
 pub mod media;
 pub mod library_cache;
 pub mod media_server;
+pub mod notes;
 pub mod power_control;
 pub mod system_stats;
 pub mod terminal;

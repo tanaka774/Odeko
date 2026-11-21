@@ -10,6 +10,15 @@ vi.mock('@tauri-apps/api/core', () => ({
 	convertFileSrc: (path: string) => path
 }));
 
+let visibility: ((visible: boolean) => void) | null = null;
+vi.mock('$lib/window-visibility', () => ({
+	watchWindowVisibility: (onChange: (visible: boolean) => void) => {
+		visibility = onChange;
+		onChange(true);
+		return () => (visibility = null);
+	}
+}));
+
 import CustomWidget from './CustomWidget.svelte';
 
 afterEach(() => {
@@ -42,6 +51,20 @@ describe('CustomWidget', () => {
 			expect(frameOf(container).getAttribute('srcdoc')).toContain('Content-Security-Policy')
 		);
 		expect(container.querySelector('.custom-widget')?.hasAttribute('data-scripts')).toBe(false);
+	});
+
+	it('tells the page when the canvas hides and shows again', async () => {
+		const { container } = render(CustomWidget, { widgetId: 'w', config: { content: '<p>x</p>' } });
+		const frame = frameOf(container);
+		await waitFor(() => expect(visibility).not.toBeNull());
+		const posted: unknown[] = [];
+		Object.defineProperty(frame, 'contentWindow', {
+			value: { postMessage: (message: unknown) => posted.push(message) }
+		});
+		visibility!(false);
+		visibility!(false);
+		visibility!(true);
+		expect(posted).toEqual([{ kind: 'odeko-pause' }, { kind: 'odeko-resume' }]);
 	});
 
 	it('covers the page in edit mode so it can be dragged', () => {

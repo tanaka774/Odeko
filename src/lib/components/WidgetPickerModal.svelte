@@ -20,7 +20,6 @@
 	import Moon from '@lucide/svelte/icons/moon';
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import Power from '@lucide/svelte/icons/power';
-	import Clipboard from '@lucide/svelte/icons/clipboard';
 	import Code from '@lucide/svelte/icons/code';
 	import Bot from '@lucide/svelte/icons/bot';
 	import SeparatorHorizontal from '@lucide/svelte/icons/separator-horizontal';
@@ -48,7 +47,6 @@
 		moon: Moon,
 		'rotate-cw': RotateCw,
 		power: Power,
-		clipboard: Clipboard,
 		code: Code,
 		bot: Bot,
 		'separator-horizontal': SeparatorHorizontal

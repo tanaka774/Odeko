@@ -14,7 +14,6 @@ export type WidgetType =
 	| 'sleep'
 	| 'restart'
 	| 'shutdown'
-	| 'clipboard'
 	| 'custom'
 	| 'aichat'
 	| 'divider';
@@ -185,11 +184,6 @@ export const WIDGET_TYPE_APPEARANCE_DEFAULTS: Partial<
 	shutdown: {
 		padding: 16
 	},
-	clipboard: {
-		backgroundColor: 'rgba(30, 30, 40, 0.95)',
-		backgroundOpacity: 0.95,
-		padding: 0
-	},
 	aichat: {
 		backgroundColor: 'rgba(24, 24, 32, 0.95)',
 		backgroundOpacity: 0.95,
@@ -228,6 +222,8 @@ export interface ClockWidgetConfig extends WidgetConfig {
 	showSeconds?: boolean;
 	showDate?: boolean;
 	timezone?: string; // e.g., 'local', 'UTC', 'America/New_York'
+	/** Digital mode: scale the time and date to fill the widget. */
+	fitText?: boolean;
 	analogBackgroundColor?: string;
 	analogBackgroundOpacity?: number;
 	analogNumberColor?: string;
@@ -294,7 +290,7 @@ let taskGroupIdCounter = 0;
 
 export function createTaskGroup(
 	name = '',
-	color = TASK_GROUP_COLORS[0],
+	color: string = TASK_GROUP_COLORS[0],
 	tasks: Task[] = []
 ): TaskGroup {
 	return {
@@ -305,21 +301,21 @@ export function createTaskGroup(
 	};
 }
 
-// Returns the tabs of a task list config. Old configs stored a flat `tasks`
-// array; those are migrated into a single "General" tab so nothing is lost.
-export function normalizeTaskGroups(config: TaskListWidgetConfig): TaskGroup[] {
-	if (config.groups && config.groups.length > 0) {
-		return config.groups;
-	}
-	const legacyTasks = config.tasks ?? [];
-	return [createTaskGroup('', TASK_GROUP_COLORS[0], legacyTasks)];
+// Task list contents, stored in a note outside the preset.
+export interface TaskNoteData {
+	groups?: TaskGroup[];
 }
 
-// Task list widget config
+export function normalizeTaskGroups(data: unknown): TaskGroup[] {
+	const groups = (data as TaskNoteData | null)?.groups;
+	return Array.isArray(groups) && groups.length > 0 ? groups : [createTaskGroup()];
+}
+
+// Task list widget config. `noteId` picks the note holding the tasks; without
+// one the widget shows the shared Main note.
 export interface TaskListWidgetConfig extends WidgetConfig {
-	groups?: TaskGroup[];
+	noteId?: string;
 	activeGroupId?: string;
-	tasks?: Task[];
 	autoDisappearEnabled?: boolean;
 	autoDisappearHours?: number;
 }
@@ -360,9 +356,38 @@ export interface DividerWidgetConfig extends WidgetConfig {
 	label?: string;
 }
 
-// Memo widget config
+export interface MemoTab {
+	id: string;
+	name: string;
+	color: string;
+	content: string;
+}
+
+// Memo contents, stored in a note outside the preset.
+export interface MemoNoteData {
+	tabs?: MemoTab[];
+}
+
+let memoTabIdCounter = 0;
+
+export function createMemoTab(
+	name = '',
+	color: string = TASK_GROUP_COLORS[0],
+	content = ''
+): MemoTab {
+	return { id: `tab-${Date.now()}-${memoTabIdCounter++}`, name, color, content };
+}
+
+export function normalizeMemoTabs(data: unknown): MemoTab[] {
+	const tabs = (data as MemoNoteData | null)?.tabs;
+	return Array.isArray(tabs) && tabs.length > 0 ? tabs : [createMemoTab()];
+}
+
+// Memo widget config. `noteId` picks the note holding the text; without one
+// the widget shows the shared Main note.
 export interface MemoWidgetConfig extends WidgetConfig {
-	content?: string;
+	noteId?: string;
+	activeTabId?: string;
 	wordWrap?: boolean;
 }
 
@@ -402,25 +427,6 @@ export type RestartWidgetConfig = PowerControlWidgetConfig;
 
 // Shutdown widget config
 export type ShutdownWidgetConfig = PowerControlWidgetConfig;
-
-// A single item in the clipboard history. Text entries keep the copied text;
-// image entries keep a PNG data URL (downscaled so the saved layout stays small).
-export interface ClipboardEntry {
-	id: string;
-	type: 'text' | 'image';
-	text?: string;
-	image?: string; // PNG data URL
-	createdAt: number;
-	pinned: boolean;
-}
-
-// Clipboard widget config
-export interface ClipboardWidgetConfig extends WidgetConfig {
-	history?: ClipboardEntry[];
-	maxEntries?: number;
-	showTimestamps?: boolean;
-	captureImages?: boolean;
-}
 
 // Custom HTML widget config. The raw HTML lives here; it is sanitized at
 // render time (see custom-html.ts), so the user's original text is kept
@@ -484,7 +490,6 @@ export type WidgetConfigType =
 	| SleepWidgetConfig
 	| RestartWidgetConfig
 	| ShutdownWidgetConfig
-	| ClipboardWidgetConfig
 	| CustomWidgetConfig
 	| AiChatWidgetConfig
 	| DividerWidgetConfig;
@@ -646,16 +651,6 @@ export const WIDGET_REGISTRY: WidgetMeta[] = [
 		minHeight: 140
 	},
 	{
-		type: 'clipboard',
-		name: 'Clipboard',
-		description: 'Clipboard history manager',
-		icon: 'clipboard',
-		defaultWidth: 300,
-		defaultHeight: 360,
-		minWidth: 220,
-		minHeight: 240
-	},
-	{
 		type: 'custom',
 		name: 'Custom HTML',
 		description: 'Your own HTML, styled with custom CSS',
@@ -744,15 +739,11 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			};
 		case 'terminal':
 			return {};
-		case 'tasklist': {
-			const generalTab = createTaskGroup();
+		case 'tasklist':
 			return {
-				groups: [generalTab],
-				activeGroupId: generalTab.id,
 				autoDisappearEnabled: true,
 				autoDisappearHours: 24
 			};
-		}
 		case 'music':
 			return {
 				showAlbumArt: true,
@@ -785,7 +776,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 			};
 		case 'memo':
 			return {
-				content: '',
 				wordWrap: true
 			};
 		case 'drawing':
@@ -828,13 +818,6 @@ export function createDefaultWidgetConfig(type: WidgetType): WidgetConfigType {
 				buttonText: 'Shutdown',
 				iconType: 'default',
 				iconPath: ''
-			};
-		case 'clipboard':
-			return {
-				history: [],
-				maxEntries: 20,
-				showTimestamps: true,
-				captureImages: true
 			};
 		case 'aichat':
 			return { profileId: null, instructions: '' };

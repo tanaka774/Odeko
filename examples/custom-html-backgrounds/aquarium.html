@@ -1,0 +1,602 @@
+<!-- Aquarium -->
+<!doctype html>
+<html>
+	<head>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: #04121f;
+			}
+			canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas></canvas>
+		<script>
+			// A detailed ASCII fish tank. Click the water to drop a pinch of food:
+			// the nearest hungry fish swims over and eats it. Move the pointer close
+			// and the fish dart away. Leave Interactive off so icons stay clickable.
+			const FONT_SIZE = 18;
+			// Fish and food stay left of this fraction of the width (clear of side panels).
+			const SWIM_RIGHT = 0.8;
+			const FONT = `${FONT_SIZE}px "DejaVu Sans Mono", "Noto Sans Mono", Menlo, Consolas, monospace`;
+
+			const FLIP = {
+				'<': '>',
+				'>': '<',
+				'(': ')',
+				')': '(',
+				'/': '\\',
+				'\\': '/',
+				'`': "'",
+				"'": '`',
+				'{': '}',
+				'}': '{',
+				'[': ']',
+				']': '['
+			};
+			const mirror = (art) => {
+				const w = Math.max(...art.map((l) => l.length));
+				return art.map((l) =>
+					[...l.padEnd(w)]
+						.reverse()
+						.map((c) => FLIP[c] || c)
+						.join('')
+				);
+			};
+
+			// Facing right; `turn` is the face-on view shown while turning around.
+			const SPECIES = [
+				{
+					art: ['><>'],
+					turn: ['<o>'],
+					colors: ['#ffd166', '#caffbf', '#a0c4ff', '#ffadad'],
+					count: 7,
+					speed: 9
+				},
+				{ art: ['>=°>'], turn: ['<°>'], colors: ['#4cc9f0', '#f72585'], count: 4, speed: 8 },
+				{ art: ['><(((°>'], turn: ['<(°o°)>'], colors: ['#ff9f43', '#b8f2e6'], count: 3, speed: 6 },
+				{
+					art: ['   /\\', '><(  °>', '   \\/'],
+					turn: ['/^\\', '(°o°)', '\\v/'],
+					colors: ['#f9c74f', '#c77dff'],
+					count: 2,
+					speed: 4.5
+				},
+				{
+					art: ['   _.-._', '><(     °)', "   `-.-'"],
+					turn: ['.-^-.', '(°o°)', "`-v-'"],
+					colors: ['#ff8fab', '#80ffdb'],
+					count: 2,
+					speed: 4.5
+				},
+				{
+					art: ["  \\'|'/", '><(  ° )', '  /,|,\\'],
+					turn: ['\\|/', '(°o°)', '/|\\'],
+					colors: ['#ffe066'],
+					count: 1,
+					speed: 3
+				},
+				{
+					art: [
+						'      ,-""-.',
+						" \\  ,'  ))  `.",
+						'  >=   )))  ° :',
+						" /  `.  ))  ,'",
+						"      `-..-'"
+					],
+					turn: [' .-""-. ', '( °  ° )', '(  oo  )', " `-..-' "],
+					colors: ['#90e0ef'],
+					count: 1,
+					speed: 3
+				}
+			];
+
+			const DECOR = [
+				{
+					frac: 0.06,
+					art: [
+						'        |>>>',
+						'        |',
+						'    _  _|_  _',
+						'   |;|_|;|_|;|',
+						'   \\.    .  /',
+						'    \\:  .  /',
+						'     ||:   |',
+						'     ||:.  |',
+						'     ||:  .|',
+						"  ___||_.-'|___",
+						' /  ..  ..  .. \\'
+					],
+					color: '#a8b2c1',
+					accents: { '>': '#ff6b6b', ';': '#ffd166' },
+					bubble: [9, 4]
+				},
+				{ frac: 0.27, art: ['\\ | /', ' \\|/', '  |'], color: '#ff6b6b' },
+				{
+					frac: 0.42,
+					art: ['     .--.__', '  .-(  .    `.', ' (  .    .    )'],
+					color: '#8d99ae',
+					bubble: [6, 0]
+				},
+				{ frac: 0.55, art: ['\\  |  /', ' \\ | /', '  \\|/', '   |'], color: '#ff8fab' },
+				{
+					frac: 0.66,
+					art: [
+						'   __________',
+						'  /\\____;;___\\',
+						' | /  $$  $  /|',
+						' |/__________/ |',
+						' |  _o_   _o_ |/',
+						" '------------'"
+					],
+					color: '#c9a227',
+					accents: { $: '#ffd60a', o: '#ffffff' },
+					bubble: [5, 0]
+				},
+				{
+					frac: 0.88,
+					art: ['     _.-._', '   _/  .  \\_', ' _/  .    .  \\_', '/   .   .     . \\'],
+					color: '#6c757d'
+				}
+			];
+
+			const canvas = document.querySelector('canvas');
+			const ctx = canvas.getContext('2d');
+			let W = 0;
+			let H = 0;
+			let cw = 10;
+			let ch = 20;
+			let cols = 0;
+			let rows = 0;
+			let floor = 0;
+			let swimCols = 0;
+			let offsetY = 0;
+			let chars = [];
+			let colors = [];
+			let fish = [];
+			let decor = [];
+			let weeds = [];
+			let jellies = [];
+			let crab = null;
+			let plankton = [];
+			let sources = [];
+			const foods = [];
+			const hearts = [];
+			const bubbles = [];
+			const seenClicks = new Map();
+			let last = 0;
+
+			function hash(a, b) {
+				let h = Math.imul(a | 0, 0x27d4eb2d) ^ Math.imul(b | 0, 0x165667b1);
+				h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+				h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+				return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+			}
+			const rand = (a, b) => a + Math.random() * (b - a);
+			const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+			function alpha(hex, a) {
+				const n = parseInt(hex.slice(1), 16);
+				return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+			}
+
+			function put(x, y, text, color, accents) {
+				x = Math.round(x);
+				y = Math.round(y);
+				if (y < 0 || y >= rows) return;
+				for (let i = 0; i < text.length; i++) {
+					const c = x + i;
+					const s = text[i];
+					if (c < 0 || c >= cols || s === ' ') continue;
+					chars[y * cols + c] = s;
+					colors[y * cols + c] = (accents && accents[s]) || color;
+				}
+			}
+
+			function putArt(x, y, art, color, accents) {
+				art.forEach((line, i) => put(x, y + i, line, color, accents));
+			}
+
+			function freeAt(col) {
+				return !decor.some((d) => col >= d.x - 1 && col <= d.x + d.w);
+			}
+
+			function layout() {
+				const ratio = window.devicePixelRatio || 1;
+				canvas.width = W * ratio;
+				canvas.height = H * ratio;
+				ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+				ctx.font = FONT;
+				cw = ctx.measureText('M').width;
+				ch = Math.round(FONT_SIZE * 1.18);
+				cols = Math.floor(W / cw);
+				rows = Math.floor(H / ch);
+				offsetY = H - rows * ch;
+				floor = rows - 3;
+				swimCols = Math.floor(cols * SWIM_RIGHT);
+				chars = new Array(cols * rows).fill('');
+				colors = new Array(cols * rows).fill('');
+
+				decor = DECOR.map((d) => {
+					const w = Math.max(...d.art.map((l) => l.length));
+					return { ...d, w, x: Math.round(d.frac * swimCols), y: floor - d.art.length + 1 };
+				});
+				sources = decor
+					.filter((d) => d.bubble)
+					.map((d) => ({ x: d.x + d.bubble[0], y: d.y + d.bubble[1] - 1, next: rand(0, 2) }));
+
+				weeds = [];
+				for (let c = 1; c < cols - 1; c++) {
+					if (hash(c, 7) < 0.86 || !freeAt(c)) continue;
+					const blades = 1 + Math.floor(hash(c, 9) * 3);
+					for (let b = 0; b < blades; b++) {
+						const tall = Math.max(3, Math.round(rows * (0.08 + 0.22 * hash(c + b, 11))));
+						weeds.push({
+							x: c + b,
+							h: tall,
+							lean: (hash(c + b, 13) - 0.5) * 4,
+							phase: hash(c, 17) * 6.28,
+							front: hash(c + b, 19) > 0.75
+						});
+					}
+					c += blades + 4;
+				}
+
+				const scale = Math.min(1.6, Math.max(0.6, (swimCols * floor) / (150 * 45)));
+				fish = [];
+				for (const s of SPECIES) {
+					const n = Math.max(1, Math.round(s.count * scale));
+					for (let i = 0; i < n; i++) {
+						const w = Math.max(...s.art.map((l) => l.length));
+						const h = s.art.length;
+						const z = Math.random();
+						const base = pick(s.colors);
+						fish.push({
+							right: s.art,
+							left: mirror(s.art),
+							turn: s.turn,
+							w,
+							h,
+							eyeRow: s.art.findIndex((l) => l.includes('°')),
+							x: rand(2, Math.max(3, swimCols - w - 2)),
+							y: rand(3, Math.max(4, floor - h - 2)),
+							vx: 0,
+							vy: 0,
+							dir: Math.random() < 0.5 ? 1 : -1,
+							turnT: 0,
+							speed: s.speed * rand(0.8, 1.2),
+							z,
+							color: alpha(base, 0.55 + 0.45 * z),
+							eye: alpha('#ffffff', 0.6 + 0.4 * z),
+							wander: null,
+							food: null,
+							full: 0
+						});
+					}
+				}
+				fish.sort((a, b) => a.z - b.z);
+
+				jellies = [0, 1].map((i) => ({
+					x: swimCols * (0.3 + 0.35 * i) + rand(-5, 5),
+					y: rand(4, floor * 0.6),
+					phase: rand(0, 3)
+				}));
+				crab = { x: swimCols * 0.35, dir: 1, pause: 0 };
+				plankton = Array.from({ length: Math.round((cols * rows) / 110) }, () => ({
+					x: rand(0, cols),
+					y: rand(2, floor),
+					v: rand(0.1, 0.4),
+					p: rand(0, 6.28)
+				}));
+			}
+
+			function spawnFood(px, py) {
+				const x = px / cw;
+				const y = Math.max(2, (py - offsetY) / ch);
+				if (x < 1 || x > swimCols - 1 || y >= floor) return;
+				const n = 3 + Math.floor(Math.random() * 3);
+				for (let i = 0; i < n; i++) {
+					foods.push({
+						x: x + rand(-1.6, 1.6),
+						y: y + rand(-0.6, 0.6),
+						vy: rand(1.4, 2.4),
+						seed: rand(0, 6),
+						age: 0,
+						by: null,
+						settled: false
+					});
+				}
+			}
+
+			function readClicks(state) {
+				for (const click of state.clicks || []) {
+					const key = `${Math.round(click.x)},${Math.round(click.y)}`;
+					const at = state.time - click.age;
+					const known = seenClicks.get(key);
+					if (known !== undefined && Math.abs(known - at) < 0.1) continue;
+					seenClicks.set(key, at);
+					if (click.age < 0.5) spawnFood(click.x, click.y);
+				}
+				if (seenClicks.size > 64) {
+					for (const [key, at] of seenClicks) if (state.time - at > 10) seenClicks.delete(key);
+				}
+			}
+
+			function updateFish(f, dt, state) {
+				f.full = Math.max(0, f.full - dt);
+				if (f.food && (f.food.eaten || f.food.gone)) f.food = null;
+				if (!f.food && f.full === 0) {
+					let best = null;
+					let bestD = 70;
+					for (const food of foods) {
+						if (food.by || food.eaten) continue;
+						const d = Math.hypot(food.x - (f.x + f.w / 2), (food.y - f.y) * 2);
+						if (d < bestD) {
+							bestD = d;
+							best = food;
+						}
+					}
+					if (best) {
+						best.by = f;
+						f.food = best;
+					}
+				}
+
+				let tx;
+				let ty;
+				if (f.food) {
+					tx = f.food.x > f.x + f.w / 2 ? f.food.x - f.w : f.food.x + 1;
+					ty = f.food.y - f.eyeRow;
+				} else {
+					if (!f.wander || Math.hypot(f.wander.x - f.x, (f.wander.y - f.y) * 2) < 2) {
+						f.wander = { x: rand(1, swimCols - f.w - 1), y: rand(3, floor - f.h - 1) };
+					}
+					tx = f.wander.x;
+					ty = f.wander.y;
+				}
+				const dx = tx - f.x;
+				const dy = ty - f.y;
+				const d = Math.hypot(dx, dy * 2) || 1;
+				const sp = f.speed * (f.food ? 2 : 1) * Math.min(1, d / 3 + 0.25);
+				let dvx = (dx / d) * sp;
+				let dvy = (dy / d) * sp * 0.5;
+
+				const p = state.pointer;
+				if (p && p.presence > 0.3) {
+					const ax = f.x + f.w / 2 - p.x / cw;
+					const ay = (f.y + f.h / 2 - (p.y - offsetY) / ch) * 2;
+					const ad = Math.hypot(ax, ay) || 1;
+					if (ad < 14) {
+						const push = (1 - ad / 14) * f.speed * 4 * p.presence;
+						dvx += (ax / ad) * push;
+						dvy += (ay / ad) * push * 0.5;
+					}
+				}
+
+				const k = Math.min(1, dt * 2.5);
+				f.vx += (dvx - f.vx) * k;
+				f.vy += (dvy - f.vy) * k;
+				f.x = Math.min(swimCols - f.w - 1, Math.max(1, f.x + f.vx * dt));
+				f.y = Math.min(floor - f.h + 1, Math.max(2, f.y + f.vy * dt));
+				if (f.vx > 0.8 && f.dir < 0) {
+					f.dir = 1;
+					f.turnT = 0.35;
+				} else if (f.vx < -0.8 && f.dir > 0) {
+					f.dir = -1;
+					f.turnT = 0.35;
+				}
+				f.turnT = Math.max(0, f.turnT - dt);
+
+				if (f.food) {
+					const mouthX = f.dir > 0 ? f.x + f.w : f.x - 1;
+					const mouthY = f.y + f.eyeRow;
+					if (Math.abs(mouthX - f.food.x) < 1.8 && Math.abs(mouthY - f.food.y) < 1.2) {
+						f.food.eaten = true;
+						f.food = null;
+						f.full = rand(2, 5);
+						hearts.push({ x: mouthX, y: mouthY - 1, age: 0 });
+					}
+				}
+			}
+
+			function update(dt, state) {
+				readClicks(state);
+				for (const f of fish) updateFish(f, dt, state);
+
+				for (const food of foods) {
+					food.age += dt;
+					if (!food.settled) {
+						food.y += food.vy * dt;
+						food.x += Math.sin(food.age * 3 + food.seed) * 0.4 * dt;
+						if (food.y >= floor) {
+							food.y = floor;
+							food.settled = true;
+							food.age = 0;
+						}
+					} else if (food.age > 30) food.gone = true;
+				}
+				for (let i = foods.length - 1; i >= 0; i--)
+					if (foods[i].eaten || foods[i].gone) foods.splice(i, 1);
+
+				for (const h of hearts) {
+					h.age += dt;
+					h.y -= dt * 1.4;
+				}
+				for (let i = hearts.length - 1; i >= 0; i--) if (hearts[i].age > 1.6) hearts.splice(i, 1);
+
+				for (const s of sources) {
+					s.next -= dt;
+					if (s.next <= 0) {
+						s.next = rand(0.25, 1.4);
+						bubbles.push({ x: s.x, y: s.y, startY: s.y, vy: rand(2.5, 4.5), phase: rand(0, 6) });
+					}
+				}
+				for (const b of bubbles) b.y -= b.vy * dt;
+				for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].y < 2) bubbles.splice(i, 1);
+
+				for (const j of jellies) {
+					const cycle = (state.time + j.phase) % 3;
+					j.y += (cycle < 0.8 ? -2.2 : 0.45) * dt;
+					if (j.y < 3) j.y = floor * 0.6;
+					if (j.y > floor - 6) j.y = floor - 6;
+				}
+
+				if (crab.pause > 0) crab.pause -= dt;
+				else {
+					crab.x += crab.dir * 2.2 * dt;
+					if (crab.x < 2 || crab.x > swimCols - 16 || Math.random() < dt * 0.15) {
+						crab.dir *= -1;
+						crab.pause = rand(0.5, 3);
+					}
+					crab.x = Math.min(swimCols - 16, Math.max(2, crab.x));
+				}
+
+				for (const p of plankton) {
+					p.y -= p.v * dt * 0.3;
+					p.x += Math.sin(state.time * 0.3 + p.p) * 0.2 * dt;
+					if (p.y < 2) p.y = floor;
+				}
+			}
+
+			function drawWeed(w, t) {
+				let prev = 0;
+				for (let k = 0; k < w.h; k++) {
+					const off = Math.round(Math.sin(t * 0.9 + w.phase + k * 0.35) * w.lean * (k / w.h));
+					const s = off > prev ? '/' : off < prev ? '\\' : (k + w.x) % 2 ? ')' : '(';
+					const g = k / w.h;
+					const color = `rgba(${Math.round(45 + 80 * g)}, ${Math.round(150 + 70 * g)}, ${Math.round(90 + 40 * g)}, ${w.front ? 0.95 : 0.7})`;
+					put(w.x + off, floor - k, s, color);
+					prev = off;
+				}
+			}
+
+			function compose(t) {
+				chars.fill('');
+				colors.fill('');
+
+				for (const p of plankton)
+					put(p.x, p.y, (p.p * 10) % 2 < 1 ? '·' : '.', 'rgba(180, 220, 255, 0.22)');
+				for (const w of weeds) if (!w.front) drawWeed(w, t);
+				for (const d of decor) putArt(d.x, d.y, d.art, d.color, d.accents);
+				for (const b of bubbles) {
+					const rise = (b.startY - b.y) / Math.max(1, b.startY);
+					const s = rise < 0.25 ? '.' : rise < 0.55 ? 'o' : rise < 0.85 ? 'O' : '°';
+					put(
+						b.x + Math.round(Math.sin(b.y * 0.8 + b.phase) * 0.6),
+						b.y,
+						s,
+						'rgba(189, 224, 254, 0.85)'
+					);
+				}
+				for (const j of jellies) {
+					const open = (t + j.phase) % 3 < 0.8;
+					const art = open
+						? [' .--. ', '(    )', ' )()( ', '( )( )']
+						: [' .--. ', '(    )', ' ()() ', ' )()( ', '  ()'];
+					putArt(j.x, j.y, art, 'rgba(244, 166, 215, 0.8)');
+				}
+				for (const f of fish) {
+					if (f.turnT > 0) {
+						const tw = Math.max(...f.turn.map((l) => l.length));
+						putArt(f.x + (f.w - tw) / 2, f.y + (f.h - f.turn.length) / 2, f.turn, f.color, {
+							'°': f.eye
+						});
+					} else putArt(f.x, f.y, f.dir > 0 ? f.right : f.left, f.color, { '°': f.eye });
+				}
+				for (const food of foods) put(food.x, food.y, food.settled ? '.' : '•', '#e9b872');
+				const legs = crab.pause > 0 ? ',,' : Math.floor(t * 6) % 2 ? ',,' : '..';
+				put(crab.x, floor, `(\\/)(°${legs}°)(\\/)`, '#ff7b54', { '°': '#ffffff' });
+				for (const w of weeds) if (w.front) drawWeed(w, t);
+				for (const h of hearts) put(h.x, h.y, '♥', `rgba(255, 93, 143, ${1 - h.age / 1.6})`);
+
+				for (let c = 0; c < cols; c++) {
+					const a = hash(c, 3);
+					put(c, floor + 1, a < 0.55 ? '.' : a < 0.75 ? ',' : '·', a < 0.5 ? '#c9a66b' : '#a1845a');
+					const b = hash(c, 4);
+					const s = b < 0.14 ? 'o' : b < 0.2 ? 'O' : b < 0.27 ? '°' : b < 0.4 ? '.' : '';
+					if (s) put(c, floor + 2, s, b < 0.2 ? '#8d7b68' : '#7d6a52');
+					const wave = Math.sin(c * 0.35 + t * 1.6) + Math.sin(c * 0.11 - t * 0.9);
+					put(c, 0, wave > 1.2 ? '.' : '', 'rgba(200, 240, 255, 0.5)');
+					put(
+						c,
+						1,
+						wave > 0.3 ? '~' : wave > -0.6 ? '-' : '_',
+						wave > 0.3 ? '#bdeeff' : 'rgba(155, 231, 255, 0.7)'
+					);
+				}
+			}
+
+			function paint(t, state) {
+				const sky = ctx.createLinearGradient(0, 0, 0, H);
+				sky.addColorStop(0, '#0b3b5c');
+				sky.addColorStop(0.5, '#062439');
+				sky.addColorStop(1, '#030d17');
+				ctx.globalCompositeOperation = 'source-over';
+				ctx.fillStyle = sky;
+				ctx.fillRect(0, 0, W, H);
+
+				ctx.globalCompositeOperation = 'lighter';
+				for (let i = 0; i < 5; i++) {
+					const x0 = W * (0.08 + 0.19 * i) + Math.sin(t * 0.1 + i) * W * 0.04;
+					const a = 0.035 * (0.6 + 0.4 * Math.sin(t * 0.3 + i * 1.7));
+					const ray = ctx.createLinearGradient(0, 0, 0, H * 0.8);
+					ray.addColorStop(0, `rgba(120, 200, 255, ${a})`);
+					ray.addColorStop(1, 'rgba(120, 200, 255, 0)');
+					ctx.fillStyle = ray;
+					ctx.beginPath();
+					ctx.moveTo(x0 - 40, 0);
+					ctx.lineTo(x0 + 40, 0);
+					ctx.lineTo(x0 + 220, H * 0.8);
+					ctx.lineTo(x0 + 60, H * 0.8);
+					ctx.fill();
+				}
+				const p = state.pointer;
+				if (p && p.presence > 0) {
+					const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 160);
+					glow.addColorStop(0, `rgba(120, 220, 255, ${0.08 * p.presence})`);
+					glow.addColorStop(1, 'rgba(120, 220, 255, 0)');
+					ctx.fillStyle = glow;
+					ctx.fillRect(p.x - 160, p.y - 160, 320, 320);
+				}
+				ctx.globalCompositeOperation = 'source-over';
+
+				ctx.font = FONT;
+				ctx.textBaseline = 'top';
+				const pad = (ch - FONT_SIZE) / 2;
+				let current = '';
+				for (let r = 0; r < rows; r++) {
+					for (let c = 0; c < cols; c++) {
+						const i = r * cols + c;
+						if (!chars[i]) continue;
+						if (colors[i] !== current) {
+							current = colors[i];
+							ctx.fillStyle = current;
+						}
+						ctx.fillText(chars[i], c * cw, offsetY + r * ch + pad);
+					}
+				}
+			}
+
+			odeko.on('frame', (state) => {
+				if (state.width !== W || state.height !== H) {
+					W = state.width;
+					H = state.height;
+					layout();
+				}
+				const dt = Math.min(0.1, Math.max(0, state.time - last));
+				last = state.time;
+				update(dt, state);
+				compose(state.time);
+				paint(state.time, state);
+			});
+		</script>
+	</body>
+</html>

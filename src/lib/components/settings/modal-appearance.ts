@@ -18,7 +18,6 @@ export type ModalKey =
 	| 'sleep'
 	| 'restart'
 	| 'shutdown'
-	| 'clipboard'
 	| 'custom'
 	| 'aichat'
 	| 'divider'
@@ -41,7 +40,6 @@ export const MODAL_KEYS: ModalKey[] = [
 	'sleep',
 	'restart',
 	'shutdown',
-	'clipboard',
 	'custom',
 	'aichat',
 	'divider',
@@ -65,7 +63,6 @@ export const MODAL_LABELS: Record<ModalKey, string> = {
 	sleep: 'Sleep Settings',
 	restart: 'Restart Settings',
 	shutdown: 'Shutdown Settings',
-	clipboard: 'Clipboard Settings',
 	custom: 'Custom Widget Settings',
 	aichat: 'AI Chat Settings',
 	divider: 'Divider Settings',

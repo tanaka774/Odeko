@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { noteKindOf, notesStore } from '$lib/stores/notes.svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { confirm } from '@tauri-apps/plugin-dialog';
@@ -673,12 +674,18 @@
 		const source = icons.find((icon) => icon.id === id);
 		if (!source || source.icon_type !== 'widget') return;
 		saveToHistory();
+		const widgetConfig = source.widget_config ? { ...source.widget_config } : undefined;
+		const kind = noteKindOf(source.widget_type);
+		const noteId = (widgetConfig as { noteId?: string } | undefined)?.noteId;
+		if (kind && widgetConfig && noteId) {
+			(widgetConfig as { noteId?: string }).noteId = notesStore.fork(kind, noteId);
+		}
 		const newIcon: CanvasIcon = {
 			...source,
 			id: `widget-${Date.now()}`,
 			x: source.x + 30,
 			y: source.y + 30,
-			widget_config: source.widget_config ? { ...source.widget_config } : undefined,
+			widget_config: widgetConfig,
 			z: nextZ()
 		};
 		icons = [...icons, newIcon];

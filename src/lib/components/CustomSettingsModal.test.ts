@@ -7,6 +7,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 	convertFileSrc: (path: string) => path
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
+vi.mock('$lib/window-visibility', () => ({ watchWindowVisibility: () => () => {} }));
 
 import CustomSettingsModal from './CustomSettingsModal.svelte';
 

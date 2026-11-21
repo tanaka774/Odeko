@@ -15,11 +15,35 @@ export interface PageHandle {
 	frame: () => HTMLIFrameElement | null;
 }
 
+export interface FetchRequest {
+	url: string;
+	method: string;
+	headers: Record<string, string>;
+	body: string | null;
+}
+
 export interface PendingRequest {
 	token: string;
 	id: number;
-	url: string;
+	request: FetchRequest;
 	host: string;
+}
+
+const FETCH_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+
+/** The fetch a page asked for, or an error message when it is malformed. */
+export function parseFetchRequest(msg: Record<string, unknown>): FetchRequest | string {
+	if (typeof msg.url !== 'string' || !hostOf(msg.url)) return 'only http/https URLs are allowed';
+	const method = typeof msg.method === 'string' ? msg.method.toUpperCase() : 'GET';
+	if (!FETCH_METHODS.includes(method)) return `method ${method} is not allowed`;
+	const headers: Record<string, string> = {};
+	if (msg.headers && typeof msg.headers === 'object' && !Array.isArray(msg.headers)) {
+		for (const [name, value] of Object.entries(msg.headers)) {
+			if (typeof value === 'string' || typeof value === 'number') headers[name] = String(value);
+		}
+	}
+	const body = typeof msg.body === 'string' ? msg.body : null;
+	return { url: msg.url, method, headers, body };
 }
 
 const pages = new Map<string, PageHandle>();
@@ -91,10 +115,10 @@ function createBridge() {
 			?.contentWindow?.postMessage({ kind: 'odeko-reply', id, ...payload }, '*');
 	}
 
-	async function doFetch(token: string, id: number, url: string) {
+	async function doFetch(token: string, id: number, request: FetchRequest) {
 		try {
 			const result = await invoke<{ status: number; body: string }>('widget_fetch', {
-				url,
+				request,
 				allowLocal: settingsStore.settings.allow_local_network
 			});
 			reply(token, id, { ok: true, value: result });
@@ -103,17 +127,18 @@ function createBridge() {
 		}
 	}
 
-	function handleFetch(page: PageHandle, id: number, url: unknown) {
-		const host = typeof url === 'string' ? hostOf(url) : '';
-		if (!host) {
-			reply(page.token, id, { ok: false, error: 'only http/https URLs are allowed' });
+	function handleFetch(page: PageHandle, id: number, msg: Record<string, unknown>) {
+		const request = parseFetchRequest(msg);
+		if (typeof request === 'string') {
+			reply(page.token, id, { ok: false, error: request });
 			return;
 		}
+		const host = hostOf(request.url);
 		if (grantedHosts().includes(host)) {
-			void doFetch(page.token, id, url as string);
+			void doFetch(page.token, id, request);
 			return;
 		}
-		pending = [...pending, { token: page.token, id, url: url as string, host }];
+		pending = [...pending, { token: page.token, id, request, host }];
 	}
 
 	async function handleStorage(
@@ -159,7 +184,7 @@ function createBridge() {
 
 		switch (msg.kind) {
 			case 'widget-fetch':
-				if (id >= 0) handleFetch(page, id, msg.url);
+				if (id >= 0) handleFetch(page, id, msg);
 				break;
 			case 'odeko-storage-load':
 			case 'odeko-storage-set':
@@ -224,7 +249,7 @@ function createBridge() {
 		// Other requests waiting on the same host go through too.
 		const sameHost = pending.filter((entry) => entry.host === request.host);
 		pending = pending.filter((entry) => entry.host !== request.host);
-		for (const entry of [request, ...sameHost]) void doFetch(entry.token, entry.id, entry.url);
+		for (const entry of [request, ...sameHost]) void doFetch(entry.token, entry.id, entry.request);
 	}
 
 	if (typeof window !== 'undefined') window.addEventListener('message', handleMessage);

@@ -1,0 +1,182 @@
+<!--
+	RSS reader: the latest items of a feed (RSS or Atom). Click the title to
+	switch feeds; links open in your browser. The feed is fetched with
+	odeko.fetch and refreshed every 15 minutes.
+-->
+<style>
+	:root {
+		--accent: #fb923c;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		padding: 8px 10px;
+	}
+	header {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		margin-bottom: 4px;
+	}
+	#title {
+		font-weight: 700;
+		color: var(--accent);
+		cursor: pointer;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	#updated {
+		margin-left: auto;
+		font-size: 0.7em;
+		opacity: 0.45;
+		white-space: nowrap;
+	}
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		overflow-y: auto;
+		flex: 1;
+	}
+	li {
+		padding: 5px 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+	}
+	li:last-child {
+		border-bottom: none;
+	}
+	a {
+		color: inherit;
+		text-decoration: none;
+		display: block;
+		line-height: 1.3;
+	}
+	a:hover {
+		color: var(--accent);
+	}
+	.meta {
+		font-size: 0.72em;
+		opacity: 0.5;
+		margin-top: 1px;
+	}
+	#err {
+		color: #fca5a5;
+		font-size: 0.8em;
+	}
+	.edit {
+		font: inherit;
+		width: 100%;
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.35);
+		color: inherit;
+	}
+</style>
+<header>
+	<span id="title" title="Click to change the feed">Loading…</span><span id="updated"></span>
+</header>
+<ul id="list"></ul>
+<div id="err"></div>
+<script>
+	const DEFAULT_FEED = 'https://hnrss.org/frontpage';
+	const MAX_ITEMS = 20;
+	let feedUrl = DEFAULT_FEED;
+
+	// Sandboxed pages cannot open prompt(); edit in place instead.
+	function editInPlace(element, value, onDone) {
+		const input = document.createElement('input');
+		input.className = 'edit';
+		input.value = value;
+		element.replaceWith(input);
+		input.focus();
+		input.select();
+		let finished = false;
+		const finish = (commit) => {
+			if (finished) return;
+			finished = true;
+			input.replaceWith(element);
+			if (commit) onDone(input.value.trim());
+		};
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') finish(true);
+			if (event.key === 'Escape') finish(false);
+		});
+		input.addEventListener('blur', () => finish(true));
+	}
+
+	function ago(date) {
+		const minutes = Math.round((Date.now() - date) / 60000);
+		if (!isFinite(minutes)) return '';
+		if (minutes < 60) return `${minutes}m ago`;
+		if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
+		return `${Math.round(minutes / 1440)}d ago`;
+	}
+
+	function parse(xml) {
+		const doc = new DOMParser().parseFromString(xml, 'application/xml');
+		if (doc.querySelector('parsererror')) throw new Error('not a valid RSS/Atom feed');
+		const text = (node, tag) => node.getElementsByTagName(tag)[0]?.textContent?.trim() ?? '';
+		const channel = doc.querySelector('channel') ?? doc.documentElement;
+		const entries = [...doc.querySelectorAll('item, entry')].slice(0, MAX_ITEMS).map((item) => {
+			const atomLink = item.querySelector('link[href]');
+			return {
+				title: text(item, 'title'),
+				link: atomLink ? atomLink.getAttribute('href') : text(item, 'link'),
+				date: new Date(text(item, 'pubDate') || text(item, 'updated') || text(item, 'published'))
+			};
+		});
+		return { title: text(channel, 'title') || feedUrl, entries };
+	}
+
+	async function load() {
+		const err = document.getElementById('err');
+		err.textContent = '';
+		try {
+			const { status, body } = await odeko.fetch(feedUrl);
+			if (status !== 200) throw new Error(`HTTP ${status}`);
+			const feed = parse(body);
+			document.getElementById('title').textContent = feed.title;
+			document.getElementById('list').replaceChildren(
+				...feed.entries.map((entry) => {
+					const li = document.createElement('li');
+					const a = document.createElement('a');
+					a.href = entry.link;
+					a.textContent = entry.title;
+					const meta = document.createElement('div');
+					meta.className = 'meta';
+					meta.textContent = ago(entry.date);
+					a.append(meta);
+					li.append(a);
+					return li;
+				})
+			);
+			document.getElementById('updated').textContent = new Date().toLocaleTimeString([], {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		} catch (error) {
+			err.textContent = String(error.message ?? error);
+		}
+	}
+
+	document.getElementById('title').addEventListener('click', (event) =>
+		editInPlace(event.currentTarget, feedUrl, async (next) => {
+			if (!/^https?:\/\//.test(next)) return;
+			feedUrl = next;
+			await odeko.storage.set('feed', feedUrl);
+			load();
+		})
+	);
+
+	odeko.storage.get('feed').then((saved) => {
+		feedUrl = saved ?? DEFAULT_FEED;
+		load();
+	});
+	setInterval(load, 15 * 60000);
+</script>

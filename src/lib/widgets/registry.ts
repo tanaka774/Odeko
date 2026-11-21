@@ -18,7 +18,6 @@ import SlideshowWidget from './SlideshowWidget.svelte';
 import SleepWidget from './SleepWidget.svelte';
 import RestartWidget from './RestartWidget.svelte';
 import ShutdownWidget from './ShutdownWidget.svelte';
-import ClipboardWidget from './ClipboardWidget.svelte';
 import CustomWidget from './CustomWidget.svelte';
 import AiChatWidget from './AiChatWidgetLazy.svelte';
 import DividerWidget from './DividerWidget.svelte';
@@ -37,7 +36,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
 	sleep: SleepWidget,
 	restart: RestartWidget,
 	shutdown: ShutdownWidget,
-	clipboard: ClipboardWidget,
 	custom: CustomWidget,
 	aichat: AiChatWidget,
 	divider: DividerWidget

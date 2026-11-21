@@ -181,7 +181,17 @@ export const WIDGET_CSS_API: Record<
 	},
 	memo: {
 		states: ['[data-empty]'],
-		classes: ['.memo-widget', '.memo-content'],
+		classes: [
+			'.memo-widget',
+			'.memo-content',
+			'.tab-bar-container',
+			'.tab-bar',
+			'.memo-tab',
+			'.tab-name',
+			'.tab-scroll-btn',
+			'.add-tab-btn',
+			'.active'
+		],
 		example:
 			'.memo-widget { background: linear-gradient(180deg, #ffe066, #ffd43b); color: #4a3b00; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }\n.memo-content { font-family: "Segoe Print", "Comic Sans MS", cursive; }'
 	},
@@ -240,33 +250,6 @@ export const WIDGET_CSS_API: Record<
 		classes: ['.power-widget', '.default-icon', '.custom-icon', '.label'],
 		example:
 			'.power-widget { background: #160607; border: 1px solid #ff4d4d; box-shadow: 0 0 22px rgba(255, 77, 77, 0.4); }\n.label { color: #ff8080; letter-spacing: 0.14em; text-transform: uppercase; }'
-	},
-	clipboard: {
-		states: ['[data-empty]'],
-		classes: [
-			'.clipboard-widget',
-			'.toolbar',
-			'.toolbar-btn',
-			'.search-box',
-			'.search-icon',
-			'.entry-list',
-			'.entry',
-			'.entry-main',
-			'.entry-thumb',
-			'.entry-preview',
-			'.entry-time',
-			'.entry-actions',
-			'.action-btn',
-			'.edit-box',
-			'.edit-actions',
-			'.confirm',
-			'.danger',
-			'.copied-badge',
-			'.copied',
-			'.clickable'
-		],
-		example:
-			'.clipboard-widget { background: rgba(17, 24, 39, 0.78); }\n.entry { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }\n.entry-preview { color: #cbd5e1; }'
 	},
 	custom: {
 		states: ['[data-scripts]', '[data-linked]'],

@@ -16,7 +16,7 @@ function helperScript(token: string, kind: PageKind): string {
 	return `(function () {
 	var TOKEN = ${JSON.stringify(token)};
 	var KIND = ${JSON.stringify(kind)};
-	var listeners = { frame: [], pause: [], resume: [], storage: [] };
+	var listeners = { frame: [], pause: [], resume: [] };
 	var pending = {};
 	var nextId = 1;
 	var data = {};
@@ -39,8 +39,18 @@ function helperScript(token: string, kind: PageKind): string {
 		on: function (type, callback) {
 			if (listeners[type]) listeners[type].push(callback);
 		},
-		fetch: function (url) {
-			return request({ kind: 'widget-fetch', url: String(url), from: KIND });
+		fetch: function (url, options) {
+			options = options || {};
+			var body = options.body;
+			if (body != null && typeof body !== 'string') body = JSON.stringify(body);
+			return request({
+				kind: 'widget-fetch',
+				url: String(url),
+				method: options.method ? String(options.method).toUpperCase() : 'GET',
+				headers: options.headers || {},
+				body: body == null ? null : body,
+				from: KIND
+			});
 		},
 		open: function (url) {
 			send({ kind: 'odeko-open', url: String(url) });

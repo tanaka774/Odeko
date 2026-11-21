@@ -1,0 +1,218 @@
+<!--
+	Habit tracker: one row per habit over the last weeks, GitHub-style.
+	Click today's square to mark it done, click a name to rename it (clear it
+	to delete), + adds a habit. Saved with odeko.storage.
+-->
+<style>
+	:root {
+		--on: #4ade80;
+		--off: rgba(255, 255, 255, 0.08);
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		padding: 8px 10px;
+		gap: 6px;
+		user-select: none;
+	}
+	header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+	h3 {
+		margin: 0;
+		font-size: 0.75em;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		opacity: 0.55;
+	}
+	#add {
+		background: none;
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		color: inherit;
+		border-radius: 6px;
+		cursor: pointer;
+		font: inherit;
+		padding: 0 8px;
+	}
+	#rows {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		overflow-y: auto;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 6.5em 1fr auto;
+		align-items: center;
+		gap: 8px;
+	}
+	.name {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		cursor: text;
+	}
+	.cells {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		gap: 3px;
+	}
+	.cell {
+		aspect-ratio: 1;
+		border-radius: 3px;
+		background: var(--off);
+	}
+	.cell.done {
+		background: var(--on);
+	}
+	.cell.today {
+		outline: 1px solid rgba(255, 255, 255, 0.6);
+		cursor: pointer;
+	}
+	.streak {
+		font-size: 0.8em;
+		opacity: 0.7;
+		font-variant-numeric: tabular-nums;
+		min-width: 3em;
+		text-align: right;
+	}
+	.edit {
+		font: inherit;
+		width: 100%;
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.35);
+		color: inherit;
+	}
+</style>
+<header>
+	<h3>Habits</h3>
+	<button id="add" aria-label="Add habit">+</button>
+</header>
+<div id="rows"></div>
+<script>
+	const DAYS = 21;
+	let habits = [];
+
+	// Sandboxed pages cannot open prompt(); edit in place instead.
+	function editInPlace(element, value, onDone) {
+		const input = document.createElement('input');
+		input.className = 'edit';
+		input.value = value;
+		element.replaceWith(input);
+		input.focus();
+		input.select();
+		let finished = false;
+		const finish = (commit) => {
+			if (finished) return;
+			finished = true;
+			input.replaceWith(element);
+			if (commit) onDone(input.value.trim());
+		};
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') finish(true);
+			if (event.key === 'Escape') finish(false);
+		});
+		input.addEventListener('blur', () => finish(true));
+	}
+
+	const key = (date) => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+	const dayAt = (back) => {
+		const d = new Date();
+		d.setDate(d.getDate() - back);
+		return d;
+	};
+
+	function streak(habit) {
+		let count = 0;
+		for (
+			let back = habit.done.includes(key(dayAt(0))) ? 0 : 1;
+			habit.done.includes(key(dayAt(back)));
+			back++
+		)
+			count++;
+		return count;
+	}
+
+	function save() {
+		odeko.storage.set('habits', habits);
+	}
+
+	function render() {
+		const rows = document.getElementById('rows');
+		rows.replaceChildren(
+			...habits.map((habit) => {
+				const row = document.createElement('div');
+				row.className = 'row';
+				const name = document.createElement('div');
+				name.className = 'name';
+				name.textContent = habit.name;
+				name.title = 'Click to rename (clear to delete)';
+				name.addEventListener('click', () =>
+					editInPlace(name, habit.name, (next) => {
+						if (next) habit.name = next;
+						else habits.splice(habits.indexOf(habit), 1);
+						save();
+						render();
+					})
+				);
+				const cells = document.createElement('div');
+				cells.className = 'cells';
+				for (let back = DAYS - 1; back >= 0; back--) {
+					const cell = document.createElement('div');
+					const day = key(dayAt(back));
+					cell.className =
+						'cell' + (habit.done.includes(day) ? ' done' : '') + (back === 0 ? ' today' : '');
+					cell.title = dayAt(back).toDateString();
+					if (back === 0) {
+						cell.addEventListener('click', () => {
+							habit.done = habit.done.includes(day)
+								? habit.done.filter((d) => d !== day)
+								: [...habit.done, day];
+							save();
+							render();
+						});
+					}
+					cells.append(cell);
+				}
+				const count = document.createElement('div');
+				count.className = 'streak';
+				count.textContent = `🔥 ${streak(habit)}`;
+				row.append(name, cells, count);
+				return row;
+			})
+		);
+	}
+
+	document.getElementById('add').addEventListener('click', () => {
+		habits.push({ name: 'New habit', done: [] });
+		render();
+		const names = document.querySelectorAll('.name');
+		const last = names[names.length - 1];
+		editInPlace(last, '', (next) => {
+			if (next) habits[habits.length - 1].name = next;
+			else habits.pop();
+			save();
+			render();
+		});
+	});
+
+	odeko.storage.get('habits').then((saved) => {
+		habits = saved ?? [
+			{ name: 'Read', done: [] },
+			{ name: 'Workout', done: [] },
+			{ name: 'Drink water', done: [] }
+		];
+		render();
+	});
+	setInterval(render, 600000);
+</script>

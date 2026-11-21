@@ -87,7 +87,8 @@ The default is DeepSeek when you have a DeepSeek provider, otherwise Off. "Save 
 
 - API keys and ChatGPT sign-in tokens are stored by the app's backend in `ai-secrets.json` in the config folder, readable only by you. The interface never receives them, and a key is only ever sent to its own provider.
 - Conversations are stored in `ai-chats/` in the config folder. Neither keys nor conversations are part of presets or exported files.
-- What you type, attached images, and (once you allow it) the parts of the config the AI reads are sent to your AI provider. Search queries go to the search service you picked. Clipboard history, drawings and network permissions are never sent.
+- Memo and task list contents are stored in `notes/` in the config folder, readable only by you, never in presets or exported files. By default a widget shows a note shared by every preset; turn off "Shared between presets" in its settings to give it content of its own.
+- What you type, attached images, and (once you allow it) the parts of the config the AI reads are sent to your AI provider. Search queries go to the search service you picked. Memo and task list contents, drawings and network permissions are never sent.
 
 Config folder: `~/.config/odeko` on Linux, `~/Library/Application Support/odeko` on macOS, `%APPDATA%\odeko` on Windows.
 
@@ -117,16 +118,7 @@ npm run tauri build
 - [ ] tray or taskbar
 - [x] improve bulk style applying to icons
 - [ ] more fancy effects
-
-## Logs
-
-The app always writes a log file, in release builds too, so a problem in an installed build can be diagnosed after the fact. It is capped at 5 MB and rotated to a single file, and stdout is written as well when the app is started from a terminal.
-
-| Platform | Location                                      |
-| -------- | --------------------------------------------- |
-| Windows  | `%LOCALAPPDATA%\com.odeko.app\logs\odeko.log` |
-| macOS    | `~/Library/Logs/com.odeko.app/odeko.log`      |
-| Linux    | `~/.local/share/com.odeko.app/logs/odeko.log` |
+- [ ] notification widget
 
 ## Notes
 

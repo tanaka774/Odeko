@@ -15,16 +15,30 @@ helper for saved data and network access.
 
 ## Examples
 
-| File                  | What it is                                                                                           | Uses                   |
-| --------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
-| `command-deck.html`   | **Showcase.** Weather chart (Chart.js from a CDN), focus timer, Hacker News, notes; tabs on keys 1–4 | `odeko.fetch`, storage |
-| `link-hub.html`       | Styled link list; links open in your browser                                                         |                        |
-| `world-clock.html`    | Three time zones, ticking every second                                                               |                        |
-| `pomodoro.html`       | 25/5 minute timer that keeps running across restarts                                                 | `odeko.storage`        |
-| `checklist.html`      | A checklist that remembers its items                                                                 | `odeko.storage`        |
-| `game-of-life.html`   | Conway's Game of Life; click cells, the board is saved                                               | `odeko.storage`        |
-| `weather-ticker.html` | Current weather for a city you type (Open-Meteo)                                                     | `odeko.fetch`, storage |
-| `crypto-ticker.html`  | BTC/ETH price and 24h change, refreshing every 30s (CoinGecko)                                       | `odeko.fetch`          |
+| File                    | What it is                                                                                           | Uses                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `command-deck.html`     | **Showcase.** Weather chart (Chart.js from a CDN), focus timer, Hacker News, notes; tabs on keys 1–4 | `odeko.fetch`, storage        |
+| `link-hub.html`         | Styled link list; links open in your browser                                                         |                               |
+| `world-clock.html`      | Three time zones, ticking every second                                                               |                               |
+| `pomodoro.html`         | 25/5 minute timer that keeps running across restarts                                                 | `odeko.storage`               |
+| `checklist.html`        | A checklist that remembers its items                                                                 | `odeko.storage`               |
+| `game-of-life.html`     | Conway's Game of Life; click cells, the board is saved                                               | `odeko.storage`               |
+| `weather-ticker.html`   | Current weather for a city you type (Open-Meteo)                                                     | `odeko.fetch`, storage        |
+| `crypto-ticker.html`    | BTC/ETH price and 24h change, refreshing every 30s (CoinGecko)                                       | `odeko.fetch`                 |
+| `calendar.html`         | Month view with today highlighted; arrows or the wheel change the month                              |                               |
+| `countdown.html`        | Days until an event; click to set the name and date                                                  | `odeko.storage`               |
+| `quote.html`            | A quote of the day from a built-in list; click for another                                           |                               |
+| `habit-tracker.html`    | Three weeks of habits as a grid of squares, with streaks                                             | `odeko.storage`               |
+| `rss-reader.html`       | Latest items of any RSS or Atom feed; click the title to change it                                   | `odeko.fetch`, storage        |
+| `currency.html`         | Exchange rates from one base currency (Frankfurter, ECB rates)                                       | `odeko.fetch`                 |
+| `sun-moon.html`         | Sunrise, sunset, day length and moon phase, calculated locally                                       |                               |
+| `flashcards.html`       | Flip cards and rate them; missed cards come back sooner                                              | `odeko.storage`               |
+| `ambient-mixer.html`    | Rain, wind, waves and hum generated with Web Audio; silent while the canvas is hidden                | storage, pause/resume         |
+| `github-activity.html`  | Stars, forks, issues and recent commits of a repository                                              | `odeko.fetch` headers         |
+| `image-of-the-day.html` | NASA's Astronomy Picture of the Day                                                                  | `odeko.fetch`, storage        |
+| `game-2048.html`        | 2048 with arrow keys or swipes; the game is saved                                                    | `odeko.storage`               |
+| `visualizer.html`       | Decorative equalizer that stops drawing while the canvas is hidden                                   | pause/resume                  |
+| `tamagotchi.html`       | An egg-shaped pocket pet that hatches and grows in real time; feed, play, clean                      | `odeko.storage`, pause/resume |
 
 ## How it runs
 
@@ -63,6 +77,13 @@ the widget anymore. **Network & Data → Clear saved data** empties it.
 ```js
 const { status, body } = await odeko.fetch('https://api.example.com/data');
 const data = JSON.parse(body);
+
+// Other methods, headers and a body (objects are sent as JSON text)
+await odeko.fetch('https://api.example.com/items', {
+	method: 'POST',
+	headers: { Authorization: 'Bearer …', 'Content-Type': 'application/json' },
+	body: { name: 'x' }
+});
 ```
 
 - The first request to each host shows **Allow / Deny** on the widget. The
@@ -71,6 +92,22 @@ const data = JSON.parse(body);
   network** there.
 - Check `status` and wrap parsing in `try/catch`, so a bad host or a rate
   limit shows up instead of a silent hang.
+- Methods: GET, POST, PUT, PATCH, DELETE, HEAD. `Host`, `Cookie`,
+  `Content-Length` and other transport headers cannot be set. Bodies are up
+  to 1 MB of text.
+- An API key in a header is saved with the widget's HTML or storage, and an
+  exported preset carries the HTML. Keep keys out of widgets you share.
+
+### Hidden canvas
+
+```js
+odeko.on('pause', () => {}); // the canvas was hidden: stop timers, animation, sound
+odeko.on('resume', () => {}); // it is shown again
+odeko.paused; // true while hidden
+```
+
+The canvas spends most of its time hidden, and a widget keeps running there.
+Stop anything that costs CPU or makes sound on `pause`.
 
 ### Other
 
@@ -84,6 +121,12 @@ odeko.kind; // "widget"
 The page is its own document, so put its styles in its `<style>` block.
 The widget's **Appearance** tab and Custom CSS style the frame around it
 (`.custom-widget`, `.html-frame`), e.g. a gradient border or a shadow.
+
+## Prompts and dialogs
+
+The page is sandboxed: `alert`, `confirm` and `prompt` do nothing. Edit
+values in the page itself (an input that appears on click), as
+`habit-tracker.html` and `rss-reader.html` do.
 
 ## Generating one with an LLM
 

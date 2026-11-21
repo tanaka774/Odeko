@@ -79,6 +79,7 @@ function widgetsDoc(): string {
 
 Adding a widget: add /icons/widget-ai-<something> with icon_type "widget", widget_type, x, y (width/height/widget_config default when left out).
 Custom HTML widget: widget_config { content (a full HTML page), scripts (run JavaScript), file null, watch false } (see the html-widget topic).
+Memo and task list contents are the user's private notes, stored outside the config; you cannot read or write them. Their widget_config only holds display settings (noteId picks which note is shown; leave it alone).
 Widget-specific widget_config fields (besides appearance) are best learned by reading an existing widget with get_config.`;
 }
 

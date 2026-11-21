@@ -14,6 +14,7 @@ use commands::text_files::{read_text_file, text_file_modified, write_text_file};
 use commands::power_control::{execute_sleep, execute_restart, execute_shutdown};
 use commands::system_stats::get_system_stats;
 use commands::terminal::{TerminalState, terminal_create_shell, terminal_write, terminal_resize, terminal_start_reader};
+use commands::notes::{note_delete, note_list, note_load, note_save};
 use commands::widget_data::{widget_data_clear, widget_data_load, widget_data_prune, widget_data_set};
 use commands::widget_fetch::{ai_fetch_page, widget_fetch};
 use tauri::{Emitter, Manager};
@@ -106,6 +107,9 @@ pub fn run() {
                 )?;
             }
 
+            commands::canvas::purge_retired_widgets();
+            commands::notes::ensure_ready();
+
             match TerminalState::new() {
                 Ok(terminal_state) => {
                     app.manage(terminal_state);
@@ -183,7 +187,8 @@ pub fn run() {
             ai_request_send, ai_request_read, ai_request_cancel, ai_fetch_page, ai_canvas_snapshot,
             chatgpt_sign_in, chatgpt_sign_out, chatgpt_account,
             list_system_fonts, list_user_fonts, import_font, remove_font,
-            widget_data_load, widget_data_set, widget_data_clear, widget_data_prune
+            widget_data_load, widget_data_set, widget_data_clear, widget_data_prune,
+            note_list, note_load, note_save, note_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

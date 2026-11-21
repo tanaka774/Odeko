@@ -26,6 +26,7 @@
 			format: '24h',
 			showSeconds: true,
 			showDate: true,
+			fitText: true,
 			timezone: 'local',
 			analogBackgroundColor: '#f2f4f8',
 			analogBackgroundOpacity: 0.75,
@@ -140,6 +141,10 @@
 							<label class="checkbox-label">
 								<input type="checkbox" bind:checked={localConfig.showDate} />
 								<span>Show date</span>
+							</label>
+							<label class="checkbox-label">
+								<input type="checkbox" bind:checked={localConfig.fitText} />
+								<span>Fit text to the widget size</span>
 							</label>
 						</div>
 					</SettingRow>
