@@ -4,6 +4,7 @@
 	import HtmlPage from '$lib/components/HtmlPage.svelte';
 	import { bridge, newPageToken } from '$lib/page-bridge.svelte';
 	import { watchTextFile } from '$lib/file-watch';
+	import { watchWindowVisibility } from '$lib/window-visibility';
 	import type { CustomWidgetConfig, WidgetComponentProps } from './types';
 
 	type Props = WidgetComponentProps<CustomWidgetConfig>;
@@ -42,6 +43,28 @@
 		return newPageToken();
 	});
 	const request = $derived(bridge.pendingFor(token));
+
+	let iframe = $state<HTMLIFrameElement | null>(null);
+
+	$effect(() => {
+		const frame = iframe;
+		if (!frame || !scripts) return;
+		let visible = true;
+		const post = (kind: string) => frame.contentWindow?.postMessage({ kind }, '*');
+		const stop = watchWindowVisibility((next) => {
+			if (next === visible) return;
+			visible = next;
+			post(next ? 'odeko-resume' : 'odeko-pause');
+		});
+		const onLoad = () => {
+			if (!visible) post('odeko-pause');
+		};
+		frame.addEventListener('load', onLoad);
+		return () => {
+			stop();
+			frame.removeEventListener('load', onLoad);
+		};
+	});
 </script>
 
 <div
@@ -59,6 +82,7 @@
 >
 	{#key token}
 		<HtmlPage
+			bind:iframe
 			class="html-frame"
 			title="Custom HTML widget"
 			kind="widget"

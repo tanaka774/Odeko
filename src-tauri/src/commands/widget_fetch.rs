@@ -17,13 +17,82 @@
 use std::net::IpAddr;
 use std::time::Duration;
 
-use reqwest::header::{CONTENT_TYPE, LOCATION};
-use reqwest::{Client, Url};
-use serde::Serialize;
+use std::collections::BTreeMap;
+
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE, LOCATION};
+use reqwest::{Client, Method, StatusCode, Url};
+use serde::{Deserialize, Serialize};
 
 const MAX_REDIRECTS: usize = 5;
 const TIMEOUT_SECS: u64 = 30;
 const USER_AGENT: &str = "odeko";
+const MAX_REQUEST_BODY: usize = 1024 * 1024;
+
+/// Headers the transport owns; a page setting them could smuggle requests or
+/// pretend to be someone else's browser session.
+const FORBIDDEN_HEADERS: [&str; 10] = [
+    "host",
+    "content-length",
+    "transfer-encoding",
+    "connection",
+    "upgrade",
+    "te",
+    "trailer",
+    "keep-alive",
+    "proxy-authorization",
+    "cookie",
+];
+
+#[derive(Deserialize, Debug)]
+pub struct WidgetRequest {
+    pub url: String,
+    #[serde(default = "default_method")]
+    pub method: String,
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+fn default_method() -> String {
+    "GET".to_string()
+}
+
+fn parse_method(method: &str) -> Result<Method, String> {
+    match method.to_ascii_uppercase().as_str() {
+        "GET" => Ok(Method::GET),
+        "HEAD" => Ok(Method::HEAD),
+        "POST" => Ok(Method::POST),
+        "PUT" => Ok(Method::PUT),
+        "PATCH" => Ok(Method::PATCH),
+        "DELETE" => Ok(Method::DELETE),
+        other => Err(format!("method {other} is not allowed")),
+    }
+}
+
+fn build_headers(headers: &BTreeMap<String, String>) -> Result<HeaderMap, String> {
+    let mut map = HeaderMap::new();
+    for (name, value) in headers {
+        let lower = name.trim().to_ascii_lowercase();
+        if FORBIDDEN_HEADERS.contains(&lower.as_str()) || lower.starts_with("proxy-") {
+            return Err(format!("header \"{name}\" cannot be set"));
+        }
+        let header_name = HeaderName::from_bytes(lower.as_bytes())
+            .map_err(|_| format!("invalid header name \"{name}\""))?;
+        let header_value = HeaderValue::from_str(value)
+            .map_err(|_| format!("invalid value for header \"{name}\""))?;
+        map.insert(header_name, header_value);
+    }
+    Ok(map)
+}
+
+/// Where a redirect sends the request next: 303 (and 301/302 after a POST,
+/// as browsers do) turns into a body-less GET; 307/308 keep everything.
+fn redirected(status: StatusCode, method: &Method) -> bool {
+    status == StatusCode::SEE_OTHER
+        || (matches!(status, StatusCode::MOVED_PERMANENTLY | StatusCode::FOUND)
+            && *method == Method::POST)
+}
 
 #[derive(Serialize)]
 pub struct FetchResult {
@@ -33,14 +102,28 @@ pub struct FetchResult {
 }
 
 #[tauri::command]
-pub async fn widget_fetch(url: String, allow_local: bool) -> Result<FetchResult, String> {
-    let mut current = Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
+pub async fn widget_fetch(
+    request: WidgetRequest,
+    allow_local: bool,
+) -> Result<FetchResult, String> {
+    let mut current = Url::parse(&request.url).map_err(|e| format!("invalid URL: {e}"))?;
     ensure_http_scheme(current.scheme())?;
+    let mut method = parse_method(&request.method)?;
+    let headers = build_headers(&request.headers)?;
+    let mut body = request.body;
+    if body.as_ref().is_some_and(|b| b.len() > MAX_REQUEST_BODY) {
+        return Err("request body is larger than 1 MB".to_string());
+    }
 
     for _ in 0..=MAX_REDIRECTS {
         let client = client_for_url(&current, allow_local).await?;
-        let response = client
-            .get(current.clone())
+        let mut builder = client
+            .request(method.clone(), current.clone())
+            .headers(headers.clone());
+        if let Some(text) = &body {
+            builder = builder.body(text.clone());
+        }
+        let response = builder
             .send()
             .await
             .map_err(|e| format!("request failed: {}", error_chain(&e)))?;
@@ -57,12 +140,16 @@ pub async fn widget_fetch(url: String, allow_local: bool) -> Result<FetchResult,
                 .join(location)
                 .map_err(|e| format!("invalid redirect target: {e}"))?;
             ensure_http_scheme(current.scheme())?;
+            if redirected(status, &method) {
+                method = Method::GET;
+                body = None;
+            }
             continue;
         }
-        let (body, content_type) = read_body(response).await?;
+        let (text, content_type) = read_body(response).await?;
         return Ok(FetchResult {
             status: status.as_u16(),
-            body,
+            body: text,
             content_type,
         });
     }
@@ -323,6 +410,38 @@ mod tests {
         assert!(!is_private_ip(IpAddr::V6(
             "2606:4700:4700::1111".parse().unwrap()
         )));
+    }
+
+    #[test]
+    fn accepts_common_methods_only() {
+        assert_eq!(parse_method("post").unwrap(), Method::POST);
+        assert_eq!(parse_method("GET").unwrap(), Method::GET);
+        assert!(parse_method("CONNECT").is_err());
+        assert!(parse_method("TRACE").is_err());
+    }
+
+    #[test]
+    fn refuses_transport_and_cookie_headers() {
+        let ok = BTreeMap::from([
+            ("Authorization".to_string(), "Bearer x".to_string()),
+            ("Content-Type".to_string(), "application/json".to_string()),
+        ]);
+        let headers = build_headers(&ok).unwrap();
+        assert_eq!(headers["authorization"], "Bearer x");
+        for name in ["Host", "Cookie", "Content-Length", "Proxy-Foo"] {
+            let bad = BTreeMap::from([(name.to_string(), "x".to_string())]);
+            assert!(build_headers(&bad).is_err(), "{name} should be refused");
+        }
+        let newline = BTreeMap::from([("X-A".to_string(), "a\r\nb".to_string())]);
+        assert!(build_headers(&newline).is_err());
+    }
+
+    #[test]
+    fn redirects_turn_post_into_get_like_browsers() {
+        assert!(redirected(StatusCode::SEE_OTHER, &Method::PUT));
+        assert!(redirected(StatusCode::FOUND, &Method::POST));
+        assert!(!redirected(StatusCode::TEMPORARY_REDIRECT, &Method::POST));
+        assert!(!redirected(StatusCode::FOUND, &Method::GET));
     }
 
     #[test]

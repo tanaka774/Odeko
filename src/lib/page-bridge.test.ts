@@ -91,10 +91,51 @@ describe('page bridge', () => {
 		await flush();
 		expect(invokeMock).toHaveBeenCalledWith(
 			'widget_fetch',
-			expect.objectContaining({ url: 'https://api.example.com/v' })
+			expect.objectContaining({
+				request: { url: 'https://api.example.com/v', method: 'GET', headers: {}, body: null }
+			})
 		);
 		expect(a.received[0]).toMatchObject({ id: 3, ok: true, value: { status: 200, body: 'x' } });
 		expect(bridge.pendingFor('a')).toBeUndefined();
+	});
+
+	it('passes method, headers and body through and refuses unknown methods', async () => {
+		const a = fakeFrame();
+		cleanups.push(
+			registerPage({ token: 'a', kind: 'widget', widgetId: 'w-a', frame: () => a.frame })
+		);
+		settingsStore.updateSettings({ network_grants: ['api.example.com'] });
+		invokeMock.mockResolvedValue({ status: 201, body: '{}' });
+
+		send({
+			kind: 'widget-fetch',
+			token: 'a',
+			id: 4,
+			url: 'https://api.example.com/items',
+			method: 'post',
+			headers: { Authorization: 'Bearer k', 'X-Count': 2, Bad: { nested: true } },
+			body: '{"a":1}'
+		});
+		send({
+			kind: 'widget-fetch',
+			token: 'a',
+			id: 5,
+			url: 'https://api.example.com',
+			method: 'TRACE'
+		});
+		await flush();
+
+		expect(invokeMock).toHaveBeenCalledTimes(1);
+		expect(invokeMock).toHaveBeenCalledWith('widget_fetch', {
+			request: {
+				url: 'https://api.example.com/items',
+				method: 'POST',
+				headers: { Authorization: 'Bearer k', 'X-Count': '2' },
+				body: '{"a":1}'
+			},
+			allowLocal: false
+		});
+		expect(a.received.find((m) => m.id === 5)).toMatchObject({ ok: false });
 	});
 
 	it('opens only web and mail links, then hides the canvas', async () => {

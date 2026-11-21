@@ -39,6 +39,36 @@ describe('page helper', () => {
 		expect(posted.at(-1)).toMatchObject({ kind: 'widget-fetch', token: 'abc', from: 'background' });
 	});
 
+	it('sends fetch options and serializes object bodies', () => {
+		const odeko = loadHelper('widget');
+		void odeko.fetch('https://example.com/x', {
+			method: 'post',
+			headers: { 'Content-Type': 'application/json' },
+			body: { a: 1 }
+		});
+		expect(posted.at(-1)).toMatchObject({
+			kind: 'widget-fetch',
+			url: 'https://example.com/x',
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: '{"a":1}'
+		});
+		void odeko.fetch('https://example.com/y');
+		expect(posted.at(-1)).toMatchObject({ method: 'GET', headers: {}, body: null });
+	});
+
+	it('runs pause and resume listeners', () => {
+		const odeko = loadHelper('widget');
+		const seen: string[] = [];
+		odeko.on('pause', () => seen.push('pause'));
+		odeko.on('resume', () => seen.push('resume'));
+		window.dispatchEvent(new MessageEvent('message', { data: { kind: 'odeko-pause' } }));
+		expect(odeko.paused).toBe(true);
+		window.dispatchEvent(new MessageEvent('message', { data: { kind: 'odeko-resume' } }));
+		expect(seen).toEqual(['pause', 'resume']);
+		expect(odeko.paused).toBe(false);
+	});
+
 	it('resolves fetch with the reply value', async () => {
 		const odeko = loadHelper('widget');
 		const result = odeko.fetch('https://example.com');
