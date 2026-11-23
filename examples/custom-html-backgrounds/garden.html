@@ -21,7 +21,8 @@
 	<body>
 		<canvas></canvas>
 		<script>
-			// Click empty canvas to plant a flower where you clicked. Stems grow,
+			// A row of flowers grows along the bottom; click empty canvas to plant
+			// another where you clicked. Stems grow,
 			// lean away from the pointer and bloom; hovering a bloom opens it
 			// wider. The oldest flowers wilt once there are too many.
 			const canvas = document.querySelector('canvas');
@@ -38,6 +39,7 @@
 			let width = 0;
 			let height = 0;
 			let last = 0;
+			let seeded = false;
 
 			function resize(state) {
 				const ratio = window.devicePixelRatio || 1;
@@ -49,21 +51,26 @@
 				ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 			}
 
-			window.addEventListener('pointerdown', (event) => {
-				if (event.button !== 0) return;
+			function plant(x, y, growth = 0) {
 				plants.push({
-					x: event.clientX,
-					y: event.clientY,
-					height: 40 + Math.random() * 60,
+					x,
+					y,
+					height: 60 + Math.random() * 90,
 					petals: 5 + Math.floor(Math.random() * 4),
+					size: 9 + Math.random() * 7,
+					leaf: 0.3 + Math.random() * 0.3,
 					color: COLORS[Math.floor(Math.random() * COLORS.length)],
-					growth: 0,
+					growth,
 					lean: 0,
 					open: 0,
 					wilt: 0
 				});
 				const alive = plants.filter((p) => !p.wilt);
 				if (alive.length > MAX_PLANTS) alive[0].wilt = 0.001;
+			}
+
+			window.addEventListener('pointerdown', (event) => {
+				if (event.button === 0) plant(event.clientX, event.clientY);
 			});
 
 			function drawPlant(p, time) {
@@ -75,15 +82,34 @@
 				const tipY = p.y - stem;
 
 				ctx.strokeStyle = `rgba(110, 190, 110, ${0.9 * fade})`;
-				ctx.lineWidth = 2;
+				ctx.lineWidth = 3;
+				ctx.lineCap = 'round';
 				ctx.beginPath();
 				ctx.moveTo(p.x, p.y);
 				ctx.quadraticCurveTo(p.x, p.y - stem * 0.5, tipX, tipY);
 				ctx.stroke();
 
+				ctx.fillStyle = `rgba(90, 170, 100, ${0.85 * fade})`;
+				for (const side of [-1, 1]) {
+					const t = side < 0 ? p.leaf : p.leaf + 0.2;
+					const lx = p.x + (tipX - p.x) * t * t;
+					const ly = p.y - stem * t;
+					ctx.beginPath();
+					ctx.ellipse(
+						lx + side * 8 * grown,
+						ly,
+						10 * grown,
+						4 * grown,
+						side * -0.6,
+						0,
+						Math.PI * 2
+					);
+					ctx.fill();
+				}
+
 				const bloom = Math.max(0, (p.growth - 0.8) / 0.4);
 				if (bloom <= 0) return;
-				const size = (6 + p.open * 6) * Math.min(1, bloom) * (1 - p.wilt * 0.5);
+				const size = p.size * (1 + p.open * 0.6) * Math.min(1, bloom) * (1 - p.wilt * 0.5);
 				ctx.fillStyle = `rgba(${p.color}, ${0.85 * fade})`;
 				for (let i = 0; i < p.petals; i++) {
 					const angle = (i / p.petals) * Math.PI * 2 + time * 0.2;
@@ -110,6 +136,16 @@
 				last = state.time;
 				resize(state);
 				const { pointer } = state;
+				if (!plants.length && !seeded && width) {
+					seeded = true;
+					for (let i = 0; i < 12; i++) {
+						plant(
+							((i + 0.3 + Math.random() * 0.4) / 12) * width,
+							height - 4,
+							0.6 + Math.random() * 0.6
+						);
+					}
+				}
 
 				for (const p of plants) {
 					p.growth += dt * 0.5;
@@ -125,6 +161,11 @@
 				}
 
 				ctx.clearRect(0, 0, width, height);
+				const ground = ctx.createLinearGradient(0, height - 60, 0, height);
+				ground.addColorStop(0, 'rgba(60, 120, 70, 0)');
+				ground.addColorStop(1, 'rgba(60, 120, 70, 0.35)');
+				ctx.fillStyle = ground;
+				ctx.fillRect(0, height - 60, width, 60);
 				for (const p of plants) drawPlant(p, state.time);
 			});
 		</script>

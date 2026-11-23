@@ -1,3 +1,25 @@
+<script module lang="ts">
+	let observer: MutationObserver | null = null;
+
+	// Lazily loaded widgets add their stylesheet to <head> after ours, which
+	// would win specificity ties. Move the custom CSS back to the end.
+	function keepLast(): void {
+		if (observer || typeof MutationObserver === 'undefined') return;
+		observer = new MutationObserver((records) => {
+			const foreign = records.some((record) =>
+				[...record.addedNodes].some(
+					(node) => !(node instanceof HTMLElement && node.dataset.widgetCss !== undefined)
+				)
+			);
+			if (!foreign) return;
+			for (const el of document.head.querySelectorAll('style[data-widget-css]')) {
+				document.head.appendChild(el);
+			}
+		});
+		observer.observe(document.head, { childList: true });
+	}
+</script>
+
 <script lang="ts">
 	import { prefixSelectors } from './custom-css';
 	import type { WidgetAppearanceConfig } from './types';
@@ -28,6 +50,7 @@
 		styleEl.dataset.widgetCss = id;
 		styleEl.textContent = prefixSelectors(css, `[data-item-id="${id}"]`);
 		document.head.appendChild(styleEl);
+		keepLast();
 
 		return () => {
 			styleEl.remove();

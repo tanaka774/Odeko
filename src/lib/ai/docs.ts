@@ -6,10 +6,12 @@ import {
 import { WIDGET_REGISTRY } from '$lib/widgets/types';
 import exampleFiles from 'virtual:odeko-examples';
 
-const cssReadme = exampleFiles['custom-css/README.md'] ?? '';
-const shaderReadme = exampleFiles['custom-shaders/README.md'] ?? '';
-const htmlWidgetReadme = exampleFiles['custom-html-widgets/README.md'] ?? '';
-const htmlBackgroundReadme = exampleFiles['custom-html-backgrounds/README.md'] ?? '';
+const readme = (file: string): string =>
+	(exampleFiles[file] ?? '').replace(/## Screenshots\n+<table>[\s\S]*?<\/table>\n*/g, '');
+const cssReadme = readme('custom-css/README.md');
+const shaderReadme = readme('custom-shaders/README.md');
+const htmlWidgetReadme = readme('custom-html-widgets/README.md');
+const htmlBackgroundReadme = readme('custom-html-backgrounds/README.md');
 
 const EXAMPLES: Record<string, string> = Object.fromEntries(
 	Object.entries(exampleFiles).filter(([file]) => !file.endsWith('.md'))
