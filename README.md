@@ -44,6 +44,7 @@ And you can change basic styles of these icons like background color, opacity or
 ### Presets
 
 - You can save the layout as a preset, and import or export it as a JSON file.
+- Want to see what's possible first? Import one of the [example presets](https://github.com/tanaka774/Odeko/tree/main/examples/presets). All examples (CSS, HTML, shaders, presets) are listed in [examples](https://github.com/tanaka774/Odeko/tree/main/examples).
 
 ### AI Chat
 

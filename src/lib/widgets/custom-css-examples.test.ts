@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { prefixSelectors, WIDGET_CSS_API, type CssApiItemType } from './custom-css';
 
@@ -167,5 +167,68 @@ describe('custom CSS examples', () => {
 			(className) => !mentionsClass(markup, className)
 		);
 		expect(missing).toEqual([]);
+	});
+});
+
+const PRESETS_DIR = path.join(REPO_ROOT, 'examples', 'presets');
+const PRESET_FILES = readdirSync(PRESETS_DIR).filter((name) => name.endsWith('.json'));
+
+interface PresetIcon {
+	id: string;
+	icon_type: string;
+	widget_type: string | null;
+	widget_config: { appearance?: { customCss?: string } } | null;
+	appearance?: { customCss?: string };
+}
+
+function presetCss(icon: PresetIcon): { type: CssApiItemType; css: string } | null {
+	const appearance = icon.icon_type === 'widget' ? icon.widget_config?.appearance : icon.appearance;
+	if (!appearance?.customCss) return null;
+	const type = (icon.icon_type === 'widget' ? icon.widget_type : 'icon') as CssApiItemType;
+	return { type, css: appearance.customCss };
+}
+
+describe('preset examples', () => {
+	it.each(PRESET_FILES)('%s has a usable layout', (file) => {
+		const preset = JSON.parse(readFileSync(path.join(PRESETS_DIR, file), 'utf8'));
+		const ids = preset.icons.map((icon: PresetIcon) => icon.id);
+		expect(new Set(ids).size).toBe(ids.length);
+		for (const key of [
+			'width_percent',
+			'height_percent',
+			'position_x',
+			'position_y',
+			'grid_size'
+		]) {
+			expect(preset.settings[key]).toBeGreaterThan(0);
+		}
+		expect(preset.settings.network_grants).toEqual([]);
+		for (const icon of preset.icons) {
+			expect(icon.icon_type).not.toBe('app');
+		}
+		const text = JSON.stringify(preset);
+		expect(text).not.toContain('/home/');
+		expect(text).not.toContain('asset://');
+		expect(Object.keys(preset.settings).filter((key) => key.startsWith('keybind_'))).toEqual([]);
+		for (const match of text.matchAll(/examples\/presets\/assets\/([^"\\]+)/g)) {
+			expect(existsSync(path.join(PRESETS_DIR, 'assets', match[1]))).toBe(true);
+		}
+	});
+
+	it.each(PRESET_FILES)('%s custom CSS only uses the curated API', (file) => {
+		const preset = JSON.parse(readFileSync(path.join(PRESETS_DIR, file), 'utf8'));
+		for (const icon of preset.icons as PresetIcon[]) {
+			const entry = presetCss(icon);
+			if (!entry) continue;
+			const stripped = entry.css.replace(/\/\*[\s\S]*?\*\//g, '');
+			expect(stripped).not.toMatch(/--appearance-[a-z-]+\s*:/);
+			expect(stripped).not.toContain('!important');
+			expect(stripped).not.toContain('&');
+			const allowed = new Set(WIDGET_CSS_API[entry.type].classes);
+			const unknown = classTokens(selectorPreludes(entry.css)).filter(
+				(token) => !allowed.has(token)
+			);
+			expect({ id: icon.id, unknown }).toEqual({ id: icon.id, unknown: [] });
+		}
 	});
 });

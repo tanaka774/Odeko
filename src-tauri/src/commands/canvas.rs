@@ -1549,6 +1549,25 @@ mod tests {
     }
 
     #[test]
+    fn example_presets_import_cleanly() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/presets");
+        let files: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+            .collect();
+        assert!(!files.is_empty());
+        with_fake_config_dir(|| {
+            for file in files {
+                let result = import_preset(file.to_string_lossy().into_owned())
+                    .unwrap_or_else(|e| panic!("{}: {}", file.display(), e));
+                assert_eq!(result.cleared_network_grants, 0, "{}", file.display());
+                assert_eq!(result.cleared_global_shortcuts, 0, "{}", file.display());
+            }
+        });
+    }
+
+    #[test]
     fn icon_type_default_is_app() {
         assert_eq!(IconType::default(), IconType::App);
     }
