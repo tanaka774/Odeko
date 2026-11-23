@@ -275,12 +275,18 @@
 			</div>
 		{/if}
 		{#if fitText}
-			<span class="fit-probe time-display" aria-hidden="true" bind:this={timeProbe}
-				>{timeTemplate}</span
+			<span
+				class="fit-probe time-display"
+				aria-hidden="true"
+				style:font-size="{PROBE_SIZE}px"
+				bind:this={timeProbe}>{timeTemplate}</span
 			>
 			{#if showDate}
-				<span class="fit-probe date-display" aria-hidden="true" bind:this={dateProbe}
-					>{dateText}</span
+				<span
+					class="fit-probe date-display"
+					aria-hidden="true"
+					style:font-size="{PROBE_SIZE}px"
+					bind:this={dateProbe}>{dateText}</span
 				>
 			{/if}
 		{/if}
@@ -413,7 +419,6 @@
 		position: absolute;
 		visibility: hidden;
 		pointer-events: none;
-		font-size: 100px;
 		margin: 0;
 	}
 </style>

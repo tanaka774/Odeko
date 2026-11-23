@@ -65,6 +65,19 @@ describe('WidgetCss', () => {
 		expect(style?.textContent).not.toContain('.a');
 	});
 
+	it('stays after stylesheets that load later', async () => {
+		render(WidgetCss, {
+			id: 'w1',
+			appearance: { customCssEnabled: true, customCss: '.a { color: red; }' }
+		});
+		const late = document.createElement('style');
+		document.head.appendChild(late);
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect(document.head.lastElementChild).toBe(headStyle());
+		late.remove();
+	});
+
 	it('removes the style element on unmount', () => {
 		const { unmount } = render(WidgetCss, {
 			id: 'w1',
