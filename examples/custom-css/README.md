@@ -8,6 +8,9 @@ Every theme here is deliberately loud: strong colors, textures and typography,
 so it is obvious at a glance that the look came from custom CSS and not from
 the built-in appearance controls.
 
+To see all of them at once, import `Style Lab.json` from the
+[preset examples](../presets).
+
 ## How to install
 
 1. Enter edit mode (F2) → right-click the item → **Open Settings…**.
@@ -41,6 +44,17 @@ another item (or duplicate the item first).
 | `divider.css`   | Divider        | Neon Rule — glowing pink line with a spaced uppercase label                 |
 | `aichat.css`    | AI chat        | Midnight Terminal — indigo glass, monospace transcript, violet bubbles      |
 | `icon.css`      | Canvas icon    | Glossy Tile — vivid gradient tile, inner highlight, uppercase label         |
+
+## Screenshots
+
+<table>
+<tr><td align="center"><img src="screenshots/clock.webp" width="260" alt="clock.css"><br><code>clock.css</code></td><td align="center"><img src="screenshots/weather.webp" width="260" alt="weather.css"><br><code>weather.css</code></td><td align="center"><img src="screenshots/system.webp" width="260" alt="system.css"><br><code>system.css</code></td></tr>
+<tr><td align="center"><img src="screenshots/music.webp" width="260" alt="music.css"><br><code>music.css</code></td><td align="center"><img src="screenshots/tasklist.webp" width="260" alt="tasklist.css"><br><code>tasklist.css</code></td><td align="center"><img src="screenshots/memo.webp" width="260" alt="memo.css"><br><code>memo.css</code></td></tr>
+<tr><td align="center"><img src="screenshots/textbox.webp" width="260" alt="textbox.css"><br><code>textbox.css</code></td><td align="center"><img src="screenshots/drawing.webp" width="260" alt="drawing.css"><br><code>drawing.css</code></td><td align="center"><img src="screenshots/slideshow.webp" width="260" alt="slideshow.css"><br><code>slideshow.css</code></td></tr>
+<tr><td align="center"><img src="screenshots/terminal.webp" width="260" alt="terminal.css"><br><code>terminal.css</code></td><td align="center"><img src="screenshots/aichat.webp" width="260" alt="aichat.css"><br><code>aichat.css</code></td><td align="center"><img src="screenshots/custom.webp" width="260" alt="custom.css"><br><code>custom.css</code></td></tr>
+<tr><td align="center"><img src="screenshots/sleep.webp" width="260" alt="sleep.css"><br><code>sleep.css</code></td><td align="center"><img src="screenshots/restart.webp" width="260" alt="restart.css"><br><code>restart.css</code></td><td align="center"><img src="screenshots/shutdown.webp" width="260" alt="shutdown.css"><br><code>shutdown.css</code></td></tr>
+<tr><td align="center"><img src="screenshots/divider.webp" width="260" alt="divider.css"><br><code>divider.css</code></td><td align="center"><img src="screenshots/icon.webp" width="260" alt="icon.css"><br><code>icon.css</code></td></tr>
+</table>
 
 ## How the CSS is scoped
 

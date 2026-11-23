@@ -16,6 +16,11 @@ describe('AI docs', () => {
 		expect(getDocs('css')).toContain('.time-display');
 	});
 
+	it('leaves the screenshot galleries out', () => {
+		expect(getDocs('css')).not.toContain('<img');
+		expect(getDocs('html-widget')).not.toContain('<img');
+	});
+
 	it('names valid topics on a miss', () => {
 		expect(() => getDocs('nope')).toThrow(/Topics: css/);
 	});
