@@ -18,13 +18,20 @@ add an **HTML** layer and paste the content into its editor.
 | --------------------- | ------------------------------------------------------------------------ | ---------- |
 | `start-page.html`     | A start page docked on the right: clock, tabs, todo list, notes, weather |            |
 | `meteor-defense.html` | A game: meteors aim at your icons, click to blast them                   |            |
-| `garden.html`         | Click to plant flowers that lean away from the pointer                   |            |
+| `garden.html`         | Flowers that lean away from the pointer; click to plant more             |            |
 | `aquarium.html`       | A detailed ASCII fish tank; click to feed the fish                       |            |
 | `snow.html`           | Snow that settles on the icons                                           | Over icons |
 | `icon-sparks.html`    | Sparks around the hovered and clicked icons                              | Over icons |
-| `big-clock.html`      | A large clock                                                            |            |
 | `three-scene.html`    | Three.js crystals, loaded from a CDN                                     |            |
-| `p5-flow-field.html`  | A p5.js flow field, loaded from a CDN                                    |            |
+
+## Screenshots
+
+<table>
+<tr><td align="center"><img src="screenshots/start-page.jpg" width="400" alt="start-page.html"><br><code>start-page.html</code></td><td align="center"><img src="screenshots/meteor-defense.jpg" width="400" alt="meteor-defense.html"><br><code>meteor-defense.html</code></td></tr>
+<tr><td align="center"><img src="screenshots/garden.jpg" width="400" alt="garden.html"><br><code>garden.html</code></td><td align="center"><img src="screenshots/aquarium.jpg" width="400" alt="aquarium.html"><br><code>aquarium.html</code></td></tr>
+<tr><td align="center"><img src="screenshots/snow.jpg" width="400" alt="snow.html"><br><code>snow.html</code></td><td align="center"><img src="screenshots/icon-sparks.jpg" width="400" alt="icon-sparks.html"><br><code>icon-sparks.html</code></td></tr>
+<tr><td align="center"><img src="screenshots/three-scene.jpg" width="400" alt="three-scene.html"><br><code>three-scene.html</code></td></tr>
+</table>
 
 ## How it runs
 
